@@ -124,12 +124,40 @@ bool CacheEntry::isPrepared() const
     return this->prepared;
 }
 
-void CacheEntry::renderPlot(QOpenGLFunctions* funcs)
+void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
+                            float yEnd, int64_t tStart, int64_t tEnd,
+                            GLint axisMatUniform, GLint axisVecUniform)
 {
     Q_ASSERT(this->prepared);
 
     if (this->vbo != 0)
     {
+        float matrix[9];
+        float vector[2];
+
+        /* Fill in the matrix in column-major order. */
+        matrix[0] = 2.0f / (tEnd - tStart);
+        matrix[1] = 0.0f;
+        matrix[2] = 0.0f;
+        matrix[3] = 0.0f;
+        matrix[4] = 2.0f / (yEnd - yStart);
+        matrix[5] = 0.0f;
+        matrix[6] = -1.0f;
+        matrix[7] = -1.0f;
+        matrix[8] = 1.0f;
+
+        /* Fill in the offset vector. */
+        vector[0] = (float) (tStart - epoch); // TODO
+        vector[1] = yStart;
+
+        /* Now, given a vector <time, value>, where time is relative to
+         * epoch, first subtract the offset vector, then pad the result
+         * with a 1 and multiply by the transform matrix. The result is
+         * the screen coordinates for that point.
+         */
+        funcs->glUniformMatrix3fv(axisMatUniform, 1, GL_FALSE, matrix);
+        funcs->glUniform2fv(axisVecUniform, 1, vector);
+
         funcs->glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
         funcs->glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
         funcs->glEnableVertexAttribArray(0);

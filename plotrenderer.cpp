@@ -50,10 +50,13 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
 
     /* Shader code. */
     char vShaderStr[] =
+            "uniform mat3 axisTransform;    \n"
+            "uniform vec2 axisBase;         \n"
             "attribute vec2 vPosition;      \n"
             "void main()                    \n"
             "{                              \n"
-            "    gl_Position = vec4(vPosition.x / 200.0, vPosition.y, 0.0, 1.0);   \n"
+            "    vec3 transformed = axisTransform * vec3(vPosition - axisBase, 1.0);"
+            "    gl_Position = vec4(transformed.xy, 0.0, 1.0);   \n"
             "}                              \n";
 
     char fShaderStr[] =
@@ -126,7 +129,10 @@ void PlotRenderer::render()
     this->glClearColor(0.1f, 0.1f, 0.2f, 0.8f);
     this->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    this->todraw->renderPlot(this);
+    GLint axisMatLoc = this->glGetUniformLocation(this->program, "axisTransform");
+    GLint axisVecLoc = this->glGetUniformLocation(this->program, "axisBase");
+
+    this->todraw->renderPlot(this, 0, 1, 100, 200, axisMatLoc, axisVecLoc);
 
     this->pa->window()->resetOpenGLState();
 }

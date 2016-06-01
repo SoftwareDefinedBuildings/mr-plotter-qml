@@ -84,7 +84,9 @@ public:
     bool isPrepared() const;
 
     /* Renders the main plot. */
-    void renderPlot(QOpenGLFunctions* funcs);
+    void renderPlot(QOpenGLFunctions* funcs, float yStart,
+                    float yEnd, int64_t tStart, int64_t tEnd,
+                    GLint axisMatUniform, GLint axisVecUniform);
 
     const int64_t start;
     const int64_t end;

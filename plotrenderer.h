@@ -10,9 +10,16 @@
 #include <QVector>
 #include <QUuid>
 
+struct yscale
+{
+    float startval;
+    float endval;
+};
+
 struct drawcontext
 {
     QVector<GLuint> vbos;
+    float color[3];
     /* TODO Settings: color, yscale, etc. */
 };
 
