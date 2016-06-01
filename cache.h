@@ -20,40 +20,6 @@ struct statpt
     uint64_t count;
 };
 
-/* In case we choose to ditch the epoch idea and want to send the full
- * timestamps to the graphics card, we can use this format for the struct.
- *
-struct cachedpt
-{
-    int32_t timeupper; // Upper 32 bits
-    uint32_t timelower; // Lower 32 bits
-    float min;
-    float mean;
-    int32_t timeupper2;
-    uint32_t timelower2;
-    float max;
-    float count;
-};
- *
- */
-
-/* Size is 24 bytes. */
-struct cachedpt
-{
-    float reltime;
-    float min;
-
-    float mean;
-
-    float reltime2;
-    float max;
-
-    float count;
-} __attribute__((packed));
-
-/* Creates a cachedpt from a statpt. */
-void cachept(struct cachedpt* output, struct statpt* input, int64_t epoch);
-
 /* A Cache Entry represents a set of contiguous data cached in memory.
  *
  * We need to be careful: two cache entries may be adjacent, but if

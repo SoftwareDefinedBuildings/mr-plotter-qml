@@ -52,17 +52,30 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
     char vShaderStr[] =
             "uniform mat3 axisTransform;    \n"
             "uniform vec2 axisBase;         \n"
-            "attribute vec2 vPosition;      \n"
+            "attribute vec3 stats;          \n"
+            "varying float mean;            \n"
             "void main()                    \n"
             "{                              \n"
-            "    vec3 transformed = axisTransform * vec3(vPosition - axisBase, 1.0);"
+            "    vec3 transformed = axisTransform * vec3(stats.xy - axisBase, 1.0); \n"
             "    gl_Position = vec4(transformed.xy, 0.0, 1.0);   \n"
+            "    mean = (axisTransform * vec3(stats.xz - axisBase, 1.0)).y; \n"
             "}                              \n";
 
     char fShaderStr[] =
+            "uniform float screenHeight;    \n"
+            "uniform float halfPixelWidth;  \n"
+            "varying float mean;            \n"
             "void main()                    \n"
             "{                              \n"
-            "    gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);   \n"
+            "    float meanHeight = screenHeight * ((mean + 1.0) / 2.0); \n"
+            "    if (meanHeight - halfPixelWidth <= gl_FragCoord.y && gl_FragCoord.y <= meanHeight + halfPixelWidth) \n"
+            "    {                          \n"
+            "        gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); \n"
+            "    }                          \n"
+            "    else                       \n"
+            "    {                          \n"
+            "        gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0); \n"
+            "    }                          \n"
             "}                              \n";
 
     GLuint vertexShader = loadShader(this, GL_VERTEX_SHADER, vShaderStr);
@@ -78,7 +91,7 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
     this->glAttachShader(this->program, vertexShader);
     this->glAttachShader(this->program, fragmentShader);
 
-    this->glBindAttribLocation(this->program, 0, "vPosition");
+    this->glBindAttribLocation(this->program, 0, "stats");
 
     this->glLinkProgram(this->program);
 
@@ -131,6 +144,11 @@ void PlotRenderer::render()
 
     GLint axisMatLoc = this->glGetUniformLocation(this->program, "axisTransform");
     GLint axisVecLoc = this->glGetUniformLocation(this->program, "axisBase");
+    GLint heightLoc = this->glGetUniformLocation(this->program, "screenHeight");
+    GLint lineHalfWidthLoc = this->glGetUniformLocation(this->program, "halfPixelWidth");
+
+    this->glUniform1f(heightLoc, (float) height);
+    this->glUniform1f(lineHalfWidthLoc, 2.5);
 
     this->todraw->renderPlot(this, 0, 1, 100, 200, axisMatLoc, axisVecLoc);
 

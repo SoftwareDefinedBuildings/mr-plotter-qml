@@ -6,33 +6,21 @@
 #include <QHash>
 #include <QSharedPointer>
 
-/*
-void cachept(struct cachedpt* output, struct statpt* input)
+/* Size is 32 bytes. */
+struct cachedpt
 {
-    output->timeupper = (int32_t) (input->time >> 32);
-    output->timelower = (int32_t) input->time;
-    output->min = (float) input->min;
-    output->mean = (float) input->mean;
-    output->timeupper2 = output->timeupper;
-    output->timelower2 = output->timelower;
-    output->max = (float) input->max;
-    output->count = (float) input->count;
-}
-*/
+    float reltime;
+    float min;
+    float mean;
 
-/* Eventually, just put this in the CacheEnt::cacheData method. */
-void cachept(struct cachedpt* output, struct statpt* input, int64_t epoch)
-{
-    output->reltime = (float) (input->time - epoch);
-    output->min = (float) input->min;
+    uint32_t index;
 
-    output->mean = (float) input->mean;
+    float reltime2;
+    float max;
+    float mean2;
 
-    output->reltime2 = output->reltime;
-    output->max = (float) input->max;
-
-    output->count = (float) input->count;
-}
+    float count;
+} __attribute__((packed, aligned(16)));
 
 CacheEntry::CacheEntry(int64_t startRange, int64_t endRange) : start(startRange), end(endRange)
 {
@@ -64,7 +52,7 @@ CacheEntry::~CacheEntry()
     }
 }
 
-void CacheEntry::cacheData(struct statpt* points, int len, CacheEntry* prev, CacheEntry* next)
+void CacheEntry::cacheData(struct statpt* spoints, int len, CacheEntry* prev, CacheEntry* next)
 {
     Q_ASSERT(this->data == nullptr);
 
@@ -96,11 +84,24 @@ void CacheEntry::cacheData(struct statpt* points, int len, CacheEntry* prev, Cac
         this->data[alloc - 1] = *next->leftmost();
     }
 
-    this->epoch = (points[len - 1].time >> 1) + (points[0].time >> 1);
+    this->epoch = (spoints[len - 1].time >> 1) + (spoints[0].time >> 1);
 
     for (int i = 0; i < len; i++)
     {
-        cachept(&this->data[i + this->joinsPrev], &points[i], this->epoch);
+        struct cachedpt* output = &this->points[i];
+        struct statpt* input = &spoints[i];
+
+        output->reltime = (float) (input->time - this->epoch);
+        output->min = (float) input->min;
+        output->mean = (float) input->mean;
+
+        output->index = (uint32_t) i;
+
+        output->reltime2 = output->reltime;
+        output->max = (float) input->max;
+        output->mean2 = output->mean;
+
+        output->count = (float) input->count;
     }
 }
 
@@ -140,10 +141,10 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
         matrix[1] = 0.0f;
         matrix[2] = 0.0f;
         matrix[3] = 0.0f;
-        matrix[4] = 2.0f / (yEnd - yStart);
+        matrix[4] = -2.0f / (yEnd - yStart);
         matrix[5] = 0.0f;
         matrix[6] = -1.0f;
-        matrix[7] = -1.0f;
+        matrix[7] = 1.0f;
         matrix[8] = 1.0f;
 
         /* Fill in the offset vector. */
@@ -159,7 +160,7 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
         funcs->glUniform2fv(axisVecUniform, 1, vector);
 
         funcs->glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
-        funcs->glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
+        funcs->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
         funcs->glEnableVertexAttribArray(0);
         funcs->glBindBuffer(GL_ARRAY_BUFFER, 0);
 

@@ -9,9 +9,9 @@ PlotArea::PlotArea()
     struct statpt data[3];
 
     data[0].time = 120;
-    data[0].min = 0.2;
-    data[0].mean = 0.4;
-    data[0].max = 0.6;
+    data[0].min = 0.1;
+    data[0].mean = 0.2;
+    data[0].max = 0.3;
     data[0].count = 1;
 
     data[1].time = 150;
