@@ -41,7 +41,7 @@ public:
     ~CacheEntry();
 
     /* Sets the data for this cache entry. */
-    void cacheData(struct statpt* points, int len, CacheEntry* prev, CacheEntry* next);
+    void cacheData(struct statpt* points, int len, uint8_t pw, CacheEntry* prev, CacheEntry* next);
 
     /* Prepares this cache entry for rendering. */
     void prepare(QOpenGLFunctions* funcs);
@@ -59,14 +59,6 @@ public:
     const int64_t end;
 
 private:
-    /* The leftmost point in this cache entry (the "point" used to fill
-     * in a gap to the left doesn't count).
-     */
-    struct cachedpt* leftmost() const;
-
-    /* The rightmost oint in this cache entry. */
-    struct cachedpt* rightmost() const;
-
     /* A point that is "nearby" to all of the cached points. The difference
      * between the epoch and the cached points will be rendered with
      * single-word floating point precision.
@@ -76,21 +68,10 @@ private:
     /* The data needed to construct a VBO for this cache entry, including
      * the gaps that this cache entry has taken responsibility for.
      */
-    struct cachedpt* data;
+    struct cachedpt* cached;
 
-    /* The length of the DATA array. This may be greater than LEN if
-     * this Cache Entry has taken responsibility for the gap to its
-     * left or to its right.
-     */
-    int alloc;
-
-    /* The portion of DATA containing the points being cached in this
-     * entry.
-     */
-    struct cachedpt* points;
-
-    /* The number of points cached in this entry. */
-    int len;
+    /* The length of the CACHED array. */
+    int cachedlen;
 
     /* The VBO used to render this Cache Entry. */
     GLuint vbo;

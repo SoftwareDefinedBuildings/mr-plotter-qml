@@ -5,8 +5,14 @@
 #include <QFuture>
 #include <QHash>
 #include <QSharedPointer>
+#include <QVector>
 
-/* Size is 32 bytes. */
+/* Size is 32 bytes.
+ * If we find that using GL_POINTS for the mean causes problems, we could replace the
+ * padding with a copy of mean (i.e. mean2) and use GL_LINES for the mean. The mean and
+ * mean2 would have to be offset, complicating the GL_LINE_STRIP used for the mean line,
+ * but it is not impossible to make this work.
+ */
 struct cachedpt
 {
     float reltime;
@@ -19,15 +25,13 @@ struct cachedpt
     float max;
     float count;
 
-    int32_t info;
+    int32_t _pad;
 } __attribute__((packed, aligned(16)));
 
 CacheEntry::CacheEntry(int64_t startRange, int64_t endRange) : start(startRange), end(endRange)
 {
-    this->data = nullptr;
-    this->alloc = 0;
-    this->points = 0;
-    this->len = 0;
+    this->cached = nullptr;
+    this->cachedlen = 0;
     this->vbo = 0;
 
     this->joinsPrev = false;
@@ -42,9 +46,9 @@ CacheEntry::~CacheEntry()
      * the response comes back. So we can't free this memory just
      * yet.
      */
-    Q_ASSERT(this->data != nullptr);
+    Q_ASSERT(this->cached != nullptr);
 
-    delete[] this->data;
+    delete[] this->cached;
 
     if (this->vbo != 0)
     {
@@ -52,47 +56,125 @@ CacheEntry::~CacheEntry()
     }
 }
 
-void CacheEntry::cacheData(struct statpt* spoints, int len, CacheEntry* prev, CacheEntry* next)
+/* Helper function for CacheEntry::cacheData. */
+inline void insertGap(struct cachedpt* outputs, int j, float reltime,
+                      float prevcount, bool prevfirst)
 {
-    Q_ASSERT(this->data == nullptr);
+    /* Insert a gap. We need this "gap point" to pull the data
+     * density graph to 0, and to make sure the fragment shader
+     * doesn't fill anything in between the two real points on
+     * either side.
+     */
+    struct cachedpt* output = &outputs[j];
 
-    this->joinsPrev = (prev != nullptr && !prev->joinsNext && prev->alloc != 0);
-    this->joinsNext = (next != nullptr && !next->joinsPrev && next->alloc != 0);
+    output->reltime = reltime;
+    output->min = NAN;
+    output->prevcount = prevcount;
 
-    this->alloc = len + this->joinsPrev + this->joinsNext;
+    output->mean = NAN;
 
-    /* Be careful for buffer overflow... */
-    Q_ASSERT(this->alloc >= len);
+    output->reltime2 = output->reltime;
+    output->max = NAN;
+    output->count = 0.0f;
 
-    if (this->alloc == 0)
+    /* If the previous point (at index j - 1) has a gap on either
+     * side, it needs to be rendered as vertical line.
+     */
+    if ((j > 1 && outputs[j - 2].count == 0.0f) || (j == 1 && !prevfirst))
     {
-        // Nothing left to do.
-        return;
+        /* This tells the vertex shader the appropriate info. */
+        outputs[j - 1].prevcount *= -1;
+        outputs[j - 1].count *= -1;
     }
+}
 
-    this->data = new struct cachedpt[alloc];
-    this->len = len;
+/* SPOINTS should contain statistical points for the time range of this
+ * cache entry. If there is a point immediately to the left of and
+ * adjacent to the first point, and a point immediately to the right of
+ * and adjacent to the last point in the range, those points should also
+ * be included.
+ */
+void CacheEntry::cacheData(struct statpt* spoints, int len, uint8_t pw,
+                           CacheEntry* prev, CacheEntry* next)
+{
+    Q_ASSERT(this->cached == nullptr);
+    Q_ASSERT(pw <= MAX_PW);
 
-    this->points = this->data + this->joinsPrev;
-
-    if (this->joinsPrev)
-    {
-        this->data[0] = *prev->rightmost();
-    }
-    if (this->joinsNext)
-    {
-        this->data[alloc - 1] = *next->leftmost();
-    }
+    this->joinsPrev = (prev != nullptr && !prev->joinsNext && prev->cachedlen != 0);
+    this->joinsNext = (next != nullptr && !next->joinsPrev && next->cachedlen != 0);
 
     this->epoch = (spoints[len - 1].time >> 1) + (spoints[0].time >> 1);
 
-    /* TODO need to initialize this correctly! */
-    float prevcount = 1.0f;
+    int64_t expected_gap = ((int64_t) 1) << pw;
+    int64_t pwmask = ~(expected_gap - 1);
+    bool prevfirst = (len > 0 && spoints[0].time == ((start - 1) & pwmask));
+    bool nextlast = (len > 0 && spoints[len - 1].time == ((end & pwmask) + expected_gap));
 
-    for (int i = 0; i < len; i++)
+    int truelen = len;
+    statpt* inputs = spoints;
+
+    if (prevfirst && !this->joinsPrev)
     {
-        struct cachedpt* output = &this->points[i];
-        struct statpt* input = &spoints[i];
+        /* We have an element that's one past the left of the range we're interested
+         * in, but we don't have to connect with it because the previous entry takes
+         * care of it.
+         */
+        truelen--;
+        inputs++;
+    }
+
+    if (nextlast && !this->joinsNext)
+    {
+        /* We have an element that's one past the right of the range we're interested
+         * in, but we don't have to connect with it because the next entry takes care
+         * of it.
+         */
+        truelen--;
+    }
+
+    /* We can get two distinct bounds on the number of cached points.
+     * In the worst case, we will create a single "gap point" for every point we consider
+     * in the spoints array, plus one additional at the end. We can also say that, in the
+     * worst case, we will have one point for every possible statistical point between
+     * end and start (i.e. ((end - start) >> pw) + 1), plus one additional point to the
+     * left and one additional point to the right. We take the smaller of the two to use
+     * the tighter upper bound. If we make this too high it's OK; we just allocate more
+     * memory than we really need. If we make it too low, then we'll write past the end
+     * of the buffer.
+     */
+    this->cachedlen = 1 + qMin((1 + ((int64_t) truelen) << 1), ((end - start) >> pw) + 3);
+    this->cached = new struct cachedpt[cachedlen];
+
+    float prevcount = prevfirst ? spoints[0].count : 0.0f;
+    int64_t prevtime; // Don't need to initialize this.
+
+    int i, j;
+    int64_t exptime;
+    for (i = 0, j = 0; i < truelen; i++, j++)
+    {
+        struct statpt* input = &inputs[i];
+        struct cachedpt* output;
+
+        /* Check if we need to insert a gap before the next point.
+         * If this is the first iteration, then we don't need to insert a gap (hence the
+         * j != 0 check). Gaps between two Cache Entries are handled by the left cache
+         * entry.
+         */
+
+        if (j != 0 && input->time > (exptime = prevtime + expected_gap))
+        {
+            Q_ASSERT(j < this->cachedlen);
+            insertGap(this->cached, j, (float) (exptime - this->epoch), prevcount, prevfirst);
+
+            prevtime = exptime;
+            prevcount = 0.0f;
+
+            j++;
+        }
+
+        Q_ASSERT(j < this->cachedlen);
+
+        output = &this->cached[j];
 
         output->reltime = (float) (input->time - this->epoch);
         output->min = (float) input->min;
@@ -104,28 +186,98 @@ void CacheEntry::cacheData(struct statpt* spoints, int len, CacheEntry* prev, Ca
         output->max = (float) input->max;
         output->count = (float) input->count;
 
-        output->info = 0;
-
+        prevtime = input->time;
         prevcount = output->count;
-
-        /* For testing purposes. */
-        if (i == 2)
-        {
-            output->prevcount *= -1;
-            output->count *= -1;
-        }
     }
+
+    /* Check if we need to place a gap after the last point. */
+    if (!nextlast)
+    {
+        exptime = prevtime + expected_gap;
+
+        Q_ASSERT(j < this->cachedlen);
+        insertGap(this->cached, j, (float) (exptime - this->epoch), prevcount, prevfirst);
+
+        j++;
+    }
+
+    this->cachedlen = j; // The remaining were extra...
 }
+
+//void CacheEntry::cacheData(struct statpt* spoints, int len, uint8_t pw, CacheEntry* prev, CacheEntry* next)
+//{
+//    Q_ASSERT(this->data == nullptr);
+
+//    this->joinsPrev = (prev != nullptr && !prev->joinsNext && prev->alloc != 0);
+//    this->joinsNext = (next != nullptr && !next->joinsPrev && next->alloc != 0);
+
+//    this->alloc = len + this->joinsPrev + this->joinsNext;
+
+//    /* Be careful for buffer overflow... */
+//    Q_ASSERT(this->alloc >= len);
+
+//    if (this->alloc == 0)
+//    {
+//        // Nothing left to do.
+//        return;
+//    }
+
+//    this->data = new struct cachedpt[alloc];
+//    this->len = len;
+
+//    this->points = this->data + this->joinsPrev;
+
+//    if (this->joinsPrev)
+//    {
+//        this->data[0] = *prev->rightmost();
+//    }
+//    if (this->joinsNext)
+//    {
+//        this->data[alloc - 1] = *next->leftmost();
+//    }
+
+//    this->epoch = (spoints[len - 1].time >> 1) + (spoints[0].time >> 1);
+
+//    /* TODO need to initialize this correctly! */
+//    float prevcount = 1.0f;
+
+//    for (int i = 0; i < len; i++)
+//    {
+//        struct cachedpt* output = &this->points[i];
+//        struct statpt* input = &spoints[i];
+
+//        output->reltime = (float) (input->time - this->epoch);
+//        output->min = (float) input->min;
+//        output->prevcount = prevcount;
+
+//        output->mean = (float) input->mean;
+
+//        output->reltime2 = output->reltime;
+//        output->max = (float) input->max;
+//        output->count = (float) input->count;
+
+//        output->info = 0;
+
+//        prevcount = output->count;
+
+//        /* For testing purposes. */
+//        if (i == 2)
+//        {
+//            output->prevcount *= -1;
+//            output->count *= -1;
+//        }
+//    }
+//}
 
 void CacheEntry::prepare(QOpenGLFunctions* funcs)
 {
     Q_ASSERT(!this->prepared);
 
-    if (this->alloc != 0)
+    if (this->cachedlen != 0)
     {
         funcs->glGenBuffers(1, &this->vbo);
         funcs->glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
-        funcs->glBufferData(GL_ARRAY_BUFFER, this->alloc * sizeof(struct cachedpt), this->data, GL_STATIC_DRAW);
+        funcs->glBufferData(GL_ARRAY_BUFFER, this->cachedlen * sizeof(struct cachedpt), this->cached, GL_STATIC_DRAW);
         funcs->glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 
@@ -187,13 +339,13 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
         funcs->glEnableVertexAttribArray(2);
         funcs->glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-        funcs->glDrawArrays(GL_TRIANGLE_STRIP, 0, this->alloc << 1);
+        funcs->glDrawArrays(GL_TRIANGLE_STRIP, 0, this->cachedlen << 1);
 
         /* Second, draw vertical lines for disconnected points. */
 
         funcs->glUniform1i(tstripUniform, 0);
 
-        funcs->glDrawArrays(GL_LINES, 0, this->alloc << 1);
+        funcs->glDrawArrays(GL_LINES, 0, this->cachedlen << 1);
 
 
         /* Third, draw the mean line. */
@@ -211,40 +363,14 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
         funcs->glEnableVertexAttribArray(2);
         funcs->glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-        funcs->glDrawArrays(GL_LINE_STRIP, 0, this->alloc);
+        funcs->glDrawArrays(GL_LINE_STRIP, 0, this->cachedlen);
 
 
         /* Fourth, draw the points. */
 
         funcs->glUniform1i(tstripUniform, 0);
 
-        funcs->glDrawArrays(GL_POINTS, 0, this->alloc);
-    }
-}
-
-struct cachedpt* CacheEntry::leftmost() const
-{
-    /* If LEN is 0, then return nullptr. Otherwise return the first
-     * cached point.
-     *
-     * If LEN is 0, then this->points should be nullptr anyway.
-     */
-
-    Q_ASSERT(this->len != 0 || this->points == nullptr);
-
-    return this->points;
-}
-
-struct cachedpt* CacheEntry::rightmost() const
-{
-    if (this->len == 0)
-    {
-        Q_ASSERT(this->points == nullptr);
-        return nullptr;
-    }
-    else
-    {
-        return &this->points[this->len - 1];
+        funcs->glDrawArrays(GL_POINTS, 0, this->cachedlen);
     }
 }
 

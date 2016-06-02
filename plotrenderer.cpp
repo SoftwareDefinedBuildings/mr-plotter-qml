@@ -66,9 +66,16 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
             "{                              \n"
             "    if (value < 0.0 || value == 0.0 || value > 0.0) \n"
             "    {                          \n"
-            "        vec3 transformed = axisTransform * vec3(vec2(time, value) - axisBase, 1.0); \n"
-            "        gl_Position = vec4(transformed.xy, 0.0, 1.0);   \n"
-            "        render = (tstrip ^^ (rendertstrip <= 0.0)) ? 1.0 : 0.0;      \n"
+            "        vec3 transformed = axisTransform * vec3(vec2(time, value) - axisBase, 1.0);    \n"
+            "        gl_Position = vec4(transformed.xy, 0.0, 1.0);                          \n"
+            "        /* I want to read the sign bit of 'rendertstrip' and xor it with       \n"
+            "         * tstrip. This isn't easy, because if rendertstrip is 0.0, then       \n"
+            "         * it's difficult to distinguish if its +0.0 or -0.0. The solution     \n"
+            "         * I came up with is to take infinity an divide it by rendertstrip.    \n"
+            "         * The result will be positive infinity or negative infinity           \n"
+            "         * depending on the sign of rendertstrip.                              \n"
+            "         */                    \n"
+            "        render = (tstrip ^^ (((1.0 / 0.0) / rendertstrip) < 0.0)) ? 1.0 : 0.0; \n"
             "        gl_PointSize = 6.0;    \n"
             "    }                          \n"
             "    else                       \n"
@@ -88,7 +95,7 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
             "    }                          \n"
             "    else                       \n"
             "    {                          \n"
-            "        gl_FragColor = vec4(0.0, 1.0, 0.0, opacity); \n"
+            "        gl_FragColor = vec4(0.0, 1.0, 0.0, opacity);   \n"
             "    }                          \n"
             "}                              \n";
 
@@ -170,7 +177,7 @@ void PlotRenderer::render()
     //this->glUniform1f(heightLoc, (float) height);
     //this->glUniform1f(lineHalfWidthLoc, 2.5);
 
-    this->todraw->renderPlot(this, 0, 1, 100, 200, axisMatLoc, axisVecLoc, tstripLoc, opacityLoc);
+    this->todraw->renderPlot(this, 0, 1, -10, 250, axisMatLoc, axisVecLoc, tstripLoc, opacityLoc);
 
     this->pa->window()->resetOpenGLState();
 }
