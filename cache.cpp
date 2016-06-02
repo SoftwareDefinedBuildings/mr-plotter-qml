@@ -87,7 +87,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len, CacheEntry* prev, Ca
     this->epoch = (spoints[len - 1].time >> 1) + (spoints[0].time >> 1);
 
     /* TODO need to initialize this correctly! */
-    float prevcount = 0.0f;
+    float prevcount = 1.0f;
 
     for (int i = 0; i < len; i++)
     {
@@ -107,6 +107,13 @@ void CacheEntry::cacheData(struct statpt* spoints, int len, CacheEntry* prev, Ca
         output->info = 0;
 
         prevcount = output->count;
+
+        /* For testing purposes. */
+        if (i == 2)
+        {
+            output->prevcount *= -1;
+            output->count *= -1;
+        }
     }
 }
 
@@ -133,7 +140,7 @@ bool CacheEntry::isPrepared() const
 void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
                             float yEnd, int64_t tStart, int64_t tEnd,
                             GLint axisMatUniform, GLint axisVecUniform,
-                            GLint opacityUniform)
+                            GLint tstripUniform, GLint opacityUniform)
 {
     Q_ASSERT(this->prepared);
 
@@ -165,27 +172,53 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
         funcs->glUniformMatrix3fv(axisMatUniform, 1, GL_FALSE, matrix);
         funcs->glUniform2fv(axisVecUniform, 1, vector);
 
+        /* First, draw the min-max background. */
+
         funcs->glUniform1f(opacityUniform, 0.3);
 
+        funcs->glUniform1i(tstripUniform, 1);
+
         funcs->glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
-        funcs->glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+        funcs->glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) 0);
         funcs->glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) sizeof(float));
+        funcs->glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) (2 * sizeof(float)));
         funcs->glEnableVertexAttribArray(0);
         funcs->glEnableVertexAttribArray(1);
+        funcs->glEnableVertexAttribArray(2);
         funcs->glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         funcs->glDrawArrays(GL_TRIANGLE_STRIP, 0, this->alloc << 1);
 
+        /* Second, draw vertical lines for disconnected points. */
+
+        funcs->glUniform1i(tstripUniform, 0);
+
+        funcs->glDrawArrays(GL_LINES, 0, this->alloc << 1);
+
+
+        /* Third, draw the mean line. */
+
         funcs->glUniform1f(opacityUniform, 1.0);
 
+        funcs->glUniform1i(tstripUniform, 1);
+
         funcs->glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
-        funcs->glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, sizeof(struct cachedpt), 0);
+        funcs->glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, sizeof(struct cachedpt), (const void*) 0);
         funcs->glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(struct cachedpt), (const void*) (3 * sizeof(float)));
+        funcs->glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(struct cachedpt), (const void*) (2 * sizeof(float)));
         funcs->glEnableVertexAttribArray(0);
         funcs->glEnableVertexAttribArray(1);
+        funcs->glEnableVertexAttribArray(2);
         funcs->glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         funcs->glDrawArrays(GL_LINE_STRIP, 0, this->alloc);
+
+
+        /* Fourth, draw the points. */
+
+        funcs->glUniform1i(tstripUniform, 0);
+
+        funcs->glDrawArrays(GL_POINTS, 0, this->alloc);
     }
 }
 

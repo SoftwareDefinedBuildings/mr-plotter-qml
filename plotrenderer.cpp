@@ -48,23 +48,48 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
 {
     this->initializeOpenGLFunctions();
 
+    /* Needed to draw points correctly. This constant isn't always included for some reason. */
+#ifdef GL_VERTEX_PROGRAM_POINT_SIZE
+    this->glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
+#endif
+
     /* Shader code. */
     char vShaderStr[] =
             "uniform mat3 axisTransform;    \n"
             "uniform vec2 axisBase;         \n"
+            "uniform bool tstrip;           \n"
             "attribute float time;          \n"
             "attribute float value;         \n"
+            "attribute float rendertstrip;  \n"
+            "varying float render;          \n"
             "void main()                    \n"
             "{                              \n"
-            "    vec3 transformed = axisTransform * vec3(vec2(time, value) - axisBase, 1.0); \n"
-            "    gl_Position = vec4(transformed.xy, 0.0, 1.0);   \n"
+            "    if (value < 0.0 || value == 0.0 || value > 0.0) \n"
+            "    {                          \n"
+            "        vec3 transformed = axisTransform * vec3(vec2(time, value) - axisBase, 1.0); \n"
+            "        gl_Position = vec4(transformed.xy, 0.0, 1.0);   \n"
+            "        render = (tstrip ^^ (rendertstrip <= 0.0)) ? 1.0 : 0.0;      \n"
+            "        gl_PointSize = 6.0;    \n"
+            "    }                          \n"
+            "    else                       \n"
+            "    {                          \n"
+            "        render = 0.0;          \n"
+            "    }                          \n"
             "}                              \n";
 
     char fShaderStr[] =
             "uniform float opacity;         \n"
+            "varying float render;          \n"
             "void main()                    \n"
             "{                              \n"
-            "    gl_FragColor = vec4(0.0, 1.0, 0.0, opacity); \n"
+            "    if (render < 1.0)          \n"
+            "    {                          \n"
+            "        discard;               \n"
+            "    }                          \n"
+            "    else                       \n"
+            "    {                          \n"
+            "        gl_FragColor = vec4(0.0, 1.0, 0.0, opacity); \n"
+            "    }                          \n"
             "}                              \n";
 
     GLuint vertexShader = loadShader(this, GL_VERTEX_SHADER, vShaderStr);
@@ -82,6 +107,7 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
 
     this->glBindAttribLocation(this->program, 0, "time");
     this->glBindAttribLocation(this->program, 1, "value");
+    this->glBindAttribLocation(this->program, 2, "rendertstrip");
 
     this->glLinkProgram(this->program);
 
@@ -136,12 +162,15 @@ void PlotRenderer::render()
     GLint axisVecLoc = this->glGetUniformLocation(this->program, "axisBase");
     //GLint heightLoc = this->glGetUniformLocation(this->program, "screenHeight");
     //GLint lineHalfWidthLoc = this->glGetUniformLocation(this->program, "halfPixelWidth");
+    GLint tstripLoc = this->glGetUniformLocation(this->program, "tstrip");
     GLint opacityLoc = this->glGetUniformLocation(this->program, "opacity");
+
+    this->glLineWidth(4);
 
     //this->glUniform1f(heightLoc, (float) height);
     //this->glUniform1f(lineHalfWidthLoc, 2.5);
 
-    this->todraw->renderPlot(this, 0, 1, 100, 200, axisMatLoc, axisVecLoc, opacityLoc);
+    this->todraw->renderPlot(this, 0, 1, 100, 200, axisMatLoc, axisVecLoc, tstripLoc, opacityLoc);
 
     this->pa->window()->resetOpenGLState();
 }

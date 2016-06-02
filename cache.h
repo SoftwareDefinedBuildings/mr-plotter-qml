@@ -53,7 +53,7 @@ public:
     void renderPlot(QOpenGLFunctions* funcs, float yStart,
                     float yEnd, int64_t tStart, int64_t tEnd,
                     GLint axisMatUniform, GLint axisVecUniform,
-                    GLint opacityUniform);
+                    GLint tstripUniform, GLint opacityUniform);
 
     const int64_t start;
     const int64_t end;
