@@ -11,15 +11,15 @@ struct cachedpt
 {
     float reltime;
     float min;
-    float mean;
+    float prevcount;
 
-    uint32_t index;
+    float mean;
 
     float reltime2;
     float max;
-    float mean2;
-
     float count;
+
+    int32_t info;
 } __attribute__((packed, aligned(16)));
 
 CacheEntry::CacheEntry(int64_t startRange, int64_t endRange) : start(startRange), end(endRange)
@@ -86,6 +86,9 @@ void CacheEntry::cacheData(struct statpt* spoints, int len, CacheEntry* prev, Ca
 
     this->epoch = (spoints[len - 1].time >> 1) + (spoints[0].time >> 1);
 
+    /* TODO need to initialize this correctly! */
+    float prevcount = 0.0f;
+
     for (int i = 0; i < len; i++)
     {
         struct cachedpt* output = &this->points[i];
@@ -93,15 +96,17 @@ void CacheEntry::cacheData(struct statpt* spoints, int len, CacheEntry* prev, Ca
 
         output->reltime = (float) (input->time - this->epoch);
         output->min = (float) input->min;
-        output->mean = (float) input->mean;
+        output->prevcount = prevcount;
 
-        output->index = (uint32_t) i;
+        output->mean = (float) input->mean;
 
         output->reltime2 = output->reltime;
         output->max = (float) input->max;
-        output->mean2 = output->mean;
-
         output->count = (float) input->count;
+
+        output->info = 0;
+
+        prevcount = output->count;
     }
 }
 
@@ -127,7 +132,8 @@ bool CacheEntry::isPrepared() const
 
 void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
                             float yEnd, int64_t tStart, int64_t tEnd,
-                            GLint axisMatUniform, GLint axisVecUniform)
+                            GLint axisMatUniform, GLint axisVecUniform,
+                            GLint opacityUniform)
 {
     Q_ASSERT(this->prepared);
 
@@ -159,12 +165,27 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
         funcs->glUniformMatrix3fv(axisMatUniform, 1, GL_FALSE, matrix);
         funcs->glUniform2fv(axisVecUniform, 1, vector);
 
+        funcs->glUniform1f(opacityUniform, 0.3);
+
         funcs->glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
-        funcs->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+        funcs->glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+        funcs->glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) sizeof(float));
         funcs->glEnableVertexAttribArray(0);
+        funcs->glEnableVertexAttribArray(1);
         funcs->glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         funcs->glDrawArrays(GL_TRIANGLE_STRIP, 0, this->alloc << 1);
+
+        funcs->glUniform1f(opacityUniform, 1.0);
+
+        funcs->glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
+        funcs->glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, sizeof(struct cachedpt), 0);
+        funcs->glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(struct cachedpt), (const void*) (3 * sizeof(float)));
+        funcs->glEnableVertexAttribArray(0);
+        funcs->glEnableVertexAttribArray(1);
+        funcs->glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        funcs->glDrawArrays(GL_LINE_STRIP, 0, this->alloc);
     }
 }
 

@@ -52,30 +52,19 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
     char vShaderStr[] =
             "uniform mat3 axisTransform;    \n"
             "uniform vec2 axisBase;         \n"
-            "attribute vec3 stats;          \n"
-            "varying float mean;            \n"
+            "attribute float time;          \n"
+            "attribute float value;         \n"
             "void main()                    \n"
             "{                              \n"
-            "    vec3 transformed = axisTransform * vec3(stats.xy - axisBase, 1.0); \n"
+            "    vec3 transformed = axisTransform * vec3(vec2(time, value) - axisBase, 1.0); \n"
             "    gl_Position = vec4(transformed.xy, 0.0, 1.0);   \n"
-            "    mean = (axisTransform * vec3(stats.xz - axisBase, 1.0)).y; \n"
             "}                              \n";
 
     char fShaderStr[] =
-            "uniform float screenHeight;    \n"
-            "uniform float halfPixelWidth;  \n"
-            "varying float mean;            \n"
+            "uniform float opacity;         \n"
             "void main()                    \n"
             "{                              \n"
-            "    float meanHeight = screenHeight * ((mean + 1.0) / 2.0); \n"
-            "    if (meanHeight - halfPixelWidth <= gl_FragCoord.y && gl_FragCoord.y <= meanHeight + halfPixelWidth) \n"
-            "    {                          \n"
-            "        gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); \n"
-            "    }                          \n"
-            "    else                       \n"
-            "    {                          \n"
-            "        gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0); \n"
-            "    }                          \n"
+            "    gl_FragColor = vec4(0.0, 1.0, 0.0, opacity); \n"
             "}                              \n";
 
     GLuint vertexShader = loadShader(this, GL_VERTEX_SHADER, vShaderStr);
@@ -91,7 +80,8 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
     this->glAttachShader(this->program, vertexShader);
     this->glAttachShader(this->program, fragmentShader);
 
-    this->glBindAttribLocation(this->program, 0, "stats");
+    this->glBindAttribLocation(this->program, 0, "time");
+    this->glBindAttribLocation(this->program, 1, "value");
 
     this->glLinkProgram(this->program);
 
@@ -139,18 +129,19 @@ void PlotRenderer::render()
     this->glUseProgram(this->program);
     this->glViewport(0, 0, width, height);
 
-    this->glClearColor(0.1f, 0.1f, 0.2f, 0.8f);
+    this->glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     this->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     GLint axisMatLoc = this->glGetUniformLocation(this->program, "axisTransform");
     GLint axisVecLoc = this->glGetUniformLocation(this->program, "axisBase");
-    GLint heightLoc = this->glGetUniformLocation(this->program, "screenHeight");
-    GLint lineHalfWidthLoc = this->glGetUniformLocation(this->program, "halfPixelWidth");
+    //GLint heightLoc = this->glGetUniformLocation(this->program, "screenHeight");
+    //GLint lineHalfWidthLoc = this->glGetUniformLocation(this->program, "halfPixelWidth");
+    GLint opacityLoc = this->glGetUniformLocation(this->program, "opacity");
 
-    this->glUniform1f(heightLoc, (float) height);
-    this->glUniform1f(lineHalfWidthLoc, 2.5);
+    //this->glUniform1f(heightLoc, (float) height);
+    //this->glUniform1f(lineHalfWidthLoc, 2.5);
 
-    this->todraw->renderPlot(this, 0, 1, 100, 200, axisMatLoc, axisVecLoc);
+    this->todraw->renderPlot(this, 0, 1, 100, 200, axisMatLoc, axisVecLoc, opacityLoc);
 
     this->pa->window()->resetOpenGLState();
 }

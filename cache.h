@@ -52,7 +52,8 @@ public:
     /* Renders the main plot. */
     void renderPlot(QOpenGLFunctions* funcs, float yStart,
                     float yEnd, int64_t tStart, int64_t tEnd,
-                    GLint axisMatUniform, GLint axisVecUniform);
+                    GLint axisMatUniform, GLint axisVecUniform,
+                    GLint opacityUniform);
 
     const int64_t start;
     const int64_t end;
