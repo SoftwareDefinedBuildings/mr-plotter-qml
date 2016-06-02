@@ -56,38 +56,6 @@ CacheEntry::~CacheEntry()
     }
 }
 
-/* Helper function for CacheEntry::cacheData. */
-inline void insertGap(struct cachedpt* outputs, int j, float reltime,
-                      float prevcount, bool prevfirst)
-{
-    /* Insert a gap. We need this "gap point" to pull the data
-     * density graph to 0, and to make sure the fragment shader
-     * doesn't fill anything in between the two real points on
-     * either side.
-     */
-    struct cachedpt* output = &outputs[j];
-
-    output->reltime = reltime;
-    output->min = NAN;
-    output->prevcount = prevcount;
-
-    output->mean = NAN;
-
-    output->reltime2 = output->reltime;
-    output->max = NAN;
-    output->count = 0.0f;
-
-    /* If the previous point (at index j - 1) has a gap on either
-     * side, it needs to be rendered as vertical line.
-     */
-    if ((j > 1 && outputs[j - 2].count == 0.0f) || (j == 1 && !prevfirst))
-    {
-        /* This tells the vertex shader the appropriate info. */
-        outputs[j - 1].prevcount *= -1;
-        outputs[j - 1].count *= -1;
-    }
-}
-
 /* SPOINTS should contain statistical points for the time range of this
  * cache entry. If there is a point immediately to the left of and
  * adjacent to the first point, and a point immediately to the right of
@@ -142,7 +110,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len, uint8_t pw,
      * memory than we really need. If we make it too low, then we'll write past the end
      * of the buffer.
      */
-    this->cachedlen = 1 + qMin((1 + ((int64_t) truelen) << 1), ((end - start) >> pw) + 3);
+    this->cachedlen = qMin((1 + ((int64_t) truelen) << 1), ((end - start) >> pw) + 3);
     this->cached = new struct cachedpt[cachedlen];
 
     float prevcount = prevfirst ? spoints[0].count : 0.0f;
@@ -154,23 +122,6 @@ void CacheEntry::cacheData(struct statpt* spoints, int len, uint8_t pw,
     {
         struct statpt* input = &inputs[i];
         struct cachedpt* output;
-
-        /* Check if we need to insert a gap before the next point.
-         * If this is the first iteration, then we don't need to insert a gap (hence the
-         * j != 0 check). Gaps between two Cache Entries are handled by the left cache
-         * entry.
-         */
-
-        if (j != 0 && input->time > (exptime = prevtime + expected_gap))
-        {
-            Q_ASSERT(j < this->cachedlen);
-            insertGap(this->cached, j, (float) (exptime - this->epoch), prevcount, prevfirst);
-
-            prevtime = exptime;
-            prevcount = 0.0f;
-
-            j++;
-        }
 
         Q_ASSERT(j < this->cachedlen);
 
@@ -188,86 +139,52 @@ void CacheEntry::cacheData(struct statpt* spoints, int len, uint8_t pw,
 
         prevtime = input->time;
         prevcount = output->count;
-    }
 
-    /* Check if we need to place a gap after the last point. */
-    if (!nextlast)
-    {
+        /* Check if we need to insert a gap after this point.
+         * Gaps between two cache entries and handled by the first cache entry, so we don't
+         * have to worry about inserting a gap before the first point.
+         */
         exptime = prevtime + expected_gap;
+        if ((i == truelen - 1 && !nextlast) || (i != truelen - 1 && inputs[i + 1].time > exptime))
+        {
+            j++;
 
-        Q_ASSERT(j < this->cachedlen);
-        insertGap(this->cached, j, (float) (exptime - this->epoch), prevcount, prevfirst);
+            Q_ASSERT(j < this->cachedlen);
 
-        j++;
+            /* Insert a gap. We need this "gap point" to pull the data
+             * density graph to 0, and to make sure the fragment shader
+             * doesn't fill anything in between the two real points on
+             * either side.
+             */
+            struct cachedpt* output = &this->cached[j];
+
+            output->reltime = (float) (exptime - this->epoch);
+            output->min = NAN;
+            output->prevcount = prevcount;
+
+            output->mean = NAN;
+
+            output->reltime2 = output->reltime;
+            output->max = NAN;
+            output->count = 0.0f;
+
+            /* If the previous point (at index j - 1) has a gap on either
+             * side, it needs to be rendered as vertical line.
+             */
+            if ((j > 1 && this->cached[j - 2].count == 0.0f) || (j == 1 && !prevfirst))
+            {
+                /* This tells the vertex shader the appropriate info. */
+                this->cached[j - 1].prevcount *= -1;
+                this->cached[j - 1].count *= -1;
+            }
+
+            prevtime = exptime;
+            prevcount = 0.0f;
+        }
     }
 
     this->cachedlen = j; // The remaining were extra...
 }
-
-//void CacheEntry::cacheData(struct statpt* spoints, int len, uint8_t pw, CacheEntry* prev, CacheEntry* next)
-//{
-//    Q_ASSERT(this->data == nullptr);
-
-//    this->joinsPrev = (prev != nullptr && !prev->joinsNext && prev->alloc != 0);
-//    this->joinsNext = (next != nullptr && !next->joinsPrev && next->alloc != 0);
-
-//    this->alloc = len + this->joinsPrev + this->joinsNext;
-
-//    /* Be careful for buffer overflow... */
-//    Q_ASSERT(this->alloc >= len);
-
-//    if (this->alloc == 0)
-//    {
-//        // Nothing left to do.
-//        return;
-//    }
-
-//    this->data = new struct cachedpt[alloc];
-//    this->len = len;
-
-//    this->points = this->data + this->joinsPrev;
-
-//    if (this->joinsPrev)
-//    {
-//        this->data[0] = *prev->rightmost();
-//    }
-//    if (this->joinsNext)
-//    {
-//        this->data[alloc - 1] = *next->leftmost();
-//    }
-
-//    this->epoch = (spoints[len - 1].time >> 1) + (spoints[0].time >> 1);
-
-//    /* TODO need to initialize this correctly! */
-//    float prevcount = 1.0f;
-
-//    for (int i = 0; i < len; i++)
-//    {
-//        struct cachedpt* output = &this->points[i];
-//        struct statpt* input = &spoints[i];
-
-//        output->reltime = (float) (input->time - this->epoch);
-//        output->min = (float) input->min;
-//        output->prevcount = prevcount;
-
-//        output->mean = (float) input->mean;
-
-//        output->reltime2 = output->reltime;
-//        output->max = (float) input->max;
-//        output->count = (float) input->count;
-
-//        output->info = 0;
-
-//        prevcount = output->count;
-
-//        /* For testing purposes. */
-//        if (i == 2)
-//        {
-//            output->prevcount *= -1;
-//            output->count *= -1;
-//        }
-//    }
-//}
 
 void CacheEntry::prepare(QOpenGLFunctions* funcs)
 {
