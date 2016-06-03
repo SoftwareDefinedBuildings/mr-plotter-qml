@@ -12,18 +12,18 @@ PlotArea::PlotArea()
     data[0].min = 0.2;
     data[0].mean = 0.3;
     data[0].max = 0.4;
-    data[0].count = 1;
+    data[0].count = 2;
 
     data[1].time = 32;
     data[1].min = 0.1;
     data[1].mean = 0.2;
     data[1].max = 0.3;
-    data[1].count = 1;
+    data[1].count = 2;
 
     data[2].time = 96;
-    data[2].min = 0.25;
+    data[2].min = 0.5;
     data[2].mean = 0.5;
-    data[2].max = 0.75;
+    data[2].max = 0.5;
     data[2].count = 1;
 
     data[3].time = 160;

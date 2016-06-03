@@ -1,11 +1,11 @@
 #include "cache.h"
 
 #include <cstdint>
+#include <functional>
 
-#include <QFuture>
 #include <QHash>
+#include <QList>
 #include <QSharedPointer>
-#include <QVector>
 
 /* Size is 32 bytes.
  * If we find that using GL_POINTS for the mean causes problems, we could replace the
@@ -66,7 +66,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len, uint8_t pw,
                            CacheEntry* prev, CacheEntry* next)
 {
     Q_ASSERT(this->cached == nullptr);
-    Q_ASSERT(pw <= MAX_PW);
+    Q_ASSERT(pw < PW_MAX);
 
     this->joinsPrev = (prev != nullptr && !prev->joinsNext && prev->cachedlen != 0);
     this->joinsNext = (next != nullptr && !next->joinsPrev && next->cachedlen != 0);
@@ -291,8 +291,15 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
     }
 }
 
-Cache::Cache() : cache(QHash<QUuid, QMap<int64_t, QSharedPointer<CacheEntry> >* >()),
-    outstanding(QHash<uint64_t, QSharedPointer<CacheEntry> >())
+bool operator<(const CacheEntry& left, const CacheEntry& right)
+{
+    /* Make sure that LEFT and RIGHT don't overlap. */
+    Q_ASSERT((right.start >= left.end) != (left.start >= right.end));
+    return left.start < right.start;
+}
+
+Cache::Cache() : cache(QHash<QUuid, QMap<int64_t, QSharedPointer<CacheEntry>>*>()),
+    outstanding(QHash<uint64_t, QSharedPointer<CacheEntry>>())
 {
 }
 
@@ -300,8 +307,8 @@ Cache::Cache() : cache(QHash<QUuid, QMap<int64_t, QSharedPointer<CacheEntry> >* 
  * 1) requestData returns a list of entries that were cache hits,
  *    and entries that missed in the cache are returned
  *    asynchronously via a signal.
- * 2) requestData returns a Future of a list of all cache entries
- *    in the range.
+ * 2) requestData accepts a callbackthat is fired with a list of
+ *    all cache entries in the range.
  *
  * The first way allows the plot to update as data becomes
  * available; the second way allows the plot to wait until
@@ -312,9 +319,44 @@ Cache::Cache() : cache(QHash<QUuid, QMap<int64_t, QSharedPointer<CacheEntry> >* 
  * associated to each chunk of data we get back, but it provides
  * for a cleaner API overall.
  */
-QFuture<QList<QSharedPointer<CacheEntry> > > Cache::requestData(QUuid& uuid, int64_t start, int64_t end, uint8_t pw)
+void Cache::requestData(QUuid& uuid, int64_t start, int64_t end, uint8_t pw,
+                        std::function<void(QList<QSharedPointer<CacheEntry>>)> callback)
 {
-    /* TODO */
-    QFuture<QList<QSharedPointer<CacheEntry> > > list;
-    return list;
+    Q_ASSERT(pw < PW_MAX);
+    QList<QSharedPointer<CacheEntry>> result;
+
+    QMap<int64_t, QSharedPointer<CacheEntry>>*& pwmap = this->cache[uuid];
+    if (pwmap == nullptr)
+    {
+        pwmap = new QMap<int64_t, QSharedPointer<CacheEntry>>[PW_MAX];
+    }
+
+    QMap<int64_t, QSharedPointer<CacheEntry>>* entries = &pwmap[pw];
+    QMap<int64_t, QSharedPointer<CacheEntry>>::iterator i;
+
+    int64_t nextexp = start; // expected start of the next entry
+    for (i = entries->lowerBound(start); i != entries->end(); ++i)
+    {
+        QSharedPointer<CacheEntry>& entry = i.value();
+        if (entry->start > end)
+        {
+            break;
+        }
+
+        /* Check that adjacent cache entries do not overlap. */
+        Q_ASSERT(nextexp == start || entry->start >= nextexp);
+
+        if (entry->start > nextexp)
+        {
+            /* There's a gap that needs to be filled. */
+            QSharedPointer<CacheEntry> gapfill(new CacheEntry(nextexp, entry->start - 1));
+            result.append(gapfill);
+
+            /* MAKE THE REQUEST HERE. */
+
+            i = entries->insert(i, gapfill->end, gapfill);
+        }
+        result.append(entry);
+        nextexp = entry->end + 1;
+    }
 }

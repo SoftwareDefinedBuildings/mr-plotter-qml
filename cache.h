@@ -2,14 +2,15 @@
 #define CACHE_H
 
 #include <cstdint>
+#include <functional>
 
 #include <QOpenGLFunctions>
-#include <QFuture>
 #include <QHash>
 #include <QMap>
 #include <QUuid>
 
-#define MAX_PW 62
+/* One more than the maximum pointwidth. */
+#define PW_MAX 63
 
 struct statpt
 {
@@ -34,7 +35,8 @@ struct statpt
 class CacheEntry
 {
 public:
-    /* Constructs a placeholder entry (no data). */
+    /* Constructs a placeholder entry (no data). The start and end
+     * are both inclusive. */
     CacheEntry(int64_t startRange, int64_t endRange);
 
     /* Destructs this non-placeholder cache entry. */
@@ -54,6 +56,8 @@ public:
                     float yEnd, int64_t tStart, int64_t tEnd,
                     GLint axisMatUniform, GLint axisVecUniform,
                     GLint tstripUniform, GLint opacityUniform);
+
+    friend bool operator<(const CacheEntry& left, const CacheEntry& right);
 
     const int64_t start;
     const int64_t end;
@@ -94,15 +98,17 @@ class Cache
 {
 public:
     Cache();
-    QFuture<QList<QSharedPointer<CacheEntry> > > requestData(QUuid& uuid, int64_t start, int64_t end, uint8_t pw);
+    void requestData(QUuid& uuid, int64_t start, int64_t end, uint8_t pw,
+                     std::function<void(QList<QSharedPointer<CacheEntry>>)> callback);
 
 signals:
     /* Signalled when new data is received from the database. */
     void dataReady(QUuid& uuid, int64_t start, int64_t end, uint8_t pw, QSharedPointer<CacheEntry>);
 
 private:
-    QHash<QUuid, QMap<int64_t, QSharedPointer<CacheEntry> >* > cache; /* Cached data. */
-    QHash<uint64_t, QSharedPointer<CacheEntry> > outstanding; /* Outstanding requests. */
+    /* The QMap here maps a timestamp to the cache entry that _ends_ at that timestamp. */
+    QHash<QUuid, QMap<int64_t, QSharedPointer<CacheEntry>>*> cache; /* Cached data. */
+    QHash<uint64_t, QSharedPointer<CacheEntry>> outstanding; /* Outstanding requests. */
 };
 
 #endif // CACHE_H
