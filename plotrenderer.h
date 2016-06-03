@@ -38,7 +38,7 @@ private:
     const PlotArea* pa;
 
     /* For now... */
-    QSharedPointer<CacheEntry> todraw;
+    QList<QSharedPointer<CacheEntry>> todraw;
 };
 
 #endif // PLOTRENDERER_H

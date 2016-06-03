@@ -1,11 +1,14 @@
 #include "plotarea.h"
 #include "plotrenderer.h"
 
+#include "cache.h"
+
 #include <QQuickFramebufferObject>
 #include <QSharedPointer>
 
-PlotArea::PlotArea()
+PlotArea::PlotArea() : c(Cache())
 {
+
     struct statpt data[6];
 
     data[0].time = 0;
@@ -48,7 +51,12 @@ PlotArea::PlotArea()
     ent->cacheData(data, 6, 5, QSharedPointer<CacheEntry>(nullptr),
                    QSharedPointer<CacheEntry>(nullptr));
 
-    this->curr = QSharedPointer<CacheEntry>(ent);
+    QUuid u;
+    this->c.requestData(u, 100, 200, 0, [this](QList<QSharedPointer<CacheEntry>> lst)
+    {
+        this->curr = lst;
+        this->update();
+    });
 }
 
 QQuickFramebufferObject::Renderer* PlotArea::createRenderer() const

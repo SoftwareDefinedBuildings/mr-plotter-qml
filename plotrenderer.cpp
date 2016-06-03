@@ -138,11 +138,11 @@ void PlotRenderer::synchronize(QQuickFramebufferObject* plotareafbo)
 {
     PlotArea* plotarea = static_cast<PlotArea*>(plotareafbo);
 
-    if (plotarea->curr)
-    {
-        this->todraw = plotarea->curr;
+    this->todraw = plotarea->curr;
 
-        CacheEntry* ce = this->todraw.data();
+    for (auto iter = this->todraw.begin(); iter != this->todraw.end(); ++iter)
+    {
+        QSharedPointer<CacheEntry>& ce = *iter;
         if (!ce->isPrepared())
         {
             ce->prepare(this);
@@ -177,7 +177,11 @@ void PlotRenderer::render()
     //this->glUniform1f(heightLoc, (float) height);
     //this->glUniform1f(lineHalfWidthLoc, 2.5);
 
-    this->todraw->renderPlot(this, 0, 1, -10, 250, axisMatLoc, axisVecLoc, tstripLoc, opacityLoc);
+    for (auto iter = this->todraw.begin(); iter != this->todraw.end(); ++iter)
+    {
+        QSharedPointer<CacheEntry>& ce = *iter;
+        ce->renderPlot(this, 0, 1, -10, 250, axisMatLoc, axisVecLoc, tstripLoc, opacityLoc);
+    }
 
     this->pa->window()->resetOpenGLState();
 }

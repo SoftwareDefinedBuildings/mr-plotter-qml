@@ -13,7 +13,9 @@ public:
     PlotArea();
     QQuickFramebufferObject::Renderer* createRenderer() const override;
 
-    QSharedPointer<CacheEntry> curr;
+    QList<QSharedPointer<CacheEntry>> curr;
+
+    Cache c;
 };
 
 #endif // PLOTAREA_H
