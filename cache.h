@@ -30,13 +30,13 @@ class CacheEntry
 public:
     /* Constructs a placeholder entry (no data). The start and end
      * are both inclusive. */
-    CacheEntry(int64_t startRange, int64_t endRange);
+    CacheEntry(int64_t startRange, int64_t endRange, uint8_t pwe);
 
     /* Destructs this non-placeholder cache entry. */
     ~CacheEntry();
 
     /* Sets the data for this cache entry. */
-    void cacheData(struct statpt* points, int len, uint8_t pw,
+    void cacheData(struct statpt* points, int len,
                    QSharedPointer<CacheEntry> prev, QSharedPointer<CacheEntry> next);
 
     /* Returns true if CACHEDATA has been called on this entry. */
@@ -80,6 +80,9 @@ private:
     /* The VBO used to render this Cache Entry. */
     GLuint vbo;
 
+    /* Pointwidth exponent. */
+    const uint8_t pwe;
+
     /* True if this cache entry, when rendered, will fill in the gap
      * between this entry and the preceding one.
      */
@@ -102,12 +105,12 @@ public:
     Cache();
     ~Cache();
 
-    void requestData(QUuid& uuid, int64_t start, int64_t end, uint8_t pw,
+    void requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t pw,
                      data_callback_t callback);
 
 signals:
     /* Signalled when new data is received from the database. */
-    void dataReady(QUuid& uuid, int64_t start, int64_t end, uint8_t pw, QSharedPointer<CacheEntry>);
+    void dataReady(const QUuid& uuid, int64_t start, int64_t end, uint8_t pw, QSharedPointer<CacheEntry>);
 
 private:
     uint64_t curr_queryid;

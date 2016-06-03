@@ -20,11 +20,11 @@ class Requester
 public:
     Requester();
 
-    void makeDataRequest(QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
+    void makeDataRequest(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
                          std::function<void(struct statpt*, int len)> callback);
 
 private:
-    void sendRequest(QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
+    void sendRequest(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
                      std::function<void(struct statpt*, int len)> callback);
 };
 

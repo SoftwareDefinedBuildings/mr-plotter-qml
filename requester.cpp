@@ -21,7 +21,7 @@ Requester::Requester()
  * int the query, or immediately after the last point in the query,
  * those points are also included in the response.
  */
-void Requester::makeDataRequest(QUuid &uuid, int64_t start, int64_t end, uint8_t pwe,
+void Requester::makeDataRequest(const QUuid &uuid, int64_t start, int64_t end, uint8_t pwe,
                                 std::function<void (statpt *, int)> callback)
 {
     int64_t pw = ((int64_t) 1) << pwe;
@@ -57,7 +57,7 @@ void Requester::makeDataRequest(QUuid &uuid, int64_t start, int64_t end, uint8_t
 }
 
 /* Does the work of constructing the message and sending it. */
-inline void Requester::sendRequest(QUuid &uuid, int64_t start, int64_t end, uint8_t pwe,
+inline void Requester::sendRequest(const QUuid &uuid, int64_t start, int64_t end, uint8_t pwe,
                                    std::function<void (statpt *, int)> callback)
 {
     /* For now, this is just a simulator. */

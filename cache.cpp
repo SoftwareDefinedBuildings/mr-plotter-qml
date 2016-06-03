@@ -29,8 +29,12 @@ struct cachedpt
     int32_t _pad;
 } __attribute__((packed, aligned(16)));
 
-CacheEntry::CacheEntry(int64_t startRange, int64_t endRange) : start(startRange), end(endRange)
+CacheEntry::CacheEntry(int64_t startRange, int64_t endRange, uint8_t pwexp) :
+    start(startRange), end(endRange), pwe(pwexp)
 {
+    Q_ASSERT(pwexp < PW_MAX);
+    Q_ASSERT(endRange >= startRange);
+
     this->cached = nullptr;
     this->cachedlen = 0;
     this->vbo = 0;
@@ -63,21 +67,20 @@ CacheEntry::~CacheEntry()
  * first point, or a point immediately to the right of and adjacent to
  * the last point in the range, those points should also be included.
  */
-void CacheEntry::cacheData(struct statpt* spoints, int len, uint8_t pwe,
+void CacheEntry::cacheData(struct statpt* spoints, int len,
                            QSharedPointer<CacheEntry> prev, QSharedPointer<CacheEntry> next)
 {
     Q_ASSERT(this->cached == nullptr);
-    Q_ASSERT(pwe < PW_MAX);
+
+    int64_t pw = ((int64_t) 1) << this->pwe;
+    int64_t pwmask = ~(pw - 1);
+
+    int64_t halfpw = pw >> 1;
 
     this->joinsPrev = (prev != nullptr && !prev->joinsNext && prev->cachedlen != 0);
     this->joinsNext = (next != nullptr && !next->joinsPrev && next->cachedlen != 0);
 
     this->epoch = (spoints[len - 1].time >> 1) + (spoints[0].time >> 1);
-
-    int64_t pw = ((int64_t) 1) << pwe;
-    int64_t pwmask = ~(pw - 1);
-
-    int64_t halfpw = pw >> 1;
 
     bool prevfirst = (len > 0 && spoints[0].time == ((start - halfpw - 1) & pwmask));
     bool nextlast = (len > 0 && spoints[len - 1].time == (((end - halfpw) & pwmask) + pw));
@@ -114,7 +117,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len, uint8_t pwe,
      * memory than we really need. If we make it too low, then we'll write past the end
      * of the buffer.
      */
-    this->cachedlen = qMin((((int64_t) truelen) << 1), ((end - start) >> pwe) + 3);
+    this->cachedlen = qMin((((int64_t) truelen) << 1), ((end - start) >> this->pwe) + 3);
     this->cached = new struct cachedpt[cachedlen];
 
     float prevcount = prevfirst ? spoints[0].count : 0.0f;
@@ -240,7 +243,7 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
         matrix[8] = 1.0f;
 
         /* Fill in the offset vector. */
-        vector[0] = (float) (tStart - epoch); // TODO
+        vector[0] = (float) (tStart - epoch - ((1 << pwe) >> 1));
         vector[1] = yStart;
 
         /* Now, given a vector <time, value>, where time is relative to
@@ -347,7 +350,7 @@ Cache::~Cache()
  * associated to each chunk of data we get back, but it provides
  * for a cleaner API overall.
  */
-void Cache::requestData(QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
+void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
                         data_callback_t callback)
 {
     Q_ASSERT(pwe < PW_MAX);
@@ -401,7 +404,7 @@ void Cache::requestData(QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
 
         {
             /* There's a gap that needs to be filled. */
-            QSharedPointer<CacheEntry> gapfill(new CacheEntry(nextexp, filluntil));
+            QSharedPointer<CacheEntry> gapfill(new CacheEntry(nextexp, filluntil, pwe));
             result->append(gapfill);
 
             this->outstanding[queryid].first++;
@@ -409,9 +412,9 @@ void Cache::requestData(QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
 
             /* MAKE THE REQUEST HERE. */
             this->requester->makeDataRequest(uuid, gapfill->start, gapfill->end, pwe,
-                                             [this, gapfill, prev, entry, pwe, callback, result](struct statpt* points, int len)
+                                             [this, gapfill, prev, entry, callback, result](struct statpt* points, int len)
             {
-                gapfill->cacheData(points, len, pwe, prev, entry);
+                gapfill->cacheData(points, len, prev, entry);
                 QHash<QSharedPointer<CacheEntry>, uint64_t>::const_iterator i;
                 for (i = this->loading.find(gapfill); i != this->loading.end() && i.key() == gapfill; ++i) {
                     if (--this->outstanding[i.value()].first == 0)

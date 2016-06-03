@@ -95,7 +95,7 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
             "    }                          \n"
             "    else                       \n"
             "    {                          \n"
-            "        gl_FragColor = vec4(0.0, 1.0, 0.0, opacity);   \n"
+            "        gl_FragColor = vec4(0.0, 0.0, 1.0, opacity);   \n"
             "    }                          \n"
             "}                              \n";
 
@@ -180,7 +180,7 @@ void PlotRenderer::render()
     for (auto iter = this->todraw.begin(); iter != this->todraw.end(); ++iter)
     {
         QSharedPointer<CacheEntry>& ce = *iter;
-        ce->renderPlot(this, 0, 1, -10, 250, axisMatLoc, axisVecLoc, tstripLoc, opacityLoc);
+        ce->renderPlot(this, -2, 2, -10, 250, axisMatLoc, axisVecLoc, tstripLoc, opacityLoc);
     }
 
     this->pa->window()->resetOpenGLState();

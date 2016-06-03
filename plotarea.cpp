@@ -8,7 +8,7 @@
 
 PlotArea::PlotArea() : c(Cache())
 {
-
+    /*
     struct statpt data[6];
 
     data[0].time = 0;
@@ -49,13 +49,18 @@ PlotArea::PlotArea() : c(Cache())
 
     CacheEntry* ent = new CacheEntry(-10, 250);
     ent->cacheData(data, 6, 5, QSharedPointer<CacheEntry>(nullptr),
-                   QSharedPointer<CacheEntry>(nullptr));
+                   QSharedPointer<CacheEntry>(nullptr));*/
 
     QUuid u;
-    this->c.requestData(u, 100, 200, 0, [this](QList<QSharedPointer<CacheEntry>> lst)
+    this->c.requestData(u, 100, 200, 2, [this, u](QList<QSharedPointer<CacheEntry>> lst)
     {
         this->curr = lst;
         this->update();
+        this->c.requestData(u, -10, 250, 2, [this](QList<QSharedPointer<CacheEntry>> lst)
+        {
+            this->curr = lst;
+            this->update();
+        });
     });
 }
 
