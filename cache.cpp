@@ -114,7 +114,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len, uint8_t pwe,
      * memory than we really need. If we make it too low, then we'll write past the end
      * of the buffer.
      */
-    this->cachedlen = qMin((1 + (((int64_t) truelen) << 1)), ((end - start) >> pwe) + 3);
+    this->cachedlen = 2 * qMin((1 + (((int64_t) truelen) << 1)), ((end - start) >> pwe) + 3);
     this->cached = new struct cachedpt[cachedlen];
 
     float prevcount = prevfirst ? spoints[0].count : 0.0f;
@@ -192,7 +192,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len, uint8_t pwe,
 
 bool CacheEntry::isPlaceholder()
 {
-    return this->cached != nullptr;
+    return this->cached == nullptr;
 }
 
 void CacheEntry::prepare(QOpenGLFunctions* funcs)
@@ -346,7 +346,6 @@ Cache::~Cache()
  * associated to each chunk of data we get back, but it provides
  * for a cleaner API overall.
  */
-// NOTE: THERE IS A BUG IN THIS FUNCTION. It may not notice the last gap.
 void Cache::requestData(QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
                         data_callback_t callback)
 {
@@ -374,21 +373,34 @@ void Cache::requestData(QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
      */
 
     int64_t nextexp = start; // expected start of the next entry
-    for (i = entries->lowerBound(start); i != entries->end(); ++i)
+    int64_t filluntil;
+
+    QSharedPointer<CacheEntry> nullpointer;
+    QSharedPointer<CacheEntry> prev = nullpointer;
+    for (i = entries->lowerBound(start); nextexp <= end; ++i)
     {
-        QSharedPointer<CacheEntry>& entry = i.value();
-        if (entry->start > end)
+         QSharedPointer<CacheEntry> entry = (i == entries->end() ? nullpointer : i.value());
+
+        if (entry == nullpointer)
         {
-            break;
+            filluntil = end;
+        }
+        else
+        {
+            /* Check that adjacent cache entries do not overlap. */
+            Q_ASSERT(nextexp == start || entry->start >= nextexp);
+
+            if (entry->start <= nextexp)
+            {
+                goto nogap;
+            }
+
+            filluntil = qMin(entry->start - 1, end);
         }
 
-        /* Check that adjacent cache entries do not overlap. */
-        Q_ASSERT(nextexp == start || entry->start >= nextexp);
-
-        if (entry->start > nextexp)
         {
             /* There's a gap that needs to be filled. */
-            QSharedPointer<CacheEntry> gapfill(new CacheEntry(nextexp, entry->start - 1));
+            QSharedPointer<CacheEntry> gapfill(new CacheEntry(nextexp, filluntil));
             result->append(gapfill);
 
             this->outstanding[queryid].first++;
@@ -396,10 +408,9 @@ void Cache::requestData(QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
 
             /* MAKE THE REQUEST HERE. */
             this->requester->makeDataRequest(uuid, gapfill->start, gapfill->end, pwe,
-                                             [this, gapfill, entry, pwe, callback, result](struct statpt* points, int len)
+                                             [this, gapfill, prev, entry, pwe, callback, result](struct statpt* points, int len)
             {
-                // FIXME: These shouldn't be nullptrs!
-                gapfill->cacheData(points, len, pwe, QSharedPointer<CacheEntry>(nullptr), entry);
+                gapfill->cacheData(points, len, pwe, prev, entry);
                 QHash<QSharedPointer<CacheEntry>, uint64_t>::const_iterator i;
                 for (i = this->loading.find(gapfill); i != this->loading.end() && i.key() == gapfill; ++i) {
                     if (--this->outstanding[i.value()].first == 0)
@@ -412,6 +423,13 @@ void Cache::requestData(QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
             });
 
             i = entries->insert(i, gapfill->end, gapfill);
+            i++;
+        }
+
+    nogap:
+        if (entry == nullpointer || entry->start > end)
+        {
+            break;
         }
 
         if (entry->isPlaceholder())
@@ -421,6 +439,8 @@ void Cache::requestData(QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
 
         result->append(entry);
         nextexp = entry->end + 1;
+
+        prev = entry;
     }
 
     if (this->outstanding[queryid].first == 0)
