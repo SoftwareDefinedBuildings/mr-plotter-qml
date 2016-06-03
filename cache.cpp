@@ -106,15 +106,15 @@ void CacheEntry::cacheData(struct statpt* spoints, int len, uint8_t pwe,
 
     /* We can get two distinct bounds on the number of cached points.
      * In the worst case, we will create a single "gap point" for every point we consider
-     * in the spoints array, plus one additional at the end. We can also say that, in the
-     * worst case, we will have one point for every possible statistical point between
-     * end and start (i.e. ((end - start) >> pwe) + 1), plus one additional point to the
-     * left and one additional point to the right. We take the smaller of the two to use
-     * the tighter upper bound. If we make this too high it's OK; we just allocate more
+     * in the spoints array. We can also say that, in the worst case, we will have one
+     * point for every possible statistical point between end and start
+     * (i.e. ((end - start) >> pwe) + 1), plus one additional point to the left and
+     * one additional point to the right. We take the smaller of the two to use the
+     * tighter upper bound. If we make this too high it's OK; we just allocate more
      * memory than we really need. If we make it too low, then we'll write past the end
      * of the buffer.
      */
-    this->cachedlen = 2 * qMin((1 + (((int64_t) truelen) << 1)), ((end - start) >> pwe) + 3);
+    this->cachedlen = qMin((((int64_t) truelen) << 1), ((end - start) >> pwe) + 3);
     this->cached = new struct cachedpt[cachedlen];
 
     float prevcount = prevfirst ? spoints[0].count : 0.0f;
@@ -152,6 +152,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len, uint8_t pwe,
         if ((i == truelen - 1 && !nextlast) || (i != truelen - 1 && inputs[i + 1].time > exptime))
         {
             j++;
+            qDebug("gap");
 
             Q_ASSERT(j < this->cachedlen);
 

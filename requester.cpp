@@ -44,7 +44,7 @@ void Requester::makeDataRequest(QUuid &uuid, int64_t start, int64_t end, uint8_t
      * widen our range a little bit.
      */
 
-    truestart -= pw;
+    truestart -= 1;
     trueend += pw;
 
     /* WARNING: The above is not the same as saying trueend = end + halfpw.
