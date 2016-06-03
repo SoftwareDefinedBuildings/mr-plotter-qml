@@ -1,4 +1,5 @@
 #include "cache.h"
+#include "requester.h"
 
 #include <cstdint>
 #include <functional>
@@ -56,27 +57,30 @@ CacheEntry::~CacheEntry()
     }
 }
 
-/* SPOINTS should contain statistical points for the time range of this
- * cache entry. If there is a point immediately to the left of and
- * adjacent to the first point, and a point immediately to the right of
- * and adjacent to the last point in the range, those points should also
- * be included.
+/* SPOINTS should contain all statistical points where the MIDPOINT is
+ * in the (closed) interval [start, end] of this cache entry.
+ * If there is a point immediately to the left of and adjacent to the
+ * first point, or a point immediately to the right of and adjacent to
+ * the last point in the range, those points should also be included.
  */
-void CacheEntry::cacheData(struct statpt* spoints, int len, uint8_t pw,
-                           CacheEntry* prev, CacheEntry* next)
+void CacheEntry::cacheData(struct statpt* spoints, int len, uint8_t pwe,
+                           QSharedPointer<CacheEntry> prev, QSharedPointer<CacheEntry> next)
 {
     Q_ASSERT(this->cached == nullptr);
-    Q_ASSERT(pw < PW_MAX);
+    Q_ASSERT(pwe < PW_MAX);
 
     this->joinsPrev = (prev != nullptr && !prev->joinsNext && prev->cachedlen != 0);
     this->joinsNext = (next != nullptr && !next->joinsPrev && next->cachedlen != 0);
 
     this->epoch = (spoints[len - 1].time >> 1) + (spoints[0].time >> 1);
 
-    int64_t expected_gap = ((int64_t) 1) << pw;
-    int64_t pwmask = ~(expected_gap - 1);
-    bool prevfirst = (len > 0 && spoints[0].time == ((start - 1) & pwmask));
-    bool nextlast = (len > 0 && spoints[len - 1].time == ((end & pwmask) + expected_gap));
+    int64_t pw = ((int64_t) 1) << pwe;
+    int64_t pwmask = ~(pw - 1);
+
+    int64_t halfpw = pw >> 1;
+
+    bool prevfirst = (len > 0 && spoints[0].time == ((start - halfpw - 1) & pwmask));
+    bool nextlast = (len > 0 && spoints[len - 1].time == (((end - halfpw) & pwmask) + pw));
 
     int truelen = len;
     statpt* inputs = spoints;
@@ -104,13 +108,13 @@ void CacheEntry::cacheData(struct statpt* spoints, int len, uint8_t pw,
      * In the worst case, we will create a single "gap point" for every point we consider
      * in the spoints array, plus one additional at the end. We can also say that, in the
      * worst case, we will have one point for every possible statistical point between
-     * end and start (i.e. ((end - start) >> pw) + 1), plus one additional point to the
+     * end and start (i.e. ((end - start) >> pwe) + 1), plus one additional point to the
      * left and one additional point to the right. We take the smaller of the two to use
      * the tighter upper bound. If we make this too high it's OK; we just allocate more
      * memory than we really need. If we make it too low, then we'll write past the end
      * of the buffer.
      */
-    this->cachedlen = qMin((1 + ((int64_t) truelen) << 1), ((end - start) >> pw) + 3);
+    this->cachedlen = qMin((1 + (((int64_t) truelen) << 1)), ((end - start) >> pwe) + 3);
     this->cached = new struct cachedpt[cachedlen];
 
     float prevcount = prevfirst ? spoints[0].count : 0.0f;
@@ -144,7 +148,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len, uint8_t pw,
          * Gaps between two cache entries and handled by the first cache entry, so we don't
          * have to worry about inserting a gap before the first point.
          */
-        exptime = prevtime + expected_gap;
+        exptime = prevtime + pw;
         if ((i == truelen - 1 && !nextlast) || (i != truelen - 1 && inputs[i + 1].time > exptime))
         {
             j++;
@@ -184,6 +188,11 @@ void CacheEntry::cacheData(struct statpt* spoints, int len, uint8_t pw,
     }
 
     this->cachedlen = j; // The remaining were extra...
+}
+
+bool CacheEntry::isPlaceholder()
+{
+    return this->cached != nullptr;
 }
 
 void CacheEntry::prepare(QOpenGLFunctions* funcs)
@@ -298,9 +307,27 @@ bool operator<(const CacheEntry& left, const CacheEntry& right)
     return left.start < right.start;
 }
 
-Cache::Cache() : cache(QHash<QUuid, QMap<int64_t, QSharedPointer<CacheEntry>>*>()),
-    outstanding(QHash<uint64_t, QSharedPointer<CacheEntry>>())
+uint qHash(const CacheEntry& key, uint seed)
 {
+    return qHash(key.start) ^ qHash(key.end) ^ seed;
+}
+
+uint qHash(const QSharedPointer<CacheEntry>& key, uint seed)
+{
+    return qHash(key.data(), seed);
+}
+
+Cache::Cache() : cache(QHash<QUuid, QMap<int64_t, QSharedPointer<CacheEntry>>*>()),
+    outstanding(QHash<uint64_t, QPair<uint64_t, std::function<void()>>>()),
+    loading(QHash<QSharedPointer<CacheEntry>, uint64_t>())
+{
+    this->curr_queryid = 0;
+    this->requester = new Requester;
+}
+
+Cache::~Cache()
+{
+    delete this->requester;
 }
 
 /* There are two ways we could do this.
@@ -319,20 +346,32 @@ Cache::Cache() : cache(QHash<QUuid, QMap<int64_t, QSharedPointer<CacheEntry>>*>(
  * associated to each chunk of data we get back, but it provides
  * for a cleaner API overall.
  */
-void Cache::requestData(QUuid& uuid, int64_t start, int64_t end, uint8_t pw,
-                        std::function<void(QList<QSharedPointer<CacheEntry>>)> callback)
+// NOTE: THERE IS A BUG IN THIS FUNCTION. It may not notice the last gap.
+void Cache::requestData(QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
+                        data_callback_t callback)
 {
-    Q_ASSERT(pw < PW_MAX);
-    QList<QSharedPointer<CacheEntry>> result;
+    Q_ASSERT(pwe < PW_MAX);
+    QList<QSharedPointer<CacheEntry>>* result = new QList<QSharedPointer<CacheEntry>>;
 
-    QMap<int64_t, QSharedPointer<CacheEntry>>*& pwmap = this->cache[uuid];
-    if (pwmap == nullptr)
+    QMap<int64_t, QSharedPointer<CacheEntry>>*& pwemap = this->cache[uuid];
+    if (pwemap == nullptr)
     {
-        pwmap = new QMap<int64_t, QSharedPointer<CacheEntry>>[PW_MAX];
+        pwemap = new QMap<int64_t, QSharedPointer<CacheEntry>>[PW_MAX];
     }
 
-    QMap<int64_t, QSharedPointer<CacheEntry>>* entries = &pwmap[pw];
+    QMap<int64_t, QSharedPointer<CacheEntry>>* entries = &pwemap[pwe];
     QMap<int64_t, QSharedPointer<CacheEntry>>::iterator i;
+
+    uint64_t queryid = this->curr_queryid++;
+    this->outstanding[queryid] = QPair<uint64_t, std::function<void()>>(0, [callback, result]()
+    {
+        callback(*result);
+        delete result;
+    });
+
+    /* I'm assuming that the makeDataRequest callbacks ALWAYS happen
+     * asynchronously.
+     */
 
     int64_t nextexp = start; // expected start of the next entry
     for (i = entries->lowerBound(start); i != entries->end(); ++i)
@@ -350,13 +389,46 @@ void Cache::requestData(QUuid& uuid, int64_t start, int64_t end, uint8_t pw,
         {
             /* There's a gap that needs to be filled. */
             QSharedPointer<CacheEntry> gapfill(new CacheEntry(nextexp, entry->start - 1));
-            result.append(gapfill);
+            result->append(gapfill);
+
+            this->outstanding[queryid].first++;
+            this->loading.insertMulti(gapfill, queryid);
 
             /* MAKE THE REQUEST HERE. */
+            this->requester->makeDataRequest(uuid, gapfill->start, gapfill->end, pwe,
+                                             [this, gapfill, entry, pwe, callback, result](struct statpt* points, int len)
+            {
+                // FIXME: These shouldn't be nullptrs!
+                gapfill->cacheData(points, len, pwe, QSharedPointer<CacheEntry>(nullptr), entry);
+                QHash<QSharedPointer<CacheEntry>, uint64_t>::const_iterator i;
+                for (i = this->loading.find(gapfill); i != this->loading.end() && i.key() == gapfill; ++i) {
+                    if (--this->outstanding[i.value()].first == 0)
+                    {
+                        auto tocall = this->outstanding[i.value()].second;
+                        this->outstanding.remove(i.value());
+                        tocall();
+                    }
+                }
+            });
 
             i = entries->insert(i, gapfill->end, gapfill);
         }
-        result.append(entry);
+
+        if (entry->isPlaceholder())
+        {
+            this->loading.insert(entry, queryid);
+        }
+
+        result->append(entry);
         nextexp = entry->end + 1;
+    }
+
+    if (this->outstanding[queryid].first == 0)
+    {
+        /* Cache hit! */
+        callback(*result);
+        delete result;
+
+        this->outstanding.remove(queryid);
     }
 }

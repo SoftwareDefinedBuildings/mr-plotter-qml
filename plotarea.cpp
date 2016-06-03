@@ -45,7 +45,8 @@ PlotArea::PlotArea()
     data[5].count = 6;
 
     CacheEntry* ent = new CacheEntry(-10, 250);
-    ent->cacheData(data, 6, 5, nullptr, nullptr);
+    ent->cacheData(data, 6, 5, QSharedPointer<CacheEntry>(nullptr),
+                   QSharedPointer<CacheEntry>(nullptr));
 
     this->curr = QSharedPointer<CacheEntry>(ent);
 }

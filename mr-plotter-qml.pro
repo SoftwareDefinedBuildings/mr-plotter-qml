@@ -6,7 +6,8 @@ CONFIG += c++11
 SOURCES += main.cpp \
     plotarea.cpp \
     plotrenderer.cpp \
-    cache.cpp
+    cache.cpp \
+    requester.cpp
 
 RESOURCES += qml.qrc
 
@@ -19,7 +20,8 @@ include(deployment.pri)
 HEADERS += \
     plotarea.h \
     plotrenderer.h \
-    cache.h
+    cache.h \
+    requester.h
 
 DISTFILES += \
     README.md

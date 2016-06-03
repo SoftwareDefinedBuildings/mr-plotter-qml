@@ -9,17 +9,10 @@
 #include <QMap>
 #include <QUuid>
 
+#include "requester.h"
+
 /* One more than the maximum pointwidth. */
 #define PW_MAX 63
-
-struct statpt
-{
-    int64_t time;
-    double min;
-    double mean;
-    double max;
-    uint64_t count;
-};
 
 /* A Cache Entry represents a set of contiguous data cached in memory.
  *
@@ -43,7 +36,11 @@ public:
     ~CacheEntry();
 
     /* Sets the data for this cache entry. */
-    void cacheData(struct statpt* points, int len, uint8_t pw, CacheEntry* prev, CacheEntry* next);
+    void cacheData(struct statpt* points, int len, uint8_t pw,
+                   QSharedPointer<CacheEntry> prev, QSharedPointer<CacheEntry> next);
+
+    /* Returns true if CACHEDATA has been called on this entry. */
+    bool isPlaceholder();
 
     /* Prepares this cache entry for rendering. */
     void prepare(QOpenGLFunctions* funcs);
@@ -58,6 +55,9 @@ public:
                     GLint tstripUniform, GLint opacityUniform);
 
     friend bool operator<(const CacheEntry& left, const CacheEntry& right);
+
+    friend uint qHash(const CacheEntry& key, uint seed);
+    friend uint qHash(const QSharedPointer<CacheEntry>& key, uint seed);
 
     const int64_t start;
     const int64_t end;
@@ -94,21 +94,28 @@ private:
     bool prepared;
 };
 
+typedef std::function<void(QList<QSharedPointer<CacheEntry>>)> data_callback_t;
+
 class Cache
 {
 public:
     Cache();
+    ~Cache();
+
     void requestData(QUuid& uuid, int64_t start, int64_t end, uint8_t pw,
-                     std::function<void(QList<QSharedPointer<CacheEntry>>)> callback);
+                     data_callback_t callback);
 
 signals:
     /* Signalled when new data is received from the database. */
     void dataReady(QUuid& uuid, int64_t start, int64_t end, uint8_t pw, QSharedPointer<CacheEntry>);
 
 private:
+    uint64_t curr_queryid;
     /* The QMap here maps a timestamp to the cache entry that _ends_ at that timestamp. */
     QHash<QUuid, QMap<int64_t, QSharedPointer<CacheEntry>>*> cache; /* Cached data. */
-    QHash<uint64_t, QSharedPointer<CacheEntry>> outstanding; /* Outstanding requests. */
+    QHash<uint64_t, QPair<uint64_t, std::function<void()>>> outstanding; /* Maps query id to the number of outstanding requests. */
+    QHash<QSharedPointer<CacheEntry>, uint64_t> loading; /* Maps cache entry to the list of queries waiting for it. */
+    Requester* requester;
 };
 
 #endif // CACHE_H
