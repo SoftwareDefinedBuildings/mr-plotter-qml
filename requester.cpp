@@ -53,7 +53,7 @@ void Requester::makeDataRequest(QUuid &uuid, int64_t start, int64_t end, uint8_t
 
     /* Now, we're ready to actually send out the request. */
 
-    this->sendRequest(uuid, start, end, pwe, callback);
+    this->sendRequest(uuid, truestart, trueend, pwe, callback);
 }
 
 /* Does the work of constructing the message and sending it. */
@@ -71,7 +71,7 @@ inline void Requester::sendRequest(QUuid &uuid, int64_t start, int64_t end, uint
 
     Q_ASSERT(end >= start);
 
-    int numpts = (end - start + 1) >> pwe;
+    int numpts = ((end - start) >> pwe) + 1;
     struct statpt* toreturn = new struct statpt[numpts];
 
     for (int i = 0; i < numpts; i++)
@@ -79,23 +79,28 @@ inline void Requester::sendRequest(QUuid &uuid, int64_t start, int64_t end, uint
         double min = INFINITY;
         double max = -INFINITY;
         double mean = 0.0;
+
+        int64_t stime = start + (i << pwe);
+
         for (int j = 0; j < pw; j++)
         {
-            double value = cos(i * PI / 100) + 0.5 * cos(i * PI / 63) + 0.3 * cos(i * PI / 7);
+            int64_t time = stime + j;
+            double value = cos(time * PI / 100) + 0.5 * cos(time * PI / 63) + 0.3 * cos(time * PI / 7);
             min = fmin(min, value);
             max = fmax(max, value);
             mean += value;
         }
         mean /= pw;
 
-        toreturn[i].time = start + (i << pwe);
+        toreturn[i].time = stime;
         toreturn[i].min = min;
         toreturn[i].mean = mean;
         toreturn[i].max = max;
-        toreturn[i].count = (uint64_t) pw;
+        toreturn[i].count = (uint64_t) pw;    
     }
 
-    QTimer::singleShot(1000, [callback, toreturn, numpts]() {
+    QTimer::singleShot(1000, [callback, toreturn, numpts]()
+    {
         callback(toreturn, numpts);
     });
 }
