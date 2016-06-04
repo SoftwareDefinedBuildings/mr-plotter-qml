@@ -39,8 +39,13 @@ private:
     int64_t timeaxis_start_beforescroll;
     int64_t timeaxis_end_beforescroll;
 
-    double pixelToTime;
     int scrollstart;
+
+    /* State for touch events. */
+    int initleft;
+    int initright;
+
+    double pixelToTime;
 
     QCursor openhand;
     QCursor closedhand;

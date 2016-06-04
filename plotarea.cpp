@@ -107,7 +107,8 @@ void PlotArea::mouseMoveEvent(QMouseEvent* event)
 
 void PlotArea::mouseReleaseEvent(QMouseEvent* event)
 {
-    //qDebug("Mouse released!: %p", event);
+    Q_UNUSED(event);
+
     this->setCursor(this->openhand);
     this->update();
 
@@ -116,7 +117,151 @@ void PlotArea::mouseReleaseEvent(QMouseEvent* event)
 
 void PlotArea::touchEvent(QTouchEvent* event)
 {
-    qDebug("Touched by %d: %p", event->touchPoints().size(), event);
+    const QList<QTouchEvent::TouchPoint>& tpoints = event->touchPoints();
+
+    int numtouching = 0;
+    double xleft;
+    double xright;
+    for (auto i = tpoints.constBegin(); i != tpoints.end() && numtouching < 2; ++i)
+    {
+        const QTouchEvent::TouchPoint& pt = *i;
+        if (pt.state() != Qt::TouchPointReleased)
+        {
+            if (++numtouching == 1)
+            {
+                xleft = (double) pt.pos().x();
+            }
+            else
+            {
+                xright = (double) pt.pos().x();
+                if (xright < xleft)
+                {
+                    double temp = xleft;
+                    xleft = xright;
+                    xright = temp;
+                }
+            }
+        }
+    }
+
+    /* event->touchPointStates() returns a bitfield of flags, so by
+     * checking for equality, we're checking if a certain event
+     * is the only event that happened.
+     */
+    if ((event->touchPointStates() == Qt::TouchPointPressed))
+    {
+        /* The user touched his or her finger(s) to the screen, when
+         * there was previously nothing touching the screen.
+         */
+        if (numtouching == 1)
+        {
+            /* Start scrolling. */
+        }
+        else
+        {
+            /* Start zooming. */
+            this->initright = xright;
+        }
+
+        this->initleft = xleft;
+        this->timeaxis_start_beforescroll = this->timeaxis_start;
+        this->timeaxis_end_beforescroll = this->timeaxis_end;
+    }
+    else if ((event->touchPointStates() & Qt::TouchPointPressed) != 0)
+    {
+        /* The user touched his or her finger(s) to the screen, but
+         * there were already fingers touching the screen. */
+        if (numtouching == 2)
+        {
+            /* Start zooming, stop scrolling. */
+            this->initleft = xleft;
+            this->initright = xright;
+            this->timeaxis_start_beforescroll = this->timeaxis_start;
+            this->timeaxis_end_beforescroll = this->timeaxis_end;
+        }
+    }
+
+    if (event->touchPointStates() == Qt::TouchPointReleased)
+    {
+        /* The user removed his or her finger(s) from the screen, and
+         * now there are no fingers touching the screen.
+         */
+        this->fullUpdateAsync();
+        return;
+    }
+    else if ((event->touchPointStates() & Qt::TouchPointReleased) != 0)
+    {
+        /* The user removed his or her finger(s) from the screen, but
+         * there are still fingers touching the screen.
+         */
+        if (numtouching == 1)
+        {
+            /* Stop zooming, start scrolling. */
+            this->initleft = xleft;
+            this->timeaxis_start_beforescroll = this->timeaxis_start;
+            this->timeaxis_end_beforescroll = this->timeaxis_end;
+        }
+    }
+
+    /* Calculate the coordinates on the old screen of the left and right
+     * boundaries of the new screen.
+     *
+     * Let one "gap" be the distance between the two touchpoints on the
+     * new screen.
+     */
+    double width = this->width();
+
+    if (numtouching == 1)
+    {
+        int deltapixels = xleft - initleft;
+        int64_t deltatime = (int64_t) (0.5 + (this->timeaxis_end_beforescroll - this->timeaxis_start_beforescroll) / this->width() * deltapixels);
+        this->timeaxis_start= this->timeaxis_start_beforescroll - deltatime;
+        this->timeaxis_end = this->timeaxis_end_beforescroll - deltatime;
+        this->update();
+        return;
+    }
+    else
+    {
+        double oldgap = (initright - initleft);
+        double newgap = (xright - xleft);
+
+        /* How many gaps to the left of the left touchpoint was the left
+         * boundary of the screen, before any transformation?
+         */
+        double initleftgapdist = initleft / oldgap;
+
+        /* The left boundary of the old screen, in the coordinates of the
+         * new screen. */
+        double oldleftnewscreen = xleft - initleftgapdist * newgap;
+
+        /* How many gaps to the right of the right touchpoint was the right
+         * boundary of the screen, before any transformation?
+         */
+        double initrightgapdist = (width - initright) / oldgap;
+
+        /* The right boundary of the old screen, in the coordinates of the
+         * new screen.
+         */
+        double oldrightnewscreen = xright + initrightgapdist * newgap;
+
+        /* The width of the old screen, measured in pixels on the new
+         * screen.
+         */
+        double oldwidthnewscreen = oldrightnewscreen - oldleftnewscreen;
+
+        /* The left coordinate of the new screen, in the coordinates of
+         * the old screen.
+         */
+        double newleftoldscreen = -oldleftnewscreen / oldwidthnewscreen * width;
+
+        /* Now we start working with timestamps. Up to this point, we were
+         * only working with screen coordinates.
+         */
+        this->timeaxis_start = this->timeaxis_start_beforescroll + (int64_t) (0.5 + (newleftoldscreen / width) * (this->timeaxis_end_beforescroll - this->timeaxis_start_beforescroll));
+        this->timeaxis_end = this->timeaxis_start + (int64_t) (0.5 + (timeaxis_end_beforescroll - timeaxis_start_beforescroll) * oldgap / newgap);
+
+        this->update();
+    }
 }
 
 void PlotArea::wheelEvent(QWheelEvent* event)
@@ -132,7 +277,7 @@ void PlotArea::wheelEvent(QWheelEvent* event)
     double width = (int64_t) (timeaxis_end - timeaxis_start);
     double xfrac = (((int64_t) xpos) - timeaxis_start) / width;
 
-    double scalefactor = 1.0 + abs(scrollAmt) / 400.0;
+    double scalefactor = 1.0 + abs(scrollAmt) / 512.0;
 
     if (scrollAmt > 0.0)
     {
