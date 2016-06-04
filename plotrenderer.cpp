@@ -146,6 +146,8 @@ void PlotRenderer::synchronize(QQuickFramebufferObject* plotareafbo)
     this->timeaxis_start = plotarea->timeaxis_start;
     this->timeaxis_end = plotarea->timeaxis_end;
 
+    QUuid u;
+    this->todraw = plotarea->curr;
     for (auto iter = this->todraw.begin(); iter != this->todraw.end(); ++iter)
     {
         QSharedPointer<CacheEntry>& ce = *iter;

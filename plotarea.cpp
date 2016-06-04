@@ -8,7 +8,7 @@
 #include <QQuickFramebufferObject>
 #include <QSharedPointer>
 
-PlotArea::PlotArea() : c(), openhand(Qt::OpenHandCursor), closedhand(Qt::ClosedHandCursor)
+PlotArea::PlotArea() : cache(), openhand(Qt::OpenHandCursor), closedhand(Qt::ClosedHandCursor)
 {
     this->setAcceptedMouseButtons(Qt::LeftButton);
     this->setCursor(this->openhand);
@@ -58,7 +58,7 @@ PlotArea::PlotArea() : c(), openhand(Qt::OpenHandCursor), closedhand(Qt::ClosedH
     ent->cacheData(data, 6, 5, QSharedPointer<CacheEntry>(nullptr),
                    QSharedPointer<CacheEntry>(nullptr));*/
 
-    QUuid u;
+    /*QUuid u;
     this->c.requestData(u, 100, 200, 0, [this, u](QList<QSharedPointer<CacheEntry>> lst)
     {
         this->curr = lst;
@@ -68,7 +68,7 @@ PlotArea::PlotArea() : c(), openhand(Qt::OpenHandCursor), closedhand(Qt::ClosedH
             this->curr = lst;
             this->update();
         });
-    });
+    });*/
 }
 
 QQuickFramebufferObject::Renderer* PlotArea::createRenderer() const
@@ -104,4 +104,10 @@ void PlotArea::mouseReleaseEvent(QMouseEvent* event)
     //qDebug("Mouse released!: %p", event);
     this->setCursor(this->openhand);
     this->update();
+    QUuid u;
+    this->cache.requestData(u, this->timeaxis_start, this->timeaxis_end, 0, [this](QList<QSharedPointer<CacheEntry>> data)
+    {
+        this->curr = data;
+        this->update();
+    });
 }

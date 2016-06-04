@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
         qDebug("%ld, %f, %f, %f, %lu: %d", arr[0].time, arr[0].min, arr[0].mean, arr[0].max,  arr[0].count, len);
     });*/
 
-    Cache c;
+    /*Cache c;
     c.requestData(u, 0, 99, 8, [&c, &u](QList<QSharedPointer<CacheEntry>> data)
     {
         qDebug("Length %d", data.size());
@@ -39,6 +39,6 @@ int main(int argc, char *argv[])
             });
         });
     });
-
+    */
     return app.exec();
 }

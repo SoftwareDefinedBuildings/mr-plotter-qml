@@ -25,7 +25,7 @@ public:
 private:
     QList<QSharedPointer<CacheEntry>> curr;
 
-    Cache c;
+    Cache cache;
 
     int64_t timeaxis_start;
     int64_t timeaxis_end;
