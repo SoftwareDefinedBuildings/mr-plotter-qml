@@ -3,6 +3,8 @@
 
 #include "cache.h"
 
+#include <cmath>
+
 #include <QCursor>
 #include <QMouseEvent>
 #include <QQuickFramebufferObject>
@@ -104,6 +106,48 @@ void PlotArea::mouseReleaseEvent(QMouseEvent* event)
     //qDebug("Mouse released!: %p", event);
     this->setCursor(this->openhand);
     this->update();
+
+    this->fullUpdateAsync();
+}
+
+void PlotArea::wheelEvent(QWheelEvent* event)
+{
+    int xpos = (event->pos().x() / this->width()) *
+            (this->timeaxis_end - this->timeaxis_start) +
+            this->timeaxis_start;
+    int scrollAmt = event->angleDelta().y();
+
+    /* We scroll relative to xpos; we must ensure that the point
+     * underneath the mouse doesn't change.
+     */
+    double width = (int64_t) (timeaxis_end - timeaxis_start);
+    double xfrac = (((int64_t) xpos) - timeaxis_start) / width;
+
+    double scalefactor = 1.0 + abs(scrollAmt) / 400.0;
+
+    if (scrollAmt > 0.0)
+    {
+        scalefactor = 1.0 / scalefactor;
+    }
+
+    double newwidth = width * scalefactor;
+
+    this->timeaxis_start = xpos - (int64_t) (0.5 + newwidth * xfrac);
+    this->timeaxis_end = this->timeaxis_start + (int64_t) (0.5 + newwidth);
+
+    this->update();
+
+    /* TODO We eventually want to throttle this; don't fetch new data for
+     * every pointwidth across which the user scrolls! Rather have a
+     * timeout for when their scroll ends, and then make the requests.
+     * It's probably a common pattern to start at a wide graph and scroll
+     * in rapidly into a small area of it.
+     */
+    this->fullUpdateAsync();
+}
+
+void PlotArea::fullUpdateAsync()
+{
     QUuid u;
     this->cache.requestData(u, this->timeaxis_start, this->timeaxis_end, 0, [this](QList<QSharedPointer<CacheEntry>> data)
     {

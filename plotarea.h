@@ -7,6 +7,7 @@
 #include <QMouseEvent>
 #include <QQuickFramebufferObject>
 #include <QSharedPointer>
+#include <QWheelEvent>
 
 class PlotArea : public QQuickFramebufferObject
 {
@@ -21,8 +22,11 @@ public:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
+    void wheelEvent(QWheelEvent* event) override;
 
 private:
+    void fullUpdateAsync();
+
     QList<QSharedPointer<CacheEntry>> curr;
 
     Cache cache;
