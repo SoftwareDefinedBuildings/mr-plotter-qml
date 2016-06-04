@@ -39,6 +39,8 @@ private:
 
     /* For now... */
     QList<QSharedPointer<CacheEntry>> todraw;
+    int64_t timeaxis_start;
+    int64_t timeaxis_end;
 };
 
 #endif // PLOTRENDERER_H

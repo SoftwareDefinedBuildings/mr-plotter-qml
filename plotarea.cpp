@@ -3,11 +3,18 @@
 
 #include "cache.h"
 
+#include <QCursor>
+#include <QMouseEvent>
 #include <QQuickFramebufferObject>
 #include <QSharedPointer>
 
-PlotArea::PlotArea() : c(Cache())
+PlotArea::PlotArea() : c(), openhand(Qt::OpenHandCursor), closedhand(Qt::ClosedHandCursor)
 {
+    this->setAcceptedMouseButtons(Qt::LeftButton);
+    this->setCursor(this->openhand);
+
+    this->timeaxis_start = -10;
+    this->timeaxis_end = 100;
     /*
     struct statpt data[6];
 
@@ -52,11 +59,11 @@ PlotArea::PlotArea() : c(Cache())
                    QSharedPointer<CacheEntry>(nullptr));*/
 
     QUuid u;
-    this->c.requestData(u, 100, 200, 2, [this, u](QList<QSharedPointer<CacheEntry>> lst)
+    this->c.requestData(u, 100, 200, 0, [this, u](QList<QSharedPointer<CacheEntry>> lst)
     {
         this->curr = lst;
         this->update();
-        this->c.requestData(u, -10, 250, 2, [this](QList<QSharedPointer<CacheEntry>> lst)
+        this->c.requestData(u, -10, 250, 0, [this](QList<QSharedPointer<CacheEntry>> lst)
         {
             this->curr = lst;
             this->update();
@@ -67,4 +74,34 @@ PlotArea::PlotArea() : c(Cache())
 QQuickFramebufferObject::Renderer* PlotArea::createRenderer() const
 {
     return new PlotRenderer(this);
+}
+
+void PlotArea::mousePressEvent(QMouseEvent* event)
+{
+    //qDebug("Mouse pressed!: %p", event);
+    this->setCursor(this->closedhand);
+    this->update();
+
+    this->timeaxis_start_beforescroll = this->timeaxis_start;
+    this->timeaxis_end_beforescroll = this->timeaxis_end;
+
+    this->pixelToTime = (this->timeaxis_end - this->timeaxis_start) / (double) this->width();
+    this->scrollstart = event->x();
+}
+
+void PlotArea::mouseMoveEvent(QMouseEvent* event)
+{
+    /* Only executes when a mouse button is pressed. */
+    //qDebug("Mouse moved!: %p", event);
+    int64_t delta = (int64_t) (0.5 + this->pixelToTime * (event->x() - this->scrollstart));
+    this->timeaxis_start = this->timeaxis_start_beforescroll - delta;
+    this->timeaxis_end = this->timeaxis_end_beforescroll - delta;
+    this->update();
+}
+
+void PlotArea::mouseReleaseEvent(QMouseEvent* event)
+{
+    //qDebug("Mouse released!: %p", event);
+    this->setCursor(this->openhand);
+    this->update();
 }
