@@ -438,7 +438,8 @@ void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t p
 
         if (entry->isPlaceholder())
         {
-            this->loading.insert(entry, queryid);
+            this->outstanding[queryid].first++;
+            this->loading.insertMulti(entry, queryid);
         }
 
         result->append(entry);

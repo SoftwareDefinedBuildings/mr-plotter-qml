@@ -7,6 +7,7 @@
 #include <QMouseEvent>
 #include <QQuickFramebufferObject>
 #include <QSharedPointer>
+#include <QTouchEvent>
 #include <QWheelEvent>
 
 class PlotArea : public QQuickFramebufferObject
@@ -22,6 +23,7 @@ public:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
+    void touchEvent(QTouchEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
 
 private:
@@ -42,6 +44,8 @@ private:
 
     QCursor openhand;
     QCursor closedhand;
+
+    uint64_t fullUpdateID;
 };
 
 #endif // PLOTAREA_H

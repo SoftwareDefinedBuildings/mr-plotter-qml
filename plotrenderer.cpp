@@ -151,6 +151,7 @@ void PlotRenderer::synchronize(QQuickFramebufferObject* plotareafbo)
     for (auto iter = this->todraw.begin(); iter != this->todraw.end(); ++iter)
     {
         QSharedPointer<CacheEntry>& ce = *iter;
+        Q_ASSERT(!ce->isPlaceholder());
         if (!ce->isPrepared())
         {
             ce->prepare(this);

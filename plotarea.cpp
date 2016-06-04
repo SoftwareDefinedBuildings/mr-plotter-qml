@@ -9,6 +9,8 @@
 #include <QMouseEvent>
 #include <QQuickFramebufferObject>
 #include <QSharedPointer>
+#include <QTouchEvent>
+#include <QWheelEvent>
 
 PlotArea::PlotArea() : cache(), openhand(Qt::OpenHandCursor), closedhand(Qt::ClosedHandCursor)
 {
@@ -17,6 +19,8 @@ PlotArea::PlotArea() : cache(), openhand(Qt::OpenHandCursor), closedhand(Qt::Clo
 
     this->timeaxis_start = -10;
     this->timeaxis_end = 100;
+
+    this->fullUpdateID = 0;
     /*
     struct statpt data[6];
 
@@ -110,6 +114,11 @@ void PlotArea::mouseReleaseEvent(QMouseEvent* event)
     this->fullUpdateAsync();
 }
 
+void PlotArea::touchEvent(QTouchEvent* event)
+{
+    qDebug("Touched by %d: %p", event->touchPoints().size(), event);
+}
+
 void PlotArea::wheelEvent(QWheelEvent* event)
 {
     int xpos = (event->pos().x() / this->width()) *
@@ -149,9 +158,13 @@ void PlotArea::wheelEvent(QWheelEvent* event)
 void PlotArea::fullUpdateAsync()
 {
     QUuid u;
-    this->cache.requestData(u, this->timeaxis_start, this->timeaxis_end, 0, [this](QList<QSharedPointer<CacheEntry>> data)
+    uint64_t id = ++this->fullUpdateID;
+    this->cache.requestData(u, this->timeaxis_start, this->timeaxis_end, 0, [this, id](QList<QSharedPointer<CacheEntry>> data)
     {
-        this->curr = data;
-        this->update();
+        if (id == this->fullUpdateID)
+        {
+            this->curr = data;
+            this->update();
+        }
     });
 }
