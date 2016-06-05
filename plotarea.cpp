@@ -12,6 +12,21 @@
 #include <QTouchEvent>
 #include <QWheelEvent>
 
+/* Computes the number x such that 2 ^ x <= POINTWIDTH < 2 ^ (x + 1). */
+inline uint8_t getPWExponent(int64_t pointwidth)
+{
+    uint8_t pwe = 0;
+
+    pointwidth >>= 1;
+    while (pointwidth != 0)
+    {
+        pointwidth >>= 1;
+        pwe++;
+    }
+
+    return qMin(pwe, (uint8_t) (PWE_MAX - 1));
+}
+
 PlotArea::PlotArea() : cache(), openhand(Qt::OpenHandCursor), closedhand(Qt::ClosedHandCursor)
 {
     this->setAcceptedMouseButtons(Qt::LeftButton);
@@ -304,7 +319,9 @@ void PlotArea::fullUpdateAsync()
 {
     QUuid u;
     uint64_t id = ++this->fullUpdateID;
-    this->cache.requestData(u, this->timeaxis_start, this->timeaxis_end, 0, [this, id](QList<QSharedPointer<CacheEntry>> data)
+    int64_t nanosperpixel = (this->timeaxis_end - this->timeaxis_start) / (int64_t) (0.5 + this->width());
+    uint8_t pwe = getPWExponent(nanosperpixel);
+    this->cache.requestData(u, this->timeaxis_start, this->timeaxis_end, pwe, [this, id](QList<QSharedPointer<CacheEntry>> data)
     {
         if (id == this->fullUpdateID)
         {

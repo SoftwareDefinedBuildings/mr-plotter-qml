@@ -32,7 +32,7 @@ struct cachedpt
 CacheEntry::CacheEntry(int64_t startRange, int64_t endRange, uint8_t pwexp) :
     start(startRange), end(endRange), pwe(pwexp)
 {
-    Q_ASSERT(pwexp < PW_MAX);
+    Q_ASSERT(pwexp < PWE_MAX);
     Q_ASSERT(endRange >= startRange);
 
     this->cached = nullptr;
@@ -353,13 +353,13 @@ Cache::~Cache()
 void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
                         data_callback_t callback)
 {
-    Q_ASSERT(pwe < PW_MAX);
+    Q_ASSERT(pwe < PWE_MAX);
     QList<QSharedPointer<CacheEntry>>* result = new QList<QSharedPointer<CacheEntry>>;
 
     QMap<int64_t, QSharedPointer<CacheEntry>>*& pwemap = this->cache[uuid];
     if (pwemap == nullptr)
     {
-        pwemap = new QMap<int64_t, QSharedPointer<CacheEntry>>[PW_MAX];
+        pwemap = new QMap<int64_t, QSharedPointer<CacheEntry>>[PWE_MAX];
     }
 
     QMap<int64_t, QSharedPointer<CacheEntry>>* entries = &pwemap[pwe];

@@ -12,7 +12,7 @@
 #include "requester.h"
 
 /* One more than the maximum pointwidth. */
-#define PW_MAX 63
+#define PWE_MAX 63
 
 /* A Cache Entry represents a set of contiguous data cached in memory.
  *
