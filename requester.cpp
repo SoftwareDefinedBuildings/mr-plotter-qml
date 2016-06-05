@@ -99,8 +99,9 @@ inline void Requester::sendRequest(const QUuid &uuid, int64_t start, int64_t end
         toreturn[i].count = (uint64_t) pw;    
     }
 
-    QTimer::singleShot(100, [callback, toreturn, numpts]()
+    QTimer::singleShot(500, [callback, toreturn, numpts]()
     {
         callback(toreturn, numpts);
+        delete[] toreturn;
     });
 }
