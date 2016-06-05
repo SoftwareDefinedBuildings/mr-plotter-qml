@@ -1,6 +1,7 @@
 #include "cache.h"
 #include "plotrenderer.h"
 #include "plotarea.h"
+#include "shaders.h"
 
 #include <QOpenGLFramebufferObject>
 #include <QOpenGLFunctions>
@@ -55,52 +56,6 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
 #ifdef GL_VERTEX_PROGRAM_POINT_SIZE
     this->glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
 #endif
-
-    /* Shader code. */
-    char vShaderStr[] =
-            "uniform mat3 axisTransform;    \n"
-            "uniform vec2 axisBase;         \n"
-            "uniform bool tstrip;           \n"
-            "attribute float time;          \n"
-            "attribute float value;         \n"
-            "attribute float rendertstrip;  \n"
-            "varying float render;          \n"
-            "void main()                    \n"
-            "{                              \n"
-            "    if (value < 0.0 || value == 0.0 || value > 0.0) \n"
-            "    {                          \n"
-            "        vec3 transformed = axisTransform * vec3(vec2(time, value) - axisBase, 1.0);    \n"
-            "        gl_Position = vec4(transformed.xy, 0.0, 1.0);                          \n"
-            "        /* I want to read the sign bit of 'rendertstrip' and xor it with       \n"
-            "         * tstrip. This isn't easy, because if rendertstrip is 0.0, then       \n"
-            "         * it's difficult to distinguish if its +0.0 or -0.0. The solution     \n"
-            "         * I came up with is to take infinity an divide it by rendertstrip.    \n"
-            "         * The result will be positive infinity or negative infinity           \n"
-            "         * depending on the sign of rendertstrip.                              \n"
-            "         */                    \n"
-            "        render = (tstrip ^^ (((1.0 / 0.0) / rendertstrip) < 0.0)) ? 1.0 : 0.0; \n"
-            "        gl_PointSize = 6.0;    \n"
-            "    }                          \n"
-            "    else                       \n"
-            "    {                          \n"
-            "        render = 0.0;          \n"
-            "    }                          \n"
-            "}                              \n";
-
-    char fShaderStr[] =
-            "uniform float opacity;         \n"
-            "varying float render;          \n"
-            "void main()                    \n"
-            "{                              \n"
-            "    if (render < 1.0)          \n"
-            "    {                          \n"
-            "        discard;               \n"
-            "    }                          \n"
-            "    else                       \n"
-            "    {                          \n"
-            "        gl_FragColor = vec4(0.0, 0.0, 1.0, opacity);   \n"
-            "    }                          \n"
-            "}                              \n";
 
     GLuint vertexShader = loadShader(this, GL_VERTEX_SHADER, vShaderStr);
     GLuint fragmentShader = loadShader(this, GL_FRAGMENT_SHADER, fShaderStr);

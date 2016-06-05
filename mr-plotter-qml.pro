@@ -21,7 +21,8 @@ HEADERS += \
     plotarea.h \
     plotrenderer.h \
     cache.h \
-    requester.h
+    requester.h \
+    shaders.h
 
 DISTFILES += \
     README.md
