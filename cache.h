@@ -103,8 +103,22 @@ public:
     Cache();
     ~Cache();
 
-    void requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t pw,
-                     std::function<void(QList<QSharedPointer<CacheEntry>>)> callback);
+    /* Requests data in the interval [START, END] at the specified POINTWIDTH
+     * EXPONENT for the stream with the specified UUID. The data may be fetched
+     * asynchronously; it is returned via the callback function, which accepts a
+     * list of cache entries which contain some superset of the requested data.
+     *
+     * The REQUEST HINT is used to hint the size of requests for data that should
+     * be made. Each request made to the backing data store, is widened to the
+     * width specified by the request hint in nanosecond, as long as doing so
+     * would not result in redundant data being requested. The main reason for
+     * this is to ensure that we don't end up in a situation where all of the
+     * cache entries are very tiny and many VBOs need to be drawn. The default
+     * hint of 0 means to never widen the requests.
+     */
+    void requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
+                     std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
+                     int64_t request_hint = 0);
 
 signals:
     /* Signalled when new data is received from the database. */

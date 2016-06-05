@@ -351,7 +351,8 @@ Cache::~Cache()
  * for a cleaner API overall.
  */
 void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
-                        std::function<void(QList<QSharedPointer<CacheEntry>>)> callback)
+                        std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
+                        int64_t request_hint)
 {
     Q_ASSERT(pwe < PWE_MAX);
     QList<QSharedPointer<CacheEntry>>* result = new QList<QSharedPointer<CacheEntry>>;
@@ -383,7 +384,7 @@ void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t p
     QSharedPointer<CacheEntry> prev = nullpointer;
     for (i = entries->lowerBound(start); nextexp <= end; ++i)
     {
-         QSharedPointer<CacheEntry> entry = (i == entries->end() ? nullpointer : i.value());
+         QSharedPointer<CacheEntry> entry = (i == entries->end() ? nullpointer : *i);
 
         if (entry == nullpointer)
         {
@@ -403,14 +404,43 @@ void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t p
         }
 
         {
-            /* There's a gap that needs to be filled. */
+            /* There's a gap that needs to be filled. First, check if we
+             * should "expand" the query, according to the REQUEST HINT.
+             */
+            if (filluntil - nextexp < request_hint)
+            {
+                /* If this hole is in the "middle" of the query, we
+                 * can't expand it because it is bounded by a cache entry
+                 * on either side.
+                 *
+                 * But we might be able to expand it if it is at the start
+                 * or end of the query.
+                 */
+                if (filluntil == end)
+                {
+                    filluntil = nextexp + request_hint;
+                    if (entry != nullpointer && entry->start <= filluntil)
+                    {
+                        filluntil = qMin(filluntil, entry->start - 1);
+                    }
+                }
+                else if (nextexp == start)
+                {
+                    QSharedPointer<CacheEntry> prevce;
+                    nextexp = filluntil - request_hint;
+                    if (i != entries->begin())
+                    {
+                        nextexp = qMax(nextexp, (*(i - 1))->end + 1);
+                    }
+                }
+            }
             QSharedPointer<CacheEntry> gapfill(new CacheEntry(nextexp, filluntil, pwe));
             result->append(gapfill);
 
             this->outstanding[queryid].first++;
             this->loading.insertMulti(gapfill, queryid);
 
-            /* MAKE THE REQUEST HERE. */
+            /* Make the request. */
             this->requester->makeDataRequest(uuid, gapfill->start, gapfill->end, pwe,
                                              [this, gapfill, prev, entry, callback, result](struct statpt* points, int len)
             {

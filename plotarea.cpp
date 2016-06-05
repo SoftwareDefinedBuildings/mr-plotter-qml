@@ -362,12 +362,16 @@ void PlotArea::fullUpdateAsync()
     uint64_t id = ++this->fullUpdateID;
     int64_t nanosperpixel = (this->timeaxis_end - this->timeaxis_start) / (int64_t) (0.5 + this->width());
     uint8_t pwe = getPWExponent(nanosperpixel);
-    this->cache.requestData(u, this->timeaxis_start, this->timeaxis_end, pwe, [this, id](QList<QSharedPointer<CacheEntry>> data)
+
+    int64_t screenwidth = this->timeaxis_end - this->timeaxis_start;
+
+    this->cache.requestData(u, this->timeaxis_start, this->timeaxis_end, pwe,
+                            [this, id](QList<QSharedPointer<CacheEntry>> data)
     {
         if (id == this->fullUpdateID)
         {
             this->curr = data;
             this->update();
         }
-    });
+    }, screenwidth);
 }
