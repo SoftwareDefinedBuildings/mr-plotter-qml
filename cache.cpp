@@ -351,7 +351,7 @@ Cache::~Cache()
  * for a cleaner API overall.
  */
 void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
-                        data_callback_t callback)
+                        std::function<void(QList<QSharedPointer<CacheEntry>>)> callback)
 {
     Q_ASSERT(pwe < PWE_MAX);
     QList<QSharedPointer<CacheEntry>>* result = new QList<QSharedPointer<CacheEntry>>;

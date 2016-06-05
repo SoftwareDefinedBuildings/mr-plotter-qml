@@ -9,6 +9,7 @@
 #include <QMouseEvent>
 #include <QQuickFramebufferObject>
 #include <QSharedPointer>
+#include <QTimer>
 #include <QTouchEvent>
 #include <QWheelEvent>
 
@@ -36,6 +37,9 @@ PlotArea::PlotArea() : cache(), openhand(Qt::OpenHandCursor), closedhand(Qt::Clo
     this->timeaxis_end = 100;
 
     this->fullUpdateID = 0;
+
+    this->ready = true;
+    this->pending = false;
     /*
     struct statpt data[6];
 
@@ -154,6 +158,14 @@ void PlotArea::touchEvent(QTouchEvent* event)
                     double temp = xleft;
                     xleft = xright;
                     xright = temp;
+                }
+
+                /* We could run into problems if the two points are
+                 * too close together.
+                 */
+                if (xright < xleft + PINCH_LIMIT)
+                {
+                    xright = xleft + PINCH_LIMIT;
                 }
             }
         }
@@ -306,13 +318,42 @@ void PlotArea::wheelEvent(QWheelEvent* event)
 
     this->update();
 
-    /* TODO We eventually want to throttle this; don't fetch new data for
-     * every pointwidth across which the user scrolls! Rather have a
-     * timeout for when their scroll ends, and then make the requests.
+    /* We throttle this request because it's likely to see many of these
+     * requests in succession.
      * It's probably a common pattern to start at a wide graph and scroll
      * in rapidly into a small area of it.
      */
-    this->fullUpdateAsync();
+    this->fullUpdateAsyncThrottled();
+}
+
+void PlotArea::geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry)
+{
+    this->QQuickFramebufferObject::geometryChanged(newGeometry, oldGeometry);
+
+    this->fullUpdateAsyncThrottled();
+}
+
+void PlotArea::fullUpdateAsyncThrottled()
+{
+    if (this->ready)
+    {
+        Q_ASSERT(!this->pending);
+        this->fullUpdateAsync();
+        this->ready = false;
+        QTimer::singleShot(THROTTLE_MSEC, [this]()
+        {
+            this->ready = true;
+            if (this->pending)
+            {
+                this->pending = false;
+                this->fullUpdateAsyncThrottled();
+            }
+        });
+    }
+    else
+    {
+        this->pending = true;
+    }
 }
 
 void PlotArea::fullUpdateAsync()

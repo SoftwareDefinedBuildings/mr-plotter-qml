@@ -6,9 +6,20 @@
 #include <QCursor>
 #include <QMouseEvent>
 #include <QQuickFramebufferObject>
+#include <QRectF>
 #include <QSharedPointer>
 #include <QTouchEvent>
 #include <QWheelEvent>
+
+/* How close together a user is allowed to "pinch" their fingers to zoom
+ * in our out.
+ */
+#define PINCH_LIMIT 7
+
+/* Minimum time between throttled updates to do a full update, involving
+ * a request to the cache and possible requests for additional data.
+ */
+#define THROTTLE_MSEC 300
 
 class PlotArea : public QQuickFramebufferObject
 {
@@ -26,7 +37,11 @@ public:
     void touchEvent(QTouchEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
 
+protected:
+    void geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry) override;
+
 private:
+    void fullUpdateAsyncThrottled();
     void fullUpdateAsync();
 
     QList<QSharedPointer<CacheEntry>> curr;
@@ -51,6 +66,13 @@ private:
     QCursor closedhand;
 
     uint64_t fullUpdateID;
+
+    /* For throttling full updates. READY indicates whether a call can be
+     * made, and PENDING indicates whether there is a call waiting to be
+     * made.
+     */
+    bool ready;
+    bool pending;
 };
 
 #endif // PLOTAREA_H
