@@ -19,12 +19,14 @@ struct color
 class Stream
 {
 public:
+    Stream();
     Stream(const QString& u);
     Stream(const QUuid& u);
+    Stream(const Stream& other);
 
     const float* getColorArray() const;
 
-    const QUuid uuid;
+    QUuid uuid;
 
     /* The currently visible cache entries. */
     QList<QSharedPointer<CacheEntry>> data;

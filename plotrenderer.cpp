@@ -103,9 +103,10 @@ void PlotRenderer::synchronize(QQuickFramebufferObject* plotareafbo)
     this->timeaxis_start = plotarea->timeaxis_start;
     this->timeaxis_end = plotarea->timeaxis_end;
 
-    this->streams = plotarea->streams;
-    for (auto i = this->streams.begin(); i != this->streams.end(); ++i)
+    this->streams.resize(0);
+    for (auto i = plotarea->streams.begin(); i != plotarea->streams.end(); ++i)
     {
+        this->streams.append(*(*i).data());
         QList<QSharedPointer<CacheEntry>>& todraw = (*i)->data;
         for (auto j = todraw.begin(); j != todraw.end(); ++j)
         {
@@ -147,16 +148,16 @@ void PlotRenderer::render()
 
     for (auto i = this->streams.begin(); i != this->streams.end(); ++i)
     {
-        QSharedPointer<Stream> s = *i;
-        QList<QSharedPointer<CacheEntry>>& todraw = s->data;
+        Stream& s = *i;
+        QList<QSharedPointer<CacheEntry>>& todraw = s.data;
         /* Set uniforms depending on whether *i is a selected stream. */
-        this->glLineWidth(s->selected ? 4 : 2);
-        this->glUniform3fv(colorLoc, 1, s->getColorArray());
+        this->glLineWidth(s.selected ? 4 : 2);
+        this->glUniform3fv(colorLoc, 1, s.getColorArray());
         for (auto j = todraw.begin(); j != todraw.end(); ++j)
         {
             QSharedPointer<CacheEntry>& ce = *j;
             Q_ASSERT(!ce->isPlaceholder());
-            ce->renderPlot(this, s->ymin, s->ymax, this->timeaxis_start, this->timeaxis_end, axisMatLoc, axisVecLoc, tstripLoc, opacityLoc);
+            ce->renderPlot(this, s.ymin, s.ymax, this->timeaxis_start, this->timeaxis_end, axisMatLoc, axisVecLoc, tstripLoc, opacityLoc);
         }
     }
 

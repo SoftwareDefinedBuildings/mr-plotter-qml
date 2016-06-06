@@ -21,7 +21,7 @@ public:
 private:
     /* State required to actually render the plots. */
     GLuint program; // the shader program
-    QList<QSharedPointer<Stream>> streams; // the streams to draw
+    QVector<Stream> streams; // the streams to draw
     const PlotArea* pa;
 
     /* For now... */

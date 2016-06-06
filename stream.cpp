@@ -4,6 +4,11 @@
 #include <QString>
 #include <QUuid>
 
+Stream::Stream(): uuid()
+{
+    this->init();
+}
+
 Stream::Stream(const QString& u): uuid(u)
 {
     this->init();
@@ -12,6 +17,11 @@ Stream::Stream(const QString& u): uuid(u)
 Stream::Stream(const QUuid& u): uuid(u)
 {
     this->init();
+}
+
+Stream::Stream(const Stream& other)
+{
+    std::copy(&other, &other + 1, this);
 }
 
 const float* Stream::getColorArray() const
