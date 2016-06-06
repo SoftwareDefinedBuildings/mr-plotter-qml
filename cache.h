@@ -54,11 +54,6 @@ public:
                     GLint axisMatUniform, GLint axisVecUniform,
                     GLint tstripUniform, GLint opacityUniform);
 
-    friend bool operator<(const CacheEntry& left, const CacheEntry& right);
-
-    friend uint qHash(const CacheEntry& key, uint seed);
-    friend uint qHash(const QSharedPointer<CacheEntry>& key, uint seed);
-
     const int64_t start;
     const int64_t end;
 

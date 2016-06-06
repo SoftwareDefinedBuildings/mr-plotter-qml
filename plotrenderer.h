@@ -10,19 +10,6 @@
 #include <QVector>
 #include <QUuid>
 
-struct yscale
-{
-    float startval;
-    float endval;
-};
-
-struct drawcontext
-{
-    QVector<GLuint> vbos;
-    float color[3];
-    /* TODO Settings: color, yscale, etc. */
-};
-
 class PlotRenderer : public QQuickFramebufferObject::Renderer,
         protected QOpenGLFunctions
 {
@@ -34,7 +21,7 @@ public:
 private:
     /* State required to actually render the plots. */
     GLuint program; // the shader program
-    QList<struct drawcontext*> streams; // the streams to draw
+    QList<QSharedPointer<Stream>> streams; // the streams to draw
     const PlotArea* pa;
 
     /* For now... */

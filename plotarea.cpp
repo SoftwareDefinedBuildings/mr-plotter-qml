@@ -2,6 +2,7 @@
 #include "plotrenderer.h"
 
 #include "cache.h"
+#include "stream.h"
 
 #include <cmath>
 
@@ -40,6 +41,26 @@ PlotArea::PlotArea() : cache(), openhand(Qt::OpenHandCursor), closedhand(Qt::Clo
 
     this->ready = true;
     this->pending = false;
+
+    QSharedPointer<Stream> s = QSharedPointer<Stream>(new Stream(QUuid::createUuid()));
+    this->addStream(s);
+
+    QSharedPointer<Stream> t = QSharedPointer<Stream>(new Stream(QUuid::createUuid()));
+    t->ymin = -10.0;
+    t->ymax = 2.0;
+    t->color.red = 1.0f;
+    t->color.green = 0.0f;
+    t->color.blue = 0.0f;
+    t->selected = true;
+    this->addStream(t);
+
+    QSharedPointer<Stream> u = QSharedPointer<Stream>(new Stream(QUuid::createUuid()));
+    u->ymin = -2.0;
+    u->ymax = 10.0;
+    u->color.red = 0.0f;
+    u->color.green = 0.5f;
+    u->color.blue = 0.0f;
+    this->addStream(u);
     /*
     struct statpt data[6];
 
@@ -99,6 +120,11 @@ PlotArea::PlotArea() : cache(), openhand(Qt::OpenHandCursor), closedhand(Qt::Clo
 QQuickFramebufferObject::Renderer* PlotArea::createRenderer() const
 {
     return new PlotRenderer(this);
+}
+
+void PlotArea::addStream(QSharedPointer<Stream>& s)
+{
+    this->streams.append(s);
 }
 
 void PlotArea::mousePressEvent(QMouseEvent* event)
@@ -358,20 +384,23 @@ void PlotArea::fullUpdateAsyncThrottled()
 
 void PlotArea::fullUpdateAsync()
 {
-    QUuid u;
     uint64_t id = ++this->fullUpdateID;
     int64_t nanosperpixel = (this->timeaxis_end - this->timeaxis_start) / (int64_t) (0.5 + this->width());
     uint8_t pwe = getPWExponent(nanosperpixel);
 
     int64_t screenwidth = this->timeaxis_end - this->timeaxis_start;
 
-    this->cache.requestData(u, this->timeaxis_start, this->timeaxis_end, pwe,
-                            [this, id](QList<QSharedPointer<CacheEntry>> data)
+    for (auto i = this->streams.begin(); i != this->streams.end(); i++)
     {
-        if (id == this->fullUpdateID)
+        QSharedPointer<Stream>& s = *i;
+        this->cache.requestData(s->uuid, this->timeaxis_start, this->timeaxis_end, pwe,
+                                [this, s, id](QList<QSharedPointer<CacheEntry>> data)
         {
-            this->curr = data;
-            this->update();
-        }
-    }, screenwidth);
+            if (id == this->fullUpdateID)
+            {
+                s->data = data;
+                this->update();
+            }
+        }, screenwidth);
+    }
 }

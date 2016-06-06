@@ -25,7 +25,7 @@ void main()
          * depending on the sign of rendertstrip.
          */
         render = (tstrip ^^ (((1.0 / 0.0) / rendertstrip) < 0.0)) ? 1.0 : 0.0;
-        gl_PointSize = 6.0;
+        gl_PointSize = 4.0;
     }
     else
     {
@@ -34,6 +34,7 @@ void main()
 })shadercode";
 
 char fShaderStr[] = R"shadercode(
+uniform vec3 color;
 uniform float opacity;
 varying float render;
 void main()
@@ -44,7 +45,7 @@ void main()
     }
     else
     {
-        gl_FragColor = vec4(0.0, 0.0, 1.0, opacity);
+        gl_FragColor = vec4(color, opacity);
     }
 })shadercode";
 

@@ -7,7 +7,8 @@ SOURCES += main.cpp \
     plotarea.cpp \
     plotrenderer.cpp \
     cache.cpp \
-    requester.cpp
+    requester.cpp \
+    stream.cpp
 
 RESOURCES += qml.qrc
 
@@ -22,7 +23,8 @@ HEADERS += \
     plotrenderer.h \
     cache.h \
     requester.h \
-    shaders.h
+    shaders.h \
+    stream.h
 
 DISTFILES += \
     README.md

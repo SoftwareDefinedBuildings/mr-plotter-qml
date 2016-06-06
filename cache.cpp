@@ -304,13 +304,6 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
     }
 }
 
-bool operator<(const CacheEntry& left, const CacheEntry& right)
-{
-    /* Make sure that LEFT and RIGHT don't overlap. */
-    Q_ASSERT((right.start >= left.end) != (left.start >= right.end));
-    return left.start < right.start;
-}
-
 uint qHash(const CacheEntry& key, uint seed)
 {
     return qHash(key.start) ^ qHash(key.end) ^ seed;

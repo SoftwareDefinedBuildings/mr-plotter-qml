@@ -2,6 +2,7 @@
 #define PLOTAREA_H
 
 #include "cache.h"
+#include "stream.h"
 
 #include <QCursor>
 #include <QMouseEvent>
@@ -30,6 +31,7 @@ class PlotArea : public QQuickFramebufferObject
 public:
     PlotArea();
     QQuickFramebufferObject::Renderer* createRenderer() const override;
+    void addStream(QSharedPointer<Stream>& s);
 
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
@@ -44,7 +46,7 @@ private:
     void fullUpdateAsyncThrottled();
     void fullUpdateAsync();
 
-    QList<QSharedPointer<CacheEntry>> curr;
+    QList<QSharedPointer<Stream>> streams;
 
     Cache cache;
 
