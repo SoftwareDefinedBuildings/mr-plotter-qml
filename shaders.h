@@ -6,6 +6,7 @@
 char vShaderStr[] = R"shadercode(
 uniform mat3 axisTransform;
 uniform vec2 axisBase;
+uniform float pointsize;
 uniform bool tstrip;
 attribute float time;
 attribute float value;
@@ -25,7 +26,7 @@ void main()
          * depending on the sign of rendertstrip.
          */
         render = (tstrip ^^ (((1.0 / 0.0) / rendertstrip) < 0.0)) ? 1.0 : 0.0;
-        gl_PointSize = 4.0;
+        gl_PointSize = pointsize;
     }
     else
     {

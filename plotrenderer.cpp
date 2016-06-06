@@ -139,6 +139,7 @@ void PlotRenderer::render()
     GLint axisVecLoc = this->glGetUniformLocation(this->program, "axisBase");
     //GLint heightLoc = this->glGetUniformLocation(this->program, "screenHeight");
     //GLint lineHalfWidthLoc = this->glGetUniformLocation(this->program, "halfPixelWidth");
+    GLint pointsizeLoc = this->glGetUniformLocation(this->program, "pointsize");
     GLint tstripLoc = this->glGetUniformLocation(this->program, "tstrip");
     GLint opacityLoc = this->glGetUniformLocation(this->program, "opacity");
     GLint colorLoc = this->glGetUniformLocation(this->program, "color");
@@ -151,7 +152,8 @@ void PlotRenderer::render()
         Stream& s = *i;
         QList<QSharedPointer<CacheEntry>>& todraw = s.data;
         /* Set uniforms depending on whether *i is a selected stream. */
-        this->glLineWidth(s.selected ? 4 : 2);
+        this->glLineWidth(s.selected ? 4.0 : 2.0);
+        this->glUniform1f(pointsizeLoc, s.selected ? 6.0 : 4.0);
         this->glUniform3fv(colorLoc, 1, s.getColorArray());
         for (auto j = todraw.begin(); j != todraw.end(); ++j)
         {
