@@ -29,8 +29,19 @@ struct cachedpt
     int32_t _pad;
 } __attribute__((packed, aligned(16)));
 
-CacheEntry::CacheEntry(int64_t startRange, int64_t endRange, uint8_t pwexp) :
-    start(startRange), end(endRange), pwe(pwexp)
+/* The overhead cost, in cached points, of the data stored in a
+ * Cache Entry.
+ *
+ * For correctness, this MUST be greater than zero! If it is zero, then we may
+ * mistakenly believe that there is no data stored for a UUID, when in reality
+ * there is a placeholder cache entry which is preventing us from freeing that
+ * entry in the hash table.
+ */
+#define CACHE_ENTRY_OVERHEAD ((sizeof(CacheEntry) / sizeof(struct cachedpt)) + 1)
+
+
+CacheEntry::CacheEntry(const QUuid& u, int64_t startRange, int64_t endRange, uint8_t pwexp) :
+    start(startRange), end(endRange), uuid(u), pwe(pwexp)
 {
     Q_ASSERT(pwexp < PWE_MAX);
     Q_ASSERT(endRange >= startRange);
@@ -71,6 +82,8 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
                            QSharedPointer<CacheEntry> prev, QSharedPointer<CacheEntry> next)
 {
     Q_ASSERT(this->cached == nullptr);
+
+    this->cost = (uint64_t) len;
 
     int64_t pw = ((int64_t) 1) << this->pwe;
     int64_t pwmask = ~(pw - 1);
@@ -314,12 +327,11 @@ uint qHash(const QSharedPointer<CacheEntry>& key, uint seed)
     return qHash(key.data(), seed);
 }
 
-Cache::Cache() : cache(QHash<QUuid, QMap<int64_t, QSharedPointer<CacheEntry>>*>()),
-    outstanding(QHash<uint64_t, QPair<uint64_t, std::function<void()>>>()),
-    loading(QHash<QSharedPointer<CacheEntry>, uint64_t>())
+Cache::Cache() : cache(), outstanding(), loading(), lru()
 {
     this->curr_queryid = 0;
     this->requester = new Requester;
+    this->cost = 0;
 }
 
 Cache::~Cache()
@@ -350,7 +362,7 @@ void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t p
     Q_ASSERT(pwe < PWE_MAX);
     QList<QSharedPointer<CacheEntry>>* result = new QList<QSharedPointer<CacheEntry>>;
 
-    QMap<int64_t, QSharedPointer<CacheEntry>>*& pwemap = this->cache[uuid];
+    QMap<int64_t, QSharedPointer<CacheEntry>>*& pwemap = this->cache[uuid].second;
     if (pwemap == nullptr)
     {
         pwemap = new QMap<int64_t, QSharedPointer<CacheEntry>>[PWE_MAX];
@@ -412,7 +424,7 @@ void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t p
                 if (filluntil == end)
                 {
                     filluntil = nextexp + request_hint;
-                    if (entry != nullpointer && entry->start <= filluntil)
+                    if (entry != nullpointer)
                     {
                         filluntil = qMin(filluntil, entry->start - 1);
                     }
@@ -427,29 +439,41 @@ void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t p
                     }
                 }
             }
-            QSharedPointer<CacheEntry> gapfill(new CacheEntry(nextexp, filluntil, pwe));
+            QSharedPointer<CacheEntry> gapfill(new CacheEntry(uuid, nextexp, filluntil, pwe));
+            /* I could call this->addCost here, but it actually drops cache entries immediately,
+             * altering the structure of the tree. If I get unlucky, it may remove the entry
+             * that the iterator is pointing to (the variable ENTRY), invalidating the iterator.
+             * So I'm just going to count the number of gaps filled and add the cost at the end,
+             * when I'm not iterating over the map.
+             */
+            this->addCost(uuid, CACHE_ENTRY_OVERHEAD);
             result->append(gapfill);
 
             this->outstanding[queryid].first++;
             this->loading.insertMulti(gapfill, queryid);
 
+            i = entries->insert(i, gapfill->end, gapfill);
+
             /* Make the request. */
             this->requester->makeDataRequest(uuid, gapfill->start, gapfill->end, pwe,
-                                             [this, gapfill, prev, entry, callback, result](struct statpt* points, int len)
+                                             [this, i, gapfill, prev, entry, callback, result](struct statpt* points, int len)
             {
+                this->addCost(gapfill->uuid, (uint64_t) len);
                 gapfill->cacheData(points, len, prev, entry);
-                QHash<QSharedPointer<CacheEntry>, uint64_t>::const_iterator i;
-                for (i = this->loading.find(gapfill); i != this->loading.end() && i.key() == gapfill; ++i) {
-                    if (--this->outstanding[i.value()].first == 0)
+                gapfill->cachepos = i;
+                this->use(gapfill, true);
+
+                QHash<QSharedPointer<CacheEntry>, uint64_t>::const_iterator j;
+                for (j = this->loading.find(gapfill); j != this->loading.end() && j.key() == gapfill; ++j) {
+                    if (--this->outstanding[j.value()].first == 0)
                     {
-                        auto tocall = this->outstanding[i.value()].second;
-                        this->outstanding.remove(i.value());
+                        auto tocall = this->outstanding[j.value()].second;
+                        this->outstanding.remove(j.value());
                         tocall();
                     }
                 }
             });
 
-            i = entries->insert(i, gapfill->end, gapfill);
             i++;
         }
 
@@ -464,6 +488,10 @@ void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t p
             this->outstanding[queryid].first++;
             this->loading.insertMulti(entry, queryid);
         }
+        else
+        {
+            this->use(entry, false);
+        }
 
         result->append(entry);
         nextexp = entry->end + 1;
@@ -471,12 +499,49 @@ void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t p
         prev = entry;
     }
 
-    if (this->outstanding[queryid].first == 0)
+    uint64_t numqueriesmade = this->outstanding[queryid].first;
+    if (numqueriesmade == 0)
     {
         /* Cache hit! */
         callback(*result);
         delete result;
 
         this->outstanding.remove(queryid);
+    }
+    this->addCost(uuid, numqueriesmade * CACHE_ENTRY_OVERHEAD);
+}
+
+void Cache::use(QSharedPointer<CacheEntry> ce, bool firstuse)
+{
+    if (!firstuse)
+    {
+        this->lru.erase(ce->lrupos);
+    }
+    this->lru.push_front(ce);
+    ce->lrupos = this->lru.begin();
+}
+
+void Cache::addCost(const QUuid& uuid, uint64_t amt)
+{
+    this->cache[uuid].first += amt;
+    this->cost += amt;
+
+    while (this->cost >= CACHE_THRESHOLD && !this->lru.empty())
+    {
+        QSharedPointer<CacheEntry> todrop = this->lru.takeLast();
+
+        this->cache[todrop->uuid].second[todrop->pwe].erase(todrop->cachepos);
+
+        uint64_t dropvalue = CACHE_ENTRY_OVERHEAD + todrop->cost;
+        QPair<uint64_t, QMap<int64_t, QSharedPointer<CacheEntry>>*>& pair = this->cache[todrop->uuid];
+        uint64_t remaining = pair.first - dropvalue;
+        pair.first = remaining;
+        this->cost -= dropvalue;
+
+        if (remaining == 0)
+        {
+            delete[] pair.second;
+            this->cache.remove(todrop->uuid);
+        }
     }
 }

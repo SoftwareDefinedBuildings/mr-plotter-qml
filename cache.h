@@ -6,6 +6,7 @@
 
 #include <QOpenGLFunctions>
 #include <QHash>
+#include <QLinkedList>
 #include <QMap>
 #include <QUuid>
 
@@ -13,6 +14,9 @@
 
 /* One more than the maximum pointwidth. */
 #define PWE_MAX 63
+
+/* The maximum number of datapoints that can be cached. */
+#define CACHE_THRESHOLD 1000
 
 /* A Cache Entry represents a set of contiguous data cached in memory.
  *
@@ -27,11 +31,9 @@
  */
 class CacheEntry
 {
-public:
-    /* Constructs a placeholder entry (no data). The start and end
-     * are both inclusive. */
-    CacheEntry(int64_t startRange, int64_t endRange, uint8_t pwe);
+    friend class Cache;
 
+public:
     /* Destructs this non-placeholder cache entry. */
     ~CacheEntry();
 
@@ -58,6 +60,26 @@ public:
     const int64_t end;
 
 private:
+    /* Constructs a placeholder entry (no data). The start and end
+     * are both inclusive. */
+    CacheEntry(const QUuid& u, int64_t startRange, int64_t endRange, uint8_t pwe);
+
+    /* Position of this entry in the cache, with regard to eviction.
+     * Handled by the Cache class.
+     */
+    QLinkedList<QSharedPointer<CacheEntry>>::iterator lrupos;
+
+    /* Position of this entry in the cahce, with regard to lookup.
+     * Handled by the Cache class.
+     */
+    QMap<int64_t, QSharedPointer<CacheEntry>>::iterator cachepos;
+
+    /* UUID of the stream of data cached in this entry. */
+    QUuid uuid;
+
+    /* The cost in the Cache of this Cache Entry. */
+    uint64_t cost;
+
     /* A point that is "nearby" to all of the cached points. The difference
      * between the epoch and the cached points will be rendered with
      * single-word floating point precision.
@@ -115,17 +137,22 @@ public:
                      std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
                      int64_t request_hint = 0);
 
-signals:
-    /* Signalled when new data is received from the database. */
-    void dataReady(const QUuid& uuid, int64_t start, int64_t end, uint8_t pw, QSharedPointer<CacheEntry>);
-
 private:
+    void use(QSharedPointer<CacheEntry> ce, bool firstuse);
+    void addCost(const QUuid& uuid, uint64_t amt);
+
     uint64_t curr_queryid;
     /* The QMap here maps a timestamp to the cache entry that _ends_ at that timestamp. */
-    QHash<QUuid, QMap<int64_t, QSharedPointer<CacheEntry>>*> cache; /* Cached data. */
+    QHash<QUuid, QPair<uint64_t, QMap<int64_t, QSharedPointer<CacheEntry>>*>> cache; /* Maps UUID to the total cost associated with that UUID and the data for that stream. */
     QHash<uint64_t, QPair<uint64_t, std::function<void()>>> outstanding; /* Maps query id to the number of outstanding requests. */
     QHash<QSharedPointer<CacheEntry>, uint64_t> loading; /* Maps cache entry to the list of queries waiting for it. */
     Requester* requester;
+
+    /* A linked list used to clear cache entries in LRU order. */
+    QLinkedList<QSharedPointer<CacheEntry>> lru;
+
+    /* A representation of the total amount of data in the cache. */
+    uint64_t cost;
 };
 
 #endif // CACHE_H
