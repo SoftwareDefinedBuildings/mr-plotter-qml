@@ -13,7 +13,7 @@
 #include <QWheelEvent>
 
 /* How close together a user is allowed to "pinch" their fingers to zoom
- * in our out.
+ * in our out. Measured in pixels.
  */
 #define PINCH_LIMIT 7
 
@@ -21,6 +21,11 @@
  * a request to the cache and possible requests for additional data.
  */
 #define THROTTLE_MSEC 300
+
+/* The sensitivity of scrolling using the mousewheel or touchpad that
+ * supports scrolling. MUST be a floating point number.
+ */
+#define WHEEL_SENSITIVITY (1.0 / 2048.0)
 
 class PlotArea : public QQuickFramebufferObject
 {

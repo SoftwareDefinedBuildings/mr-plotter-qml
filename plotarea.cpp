@@ -330,7 +330,7 @@ void PlotArea::wheelEvent(QWheelEvent* event)
     double width = (int64_t) (timeaxis_end - timeaxis_start);
     double xfrac = (((int64_t) xpos) - timeaxis_start) / width;
 
-    double scalefactor = 1.0 + abs(scrollAmt) / 512.0;
+    double scalefactor = 1.0 + (abs(scrollAmt) * WHEEL_SENSITIVITY);
 
     if (scrollAmt > 0.0)
     {
