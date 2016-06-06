@@ -74,6 +74,8 @@ inline void Requester::sendRequest(const QUuid &uuid, int64_t start, int64_t end
     int numpts = ((end - start) >> pwe) + 1;
     struct statpt* toreturn = new struct statpt[numpts];
 
+    int numskipped = 0;
+
     for (int i = 0; i < numpts; i++)
     {
         double min = INFINITY;
@@ -82,26 +84,47 @@ inline void Requester::sendRequest(const QUuid &uuid, int64_t start, int64_t end
 
         int64_t stime = start + (i << pwe);
 
+        uint64_t count = 0;
+
         for (int j = 0; j < pw; j++)
         {
             int64_t time = stime + j;
+
+            /* Decide if we should drop this point. */
+            int64_t rem = (time & 0x7FFF);
+            if (rem < 256 && rem != 120 && rem != 121 && rem != 122 && rem != 123 && rem != 124)
+            {
+                continue;
+            }
+
             double value = cos(time * PI / 100) + 0.5 * cos(time * PI / 63) + 0.3 * cos(time * PI / 7);
             min = fmin(min, value);
             max = fmax(max, value);
             mean += value;
+            count++;
         }
-        mean /= pw;
+        mean /= count;
 
-        toreturn[i].time = stime;
-        toreturn[i].min = min;
-        toreturn[i].mean = mean;
-        toreturn[i].max = max;
-        toreturn[i].count = (uint64_t) pw;    
+        if (count == 0)
+        {
+            numskipped++;
+            continue;
+        }
+
+        int k = i - numskipped;
+
+        toreturn[k].time = stime;
+        toreturn[k].min = min;
+        toreturn[k].mean = mean;
+        toreturn[k].max = max;
+        toreturn[k].count = count;
     }
 
-    QTimer::singleShot(500, [callback, toreturn, numpts]()
+    int truelen = numpts - numskipped;
+
+    QTimer::singleShot(500, [callback, toreturn, truelen]()
     {
-        callback(toreturn, numpts);
+        callback(toreturn, truelen);
         delete[] toreturn;
     });
 }

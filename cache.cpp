@@ -168,7 +168,6 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         if ((i == truelen - 1 && !nextlast) || (i != truelen - 1 && inputs[i + 1].time > exptime))
         {
             j++;
-            qDebug("gap");
 
             Q_ASSERT(j < this->cachedlen);
 
