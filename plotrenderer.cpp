@@ -57,10 +57,6 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
     this->glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
 #endif
 
-    this->glEnable(GL_MULTISAMPLE);
-    this->glEnable(GL_LINE_SMOOTH);
-    this->glEnable(GL_POINT_SMOOTH);
-
     GLuint vertexShader = loadShader(this, GL_VERTEX_SHADER, vShaderStr);
     GLuint fragmentShader = loadShader(this, GL_FRAGMENT_SHADER, fShaderStr);
 
@@ -152,8 +148,8 @@ void PlotRenderer::render()
         Stream& s = *i;
         QList<QSharedPointer<CacheEntry>>& todraw = s.data;
         /* Set uniforms depending on whether *i is a selected stream. */
-        this->glLineWidth(s.selected ? 4.0 : 2.0);
-        this->glUniform1f(pointsizeLoc, s.selected ? 6.0 : 4.0);
+        this->glLineWidth(s.selected ? 2.0 : 1.0);
+        this->glUniform1f(pointsizeLoc, s.selected ? 5.0 : 3.0);
         this->glUniform3fv(colorLoc, 1, s.getColorArray());
         for (auto j = todraw.begin(); j != todraw.end(); ++j)
         {

@@ -91,8 +91,8 @@ inline void Requester::sendRequest(const QUuid &uuid, int64_t start, int64_t end
             int64_t time = stime + j;
 
             /* Decide if we should drop this point. */
-            int64_t rem = (time & 0x7FFF);
-            if (rem < 256 && rem != 120 && rem != 121 && rem != 122 && rem != 123 && rem != 124)
+            int64_t rem = (time & 0x7F);
+            if (rem != 7 && rem != 8 && rem != 9 && rem != 10 && rem != 11)
             {
                 continue;
             }

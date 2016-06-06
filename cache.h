@@ -16,7 +16,8 @@
 #define PWE_MAX 63
 
 /* The maximum number of datapoints that can be cached. */
-#define CACHE_THRESHOLD 10000
+/* Currently set to 320 MiB. */
+#define CACHE_THRESHOLD 10000000
 
 /* A Cache Entry represents a set of contiguous data cached in memory.
  *
