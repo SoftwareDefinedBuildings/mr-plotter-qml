@@ -378,6 +378,8 @@ void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t p
         delete result;
     });
 
+    unsigned int numnewentries = 0;
+
     /* I'm assuming that the makeDataRequest callbacks ALWAYS happen
      * asynchronously.
      */
@@ -431,7 +433,6 @@ void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t p
                 }
                 else if (nextexp == start)
                 {
-                    QSharedPointer<CacheEntry> prevce;
                     nextexp = filluntil - request_hint;
                     if (i != entries->begin())
                     {
@@ -446,7 +447,8 @@ void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t p
              * So I'm just going to count the number of gaps filled and add the cost at the end,
              * when I'm not iterating over the map.
              */
-            this->addCost(uuid, CACHE_ENTRY_OVERHEAD);
+            numnewentries++;
+
             result->append(gapfill);
 
             this->outstanding[queryid].first++;
@@ -458,10 +460,15 @@ void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t p
             this->requester->makeDataRequest(uuid, gapfill->start, gapfill->end, pwe,
                                              [this, i, gapfill, prev, entry, callback, result](struct statpt* points, int len)
             {
-                this->addCost(gapfill->uuid, (uint64_t) len);
+                /* Add it to the LRU linked list before removing entries
+                 * to meet the cache threshold, so that we release this
+                 * same cache entry should we need to.
+                 */
                 gapfill->cacheData(points, len, prev, entry);
                 gapfill->cachepos = i;
                 this->use(gapfill, true);
+
+                this->addCost(gapfill->uuid, (uint64_t) len);
 
                 QHash<QSharedPointer<CacheEntry>, uint64_t>::const_iterator j;
                 for (j = this->loading.find(gapfill); j != this->loading.end() && j.key() == gapfill; ++j) {
@@ -472,6 +479,13 @@ void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t p
                         tocall();
                     }
                 }
+
+                /* The reason that we aren't using "erase()" while
+                 * iterating is that doing so prevents the hashtable
+                 * from rehashing, since the iterator needs to remain
+                 * valid. We don't want to prevent that.
+                 */
+                this->loading.remove(gapfill);
             });
 
             i++;
@@ -508,7 +522,7 @@ void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t p
 
         this->outstanding.remove(queryid);
     }
-    this->addCost(uuid, numqueriesmade * CACHE_ENTRY_OVERHEAD);
+    this->addCost(uuid, numnewentries * CACHE_ENTRY_OVERHEAD);
 }
 
 void Cache::use(QSharedPointer<CacheEntry> ce, bool firstuse)
@@ -529,6 +543,8 @@ void Cache::addCost(const QUuid& uuid, uint64_t amt)
     while (this->cost >= CACHE_THRESHOLD && !this->lru.empty())
     {
         QSharedPointer<CacheEntry> todrop = this->lru.takeLast();
+
+        Q_ASSERT(!todrop->isPlaceholder());
 
         this->cache[todrop->uuid].second[todrop->pwe].erase(todrop->cachepos);
 
