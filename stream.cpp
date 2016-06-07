@@ -1,3 +1,4 @@
+#include "axis.h"
 #include "stream.h"
 
 #include <QByteArray>
@@ -40,4 +41,6 @@ void Stream::init()
     this->color.blue = 1.0f;
 
     this->selected = false;
+
+    this->axis = nullptr;
 }

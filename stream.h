@@ -1,6 +1,7 @@
 #ifndef STREAM_H
 #define STREAM_H
 
+#include "axis.h"
 #include "cache.h"
 
 #include <QByteArray>
@@ -27,6 +28,9 @@ struct drawable
     bool selected;
 };
 
+/* Both Stream and Axis need declarations of each other. */
+class Axis;
+
 class Stream
 {
 public:
@@ -50,6 +54,9 @@ public:
 
     /* True if this stream should be rendered as if it is selected. */
     bool selected;
+
+    /* The axis to which this stream is assigned. */
+    Axis* axis;
 
 private:
     void init();
