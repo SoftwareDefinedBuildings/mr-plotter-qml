@@ -8,7 +8,9 @@ SOURCES += main.cpp \
     plotrenderer.cpp \
     cache.cpp \
     requester.cpp \
-    stream.cpp
+    stream.cpp \
+    mrplotter.cpp \
+    axis.cpp
 
 RESOURCES += qml.qrc
 
@@ -24,7 +26,9 @@ HEADERS += \
     cache.h \
     requester.h \
     shaders.h \
-    stream.h
+    stream.h \
+    mrplotter.h \
+    axis.h
 
 DISTFILES += \
     README.md

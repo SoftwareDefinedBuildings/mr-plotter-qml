@@ -19,14 +19,13 @@ Stream::Stream(const QUuid& u): uuid(u)
     this->init();
 }
 
-Stream::Stream(const Stream& other)
+void Stream::toDrawable(struct drawable& d) const
 {
-    std::copy(&other, &other + 1, this);
-}
-
-const float* Stream::getColorArray() const
-{
-    return &this->color.red;
+    d.data = this->data;
+    d.ymin = this->ymin;
+    d.ymax = this->ymax;
+    d.color = this->color;
+    d.selected = this->selected;
 }
 
 void Stream::init()

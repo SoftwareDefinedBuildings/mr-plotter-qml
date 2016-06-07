@@ -16,15 +16,25 @@ struct color
     float blue;
 } __attribute__((packed));
 
+#define COLOR_TO_ARRAY(color) (&(color).red)
+
+struct drawable
+{
+    QList<QSharedPointer<CacheEntry>> data;
+    float ymin;
+    float ymax;
+    struct color color;
+    bool selected;
+};
+
 class Stream
 {
 public:
     Stream();
     Stream(const QString& u);
     Stream(const QUuid& u);
-    Stream(const Stream& other);
 
-    const float* getColorArray() const;
+    void toDrawable(struct drawable& d) const;
 
     QUuid uuid;
 

@@ -2,6 +2,7 @@
 #include "plotrenderer.h"
 #include "plotarea.h"
 #include "shaders.h"
+#include "stream.h"
 
 #include <QOpenGLFramebufferObject>
 #include <QOpenGLFunctions>
@@ -99,11 +100,13 @@ void PlotRenderer::synchronize(QQuickFramebufferObject* plotareafbo)
     this->timeaxis_start = plotarea->timeaxis_start;
     this->timeaxis_end = plotarea->timeaxis_end;
 
-    this->streams.resize(0);
+    this->streams.resize(plotarea->streams.size());
+
+    int index = 0;
     for (auto i = plotarea->streams.begin(); i != plotarea->streams.end(); ++i)
     {
-        this->streams.append(*(*i).data());
-        QList<QSharedPointer<CacheEntry>>& todraw = (*i)->data;
+        (*i)->toDrawable(this->streams[index]);
+        QList<QSharedPointer<CacheEntry>>& todraw = this->streams[index].data;
         for (auto j = todraw.begin(); j != todraw.end(); ++j)
         {
             QSharedPointer<CacheEntry>& ce = *j;
@@ -113,6 +116,8 @@ void PlotRenderer::synchronize(QQuickFramebufferObject* plotareafbo)
                 ce->prepare(this);
             }
         }
+
+        index++;
     }
 }
 
@@ -133,24 +138,19 @@ void PlotRenderer::render()
 
     GLint axisMatLoc = this->glGetUniformLocation(this->program, "axisTransform");
     GLint axisVecLoc = this->glGetUniformLocation(this->program, "axisBase");
-    //GLint heightLoc = this->glGetUniformLocation(this->program, "screenHeight");
-    //GLint lineHalfWidthLoc = this->glGetUniformLocation(this->program, "halfPixelWidth");
     GLint pointsizeLoc = this->glGetUniformLocation(this->program, "pointsize");
     GLint tstripLoc = this->glGetUniformLocation(this->program, "tstrip");
     GLint opacityLoc = this->glGetUniformLocation(this->program, "opacity");
     GLint colorLoc = this->glGetUniformLocation(this->program, "color");
 
-    //this->glUniform1f(heightLoc, (float) height);
-    //this->glUniform1f(lineHalfWidthLoc, 2.5);
-
     for (auto i = this->streams.begin(); i != this->streams.end(); ++i)
     {
-        Stream& s = *i;
+        struct drawable& s = *i;
         QList<QSharedPointer<CacheEntry>>& todraw = s.data;
         /* Set uniforms depending on whether *i is a selected stream. */
         this->glLineWidth(s.selected ? 2.0 : 1.0);
         this->glUniform1f(pointsizeLoc, s.selected ? 5.0 : 3.0);
-        this->glUniform3fv(colorLoc, 1, s.getColorArray());
+        this->glUniform3fv(colorLoc, 1, COLOR_TO_ARRAY(s.color));
         for (auto j = todraw.begin(); j != todraw.end(); ++j)
         {
             QSharedPointer<CacheEntry>& ce = *j;

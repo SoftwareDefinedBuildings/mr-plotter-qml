@@ -36,7 +36,7 @@ class PlotArea : public QQuickFramebufferObject
 public:
     PlotArea();
     QQuickFramebufferObject::Renderer* createRenderer() const override;
-    void addStream(QSharedPointer<Stream>& s);
+    void addStream(Stream* s);
 
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
@@ -51,7 +51,7 @@ private:
     void fullUpdateAsyncThrottled();
     void fullUpdateAsync();
 
-    QList<QSharedPointer<Stream>> streams;
+    QList<Stream*> streams;
 
     Cache cache;
 

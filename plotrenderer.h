@@ -3,6 +3,7 @@
 
 #include "cache.h"
 #include "plotarea.h"
+#include "stream.h"
 
 #include <QQuickFramebufferObject>
 #include <QOpenGLFunctions>
@@ -21,7 +22,7 @@ public:
 private:
     /* State required to actually render the plots. */
     GLuint program; // the shader program
-    QVector<Stream> streams; // the streams to draw
+    QVector<struct drawable> streams; // the streams to draw
     const PlotArea* pa;
 
     /* For now... */

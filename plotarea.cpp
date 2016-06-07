@@ -42,10 +42,10 @@ PlotArea::PlotArea() : cache(), openhand(Qt::OpenHandCursor), closedhand(Qt::Clo
     this->ready = true;
     this->pending = false;
 
-    QSharedPointer<Stream> s = QSharedPointer<Stream>(new Stream(QUuid::createUuid()));
+    Stream* s = new Stream(QUuid::createUuid());
     this->addStream(s);
 
-    QSharedPointer<Stream> t = QSharedPointer<Stream>(new Stream(QUuid::createUuid()));
+    Stream* t = new Stream(QUuid::createUuid());
     t->ymin = -10.0;
     t->ymax = 2.0;
     t->color.red = 1.0f;
@@ -54,7 +54,7 @@ PlotArea::PlotArea() : cache(), openhand(Qt::OpenHandCursor), closedhand(Qt::Clo
     t->selected = true;
     this->addStream(t);
 
-    QSharedPointer<Stream> u = QSharedPointer<Stream>(new Stream(QUuid::createUuid()));
+    Stream* u = new Stream(QUuid::createUuid());
     u->ymin = -2.0;
     u->ymax = 10.0;
     u->color.red = 0.0f;
@@ -122,7 +122,7 @@ QQuickFramebufferObject::Renderer* PlotArea::createRenderer() const
     return new PlotRenderer(this);
 }
 
-void PlotArea::addStream(QSharedPointer<Stream>& s)
+void PlotArea::addStream(Stream* s)
 {
     this->streams.append(s);
 }
@@ -392,7 +392,7 @@ void PlotArea::fullUpdateAsync()
 
     for (auto i = this->streams.begin(); i != this->streams.end(); i++)
     {
-        QSharedPointer<Stream>& s = *i;
+        Stream* s = *i;
         this->cache.requestData(s->uuid, this->timeaxis_start, this->timeaxis_end, pwe,
                                 [this, s, id](QList<QSharedPointer<CacheEntry>> data)
         {
