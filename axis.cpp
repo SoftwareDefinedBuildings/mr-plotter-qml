@@ -182,6 +182,12 @@ QString getTimeTickLabel(int64_t timestamp, QDateTime& datetime, Timescale granu
     Q_UNREACHABLE();
 }
 
+TimeAxis::TimeAxis()
+{
+    this->domainLo = 1451606400000000000LL;
+    this->domainHi = 1483228799999999999LL;
+}
+
 bool TimeAxis::setDomain(int64_t low, int64_t high)
 {
     if (low >= high)
@@ -194,7 +200,7 @@ bool TimeAxis::setDomain(int64_t low, int64_t high)
     return true;
 }
 
-inline int ceildiv(const int x, const int y)
+template<typename T> inline T ceildiv(const T x, const T y)
 {
     Q_ASSERT(y > 0);
     return (x / y) + ((x % y) > 0);
@@ -271,8 +277,9 @@ QVector<struct timetick> TimeAxis::getTicks()
         Q_ASSERT((deltatick % YEAR_NS) == 0);
 
         QDateTime date = QDateTime::fromMSecsSinceEpoch(domainLoMSecs - 1, QTimeZone::utc());
-        int curryear = ceildiv(date.date().year() + 1, yeardelta) * yeardelta;
-        date.setDate(QDate(curryear, 0, 0));
+        int curryear = ceildiv(date.date().year(), yeardelta) * yeardelta;
+        date.setDate(QDate(curryear, 1, 1));
+        date.setTime(QTime());
 
         if (domainLoMSecs == date.toMSecsSinceEpoch() && domainLoNSecs > 0)
         {
@@ -292,12 +299,16 @@ QVector<struct timetick> TimeAxis::getTicks()
         Q_ASSERT((deltatick % MONTH_NS) == 0);
 
         QDateTime date = QDateTime::fromMSecsSinceEpoch(domainLoMSecs - 1, QTimeZone::utc());
+        date.setTime(QTime());
+
         /* currmonth is an int from 0 to 11. */
-        int currmonth = ceildiv(date.date().month(), monthdelta) * monthdelta;
+        int currmonth = ceildiv(date.date().month() - 1, monthdelta) * monthdelta;
         int curryear = date.date().year() + (currmonth / 12);
         currmonth %= 12;
-        date.setDate(QDate(curryear, currmonth + 1, 0));
-        if (this->domainLo == date.toMSecsSinceEpoch() && this->domainLo > 0)
+        date.setDate(QDate(curryear, currmonth + 1, 1));
+        date.setTime(QTime());
+
+        if (domainLoMSecs == date.toMSecsSinceEpoch() && domainLoNSecs > 0)
         {
             date = date.addMonths(monthdelta);
         }
@@ -309,10 +320,10 @@ QVector<struct timetick> TimeAxis::getTicks()
         break;
     }
     default:
-        starttime = ((this->domainLo / deltatick) + (this->domainLo % deltatick != 0)) * deltatick;
+        starttime = ceildiv(this->domainLo, deltatick) * deltatick;
         while (starttime <= this->domainHi) {
             // Add the tick to ticks
-            QDateTime date = QDateTime::fromMSecsSinceEpoch(ceildiv(starttime, MILLISECOND_NS));
+            QDateTime date = QDateTime::fromMSecsSinceEpoch(ceildiv(starttime, MILLISECOND_NS), QTimeZone::utc());
             ticks.append({ starttime, getTimeTickLabel(starttime, date, granularity) });
             starttime += deltatick;
         }

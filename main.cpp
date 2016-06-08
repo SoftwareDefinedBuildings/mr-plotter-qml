@@ -4,6 +4,7 @@
 
 #include <QUuid>
 
+#include "axis.h"
 #include "mrplotter.h"
 #include "plotarea.h"
 #include "requester.h"
