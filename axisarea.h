@@ -3,16 +3,18 @@
 
 #include "axis.h"
 
-#include <QQuickItem>
+//#include <QQuickItem>
+#include <QQuickPaintedItem>
 #include <QSGNode>
 
-class TimeAxisArea : public QQuickItem
+class TimeAxisArea : public QQuickPaintedItem
 {
     Q_OBJECT
 
 public:
     TimeAxisArea();
-    QSGNode* updatePaintNode(QSGNode* node, UpdatePaintNodeData* data) override;
+    //QSGNode* updatePaintNode(QSGNode* node, UpdatePaintNodeData* data) override;
+    void paint(QPainter* painter);
     void setTimeAxis(TimeAxis& newtimeaxis);
 
     TimeAxis* timeaxis;
