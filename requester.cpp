@@ -88,7 +88,7 @@ inline void Requester::sendRequest(const QUuid &uuid, int64_t start, int64_t end
 
         for (int j = 0; j < pw; j++)
         {
-            int64_t time = stime + j;
+            int64_t time = stime + j - 1415643675000000000LL;
 
             /* Decide if we should drop this point. */
             int64_t rem = (time & 0x7F);

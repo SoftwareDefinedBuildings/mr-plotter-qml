@@ -200,6 +200,12 @@ bool TimeAxis::setDomain(int64_t low, int64_t high)
     return true;
 }
 
+void TimeAxis::getDomain(int64_t& low, int64_t& high) const
+{
+    low = this->domainLo;
+    high = this->domainHi;
+}
+
 template<typename T> inline T ceildiv(const T x, const T y)
 {
     Q_ASSERT(y > 0);
@@ -331,4 +337,9 @@ QVector<struct timetick> TimeAxis::getTicks()
     }
 
     return ticks;
+}
+
+double TimeAxis::map(int64_t time)
+{
+    return (time - this->domainLo) / (double) (this->domainHi - this->domainLo);
 }

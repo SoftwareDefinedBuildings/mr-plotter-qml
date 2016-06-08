@@ -10,7 +10,8 @@ SOURCES += main.cpp \
     requester.cpp \
     stream.cpp \
     mrplotter.cpp \
-    axis.cpp
+    axis.cpp \
+    axisarea.cpp
 
 RESOURCES += qml.qrc
 
@@ -28,7 +29,8 @@ HEADERS += \
     shaders.h \
     stream.h \
     mrplotter.h \
-    axis.h
+    axis.h \
+    axisarea.h
 
 DISTFILES += \
     README.md

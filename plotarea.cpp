@@ -29,18 +29,18 @@ inline uint8_t getPWExponent(int64_t pointwidth)
     return qMin(pwe, (uint8_t) (PWE_MAX - 1));
 }
 
-PlotArea::PlotArea() : cache(), openhand(Qt::OpenHandCursor), closedhand(Qt::ClosedHandCursor)
+PlotArea::PlotArea() : cache(), openhand(Qt::OpenHandCursor),
+    closedhand(Qt::ClosedHandCursor), timeaxis()
 {
     this->setAcceptedMouseButtons(Qt::LeftButton);
     this->setCursor(this->openhand);
-
-    this->timeaxis_start = -10;
-    this->timeaxis_end = 100;
 
     this->fullUpdateID = 0;
 
     this->ready = true;
     this->pending = false;
+    this->timeaxis.setDomain(1415643675000000000LL, 1415643675000000010LL);
+    //this->timeaxis.setDomain(-10, 200);
 
     Stream* s = new Stream(QUuid::createUuid());
     this->addStream(s);
@@ -61,60 +61,6 @@ PlotArea::PlotArea() : cache(), openhand(Qt::OpenHandCursor), closedhand(Qt::Clo
     u->color.green = 0.5f;
     u->color.blue = 0.0f;
     this->addStream(u);
-    /*
-    struct statpt data[6];
-
-    data[0].time = 0;
-    data[0].min = 0.2;
-    data[0].mean = 0.3;
-    data[0].max = 0.4;
-    data[0].count = 2;
-
-    data[1].time = 32;
-    data[1].min = 0.1;
-    data[1].mean = 0.2;
-    data[1].max = 0.3;
-    data[1].count = 2;
-
-    data[2].time = 96;
-    data[2].min = 0.5;
-    data[2].mean = 0.5;
-    data[2].max = 0.5;
-    data[2].count = 1;
-
-    data[3].time = 160;
-    data[3].min = 0.3;
-    data[3].mean = 0.5;
-    data[3].max = 0.7;
-    data[3].count = 2;
-
-    data[4].time = 192;
-    data[4].min = 0.4;
-    data[4].mean = 0.56;
-    data[4].max = 0.6;
-    data[4].count = 5;
-
-    data[5].time = 224;
-    data[5].min = 0.7;
-    data[5].mean = 0.8;
-    data[5].max = 0.9;
-    data[5].count = 6;
-
-    CacheEntry* ent = new CacheEntry(-10, 250);
-    ent->cacheData(data, 6, 5, QSharedPointer<CacheEntry>(nullptr),
-                   QSharedPointer<CacheEntry>(nullptr));*/
-
-    /*QUuid u;
-    this->c.requestData(u, 100, 200, 0, [this, u](QList<QSharedPointer<CacheEntry>> lst)
-    {
-        this->curr = lst;
-        this->update();
-        this->c.requestData(u, -10, 250, 0, [this](QList<QSharedPointer<CacheEntry>> lst)
-        {
-            this->curr = lst;
-            this->update();
-        });
-    });*/
 }
 
 QQuickFramebufferObject::Renderer* PlotArea::createRenderer() const
@@ -129,25 +75,28 @@ void PlotArea::addStream(Stream* s)
 
 void PlotArea::mousePressEvent(QMouseEvent* event)
 {
-    //qDebug("Mouse pressed!: %p", event);
     this->setCursor(this->closedhand);
-    this->update();
 
-    this->timeaxis_start_beforescroll = this->timeaxis_start;
-    this->timeaxis_end_beforescroll = this->timeaxis_end;
+    int64_t timeaxis_start, timeaxis_end;
+    this->timeaxis.getDomain(timeaxis_start, timeaxis_end);
 
-    this->pixelToTime = (this->timeaxis_end - this->timeaxis_start) / (double) this->width();
+    this->timeaxis_start_beforescroll = timeaxis_start;
+    this->timeaxis_end_beforescroll = timeaxis_end;
+
+    this->pixelToTime = (timeaxis_end - timeaxis_start) / (double) this->width();
     this->scrollstart = event->x();
 }
 
 void PlotArea::mouseMoveEvent(QMouseEvent* event)
 {
     /* Only executes when a mouse button is pressed. */
-    //qDebug("Mouse moved!: %p", event);
     int64_t delta = (int64_t) (0.5 + this->pixelToTime * (event->x() - this->scrollstart));
-    this->timeaxis_start = this->timeaxis_start_beforescroll - delta;
-    this->timeaxis_end = this->timeaxis_end_beforescroll - delta;
-    this->update();
+    int64_t timeaxis_start = this->timeaxis_start_beforescroll - delta;
+    int64_t timeaxis_end = this->timeaxis_end_beforescroll - delta;
+
+    this->timeaxis.setDomain(timeaxis_start, timeaxis_end);
+
+    this->updateView();
 }
 
 void PlotArea::mouseReleaseEvent(QMouseEvent* event)
@@ -155,13 +104,17 @@ void PlotArea::mouseReleaseEvent(QMouseEvent* event)
     Q_UNUSED(event);
 
     this->setCursor(this->openhand);
-    this->update();
+    this->updateView();
 
-    this->fullUpdateAsync();
+    this->updateDataAsync();
 }
 
 void PlotArea::touchEvent(QTouchEvent* event)
 {
+    int64_t timeaxis_start, timeaxis_end;
+
+    this->timeaxis.getDomain(timeaxis_start, timeaxis_end);
+
     const QList<QTouchEvent::TouchPoint>& tpoints = event->touchPoints();
 
     int numtouching = 0;
@@ -217,8 +170,8 @@ void PlotArea::touchEvent(QTouchEvent* event)
         }
 
         this->initleft = xleft;
-        this->timeaxis_start_beforescroll = this->timeaxis_start;
-        this->timeaxis_end_beforescroll = this->timeaxis_end;
+        this->timeaxis_start_beforescroll = timeaxis_start;
+        this->timeaxis_end_beforescroll = timeaxis_end;
     }
     else if ((event->touchPointStates() & Qt::TouchPointPressed) != 0)
     {
@@ -229,8 +182,8 @@ void PlotArea::touchEvent(QTouchEvent* event)
             /* Start zooming, stop scrolling. */
             this->initleft = xleft;
             this->initright = xright;
-            this->timeaxis_start_beforescroll = this->timeaxis_start;
-            this->timeaxis_end_beforescroll = this->timeaxis_end;
+            this->timeaxis_start_beforescroll = timeaxis_start;
+            this->timeaxis_end_beforescroll = timeaxis_end;
         }
     }
 
@@ -239,7 +192,7 @@ void PlotArea::touchEvent(QTouchEvent* event)
         /* The user removed his or her finger(s) from the screen, and
          * now there are no fingers touching the screen.
          */
-        this->fullUpdateAsync();
+        this->updateDataAsync();
         return;
     }
     else if ((event->touchPointStates() & Qt::TouchPointReleased) != 0)
@@ -251,8 +204,8 @@ void PlotArea::touchEvent(QTouchEvent* event)
         {
             /* Stop zooming, start scrolling. */
             this->initleft = xleft;
-            this->timeaxis_start_beforescroll = this->timeaxis_start;
-            this->timeaxis_end_beforescroll = this->timeaxis_end;
+            this->timeaxis_start_beforescroll = timeaxis_start;
+            this->timeaxis_end_beforescroll = timeaxis_end;
         }
     }
 
@@ -268,9 +221,10 @@ void PlotArea::touchEvent(QTouchEvent* event)
     {
         int deltapixels = xleft - initleft;
         int64_t deltatime = (int64_t) (0.5 + (this->timeaxis_end_beforescroll - this->timeaxis_start_beforescroll) / this->width() * deltapixels);
-        this->timeaxis_start= this->timeaxis_start_beforescroll - deltatime;
-        this->timeaxis_end = this->timeaxis_end_beforescroll - deltatime;
-        this->update();
+        timeaxis_start = this->timeaxis_start_beforescroll - deltatime;
+        timeaxis_end = this->timeaxis_end_beforescroll - deltatime;
+        this->timeaxis.setDomain(timeaxis_start, timeaxis_end);
+        this->updateView();
         return;
     }
     else
@@ -310,25 +264,30 @@ void PlotArea::touchEvent(QTouchEvent* event)
         /* Now we start working with timestamps. Up to this point, we were
          * only working with screen coordinates.
          */
-        this->timeaxis_start = this->timeaxis_start_beforescroll + (int64_t) (0.5 + (newleftoldscreen / width) * (this->timeaxis_end_beforescroll - this->timeaxis_start_beforescroll));
-        this->timeaxis_end = this->timeaxis_start + (int64_t) (0.5 + (timeaxis_end_beforescroll - timeaxis_start_beforescroll) * oldgap / newgap);
+        timeaxis_start = this->timeaxis_start_beforescroll + (int64_t) (0.5 + (newleftoldscreen / width) * (this->timeaxis_end_beforescroll - this->timeaxis_start_beforescroll));
+        timeaxis_end = timeaxis_start + (int64_t) (0.5 + (timeaxis_end_beforescroll - timeaxis_start_beforescroll) * oldgap / newgap);
 
-        this->update();
+        this->timeaxis.setDomain(timeaxis_start, timeaxis_end);
+
+        this->updateView();
     }
 }
 
 void PlotArea::wheelEvent(QWheelEvent* event)
 {
-    int xpos = (event->pos().x() / this->width()) *
-            (this->timeaxis_end - this->timeaxis_start) +
-            this->timeaxis_start;
+    int64_t timeaxis_start, timeaxis_end;
+
+    this->timeaxis.getDomain(timeaxis_start, timeaxis_end);
+
+    int64_t xpos = (int64_t) (0.5 + ((event->pos().x() / this->width()) *
+            (timeaxis_end - timeaxis_start))) + timeaxis_start;
     int scrollAmt = event->angleDelta().y();
 
     /* We scroll relative to xpos; we must ensure that the point
      * underneath the mouse doesn't change.
      */
     double width = (int64_t) (timeaxis_end - timeaxis_start);
-    double xfrac = (((int64_t) xpos) - timeaxis_start) / width;
+    double xfrac = (xpos - timeaxis_start) / width;
 
     double scalefactor = 1.0 + (abs(scrollAmt) * WHEEL_SENSITIVITY);
 
@@ -339,32 +298,44 @@ void PlotArea::wheelEvent(QWheelEvent* event)
 
     double newwidth = width * scalefactor;
 
-    this->timeaxis_start = xpos - (int64_t) (0.5 + newwidth * xfrac);
-    this->timeaxis_end = this->timeaxis_start + (int64_t) (0.5 + newwidth);
+    timeaxis_start = xpos - (int64_t) (0.5 + newwidth * xfrac);
+    timeaxis_end = timeaxis_start + (int64_t) (0.5 + newwidth);
 
-    this->update();
+    Q_ASSERT(this->timeaxis.setDomain(timeaxis_start, timeaxis_end));
+
+    this->updateView();
 
     /* We throttle this request because it's likely to see many of these
      * requests in succession.
      * It's probably a common pattern to start at a wide graph and scroll
      * in rapidly into a small area of it.
      */
-    this->fullUpdateAsyncThrottled();
+    this->updateDataAsyncThrottled();
 }
 
 void PlotArea::geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry)
 {
     this->QQuickFramebufferObject::geometryChanged(newGeometry, oldGeometry);
 
-    this->fullUpdateAsyncThrottled();
+    this->updateDataAsyncThrottled();
 }
 
-void PlotArea::fullUpdateAsyncThrottled()
+/* Updates the screen in response to the x-axis having shifted. */
+void PlotArea::updateView()
+{
+    this->update();
+    if (this->timeaxisarea != nullptr)
+    {
+        this->timeaxisarea->update();
+    }
+}
+
+void PlotArea::updateDataAsyncThrottled()
 {
     if (this->ready)
     {
         Q_ASSERT(!this->pending);
-        this->fullUpdateAsync();
+        this->updateDataAsync();
         this->ready = false;
         QTimer::singleShot(THROTTLE_MSEC, [this]()
         {
@@ -372,7 +343,7 @@ void PlotArea::fullUpdateAsyncThrottled()
             if (this->pending)
             {
                 this->pending = false;
-                this->fullUpdateAsyncThrottled();
+                this->updateDataAsyncThrottled();
             }
         });
     }
@@ -382,18 +353,21 @@ void PlotArea::fullUpdateAsyncThrottled()
     }
 }
 
-void PlotArea::fullUpdateAsync()
+void PlotArea::updateDataAsync()
 {
+    int64_t timeaxis_start, timeaxis_end;
+    this->timeaxis.getDomain(timeaxis_start, timeaxis_end);
+
     uint64_t id = ++this->fullUpdateID;
-    int64_t nanosperpixel = (this->timeaxis_end - this->timeaxis_start) / (int64_t) (0.5 + this->width());
+    int64_t nanosperpixel = (timeaxis_end - timeaxis_start) / (int64_t) (0.5 + this->width());
     uint8_t pwe = getPWExponent(nanosperpixel);
 
-    int64_t screenwidth = this->timeaxis_end - this->timeaxis_start;
+    int64_t screenwidth = timeaxis_end - timeaxis_start;
 
     for (auto i = this->streams.begin(); i != this->streams.end(); i++)
     {
         Stream* s = *i;
-        this->cache.requestData(s->uuid, this->timeaxis_start, this->timeaxis_end, pwe,
+        this->cache.requestData(s->uuid, timeaxis_start, timeaxis_end, pwe,
                                 [this, s, id](QList<QSharedPointer<CacheEntry>> data)
         {
             if (id == this->fullUpdateID)
@@ -403,4 +377,20 @@ void PlotArea::fullUpdateAsync()
             }
         }, screenwidth);
     }
+}
+
+const TimeAxis& PlotArea::getTimeAxis() const
+{
+    return this->timeaxis;
+}
+
+TimeAxisArea* PlotArea::timeAxisArea() const
+{
+    return this->timeaxisarea;
+}
+
+void PlotArea::setTimeAxisArea(TimeAxisArea* newtimeaxisarea)
+{
+    this->timeaxisarea = newtimeaxisarea;
+    this->timeaxisarea->setTimeAxis(this->timeaxis);
 }

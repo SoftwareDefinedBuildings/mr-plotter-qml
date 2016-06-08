@@ -147,7 +147,14 @@ public:
      */
     bool setDomain(int64_t low, int64_t high);
 
+    /* Sets the provided pointers LOW and HIGH to the domain of this
+     * axis.
+     */
+    void getDomain(int64_t& low, int64_t& high) const;
+
     QVector<struct timetick> getTicks();
+
+    double map(int64_t time);
 
 private:
     int64_t domainLo;

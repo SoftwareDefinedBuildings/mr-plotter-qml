@@ -10,15 +10,27 @@ Window {
         mouseArea.onClicked: {
             var s = x.addStream("91c0dd4c-8d88-4803-a0b9-3aa7cd09fa0f")
             console.log("Hello, world " + s.toString());
-            var t = new Stream();
-            console.log(t);
         }
     }
 
     PlotArea {
         id: pa
-        width: parent.width / 2
+        width: parent.width
         height: parent.height / 2
+        timeaxisarea: taa
+    }
+
+    TimeAxisArea {
+        id: taa
+        anchors.top: pa.bottom
+        width: pa.width
+        height: parent.height / 2
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {
+                console.log("Clicked axis area");
+            }
+        }
     }
 
     MrPlotter {

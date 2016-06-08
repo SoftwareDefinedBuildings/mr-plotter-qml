@@ -48,8 +48,7 @@ GLuint loadShader(QOpenGLFunctions* funcs, GLenum type, const char* shaderSrc)
 
 PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
 {
-    this->timeaxis_start = plotarea->timeaxis_start;
-    this->timeaxis_end = plotarea->timeaxis_end;
+    plotarea->getTimeAxis().getDomain(this->timeaxis_start, this->timeaxis_end);
 
     this->initializeOpenGLFunctions();
 
@@ -97,8 +96,7 @@ void PlotRenderer::synchronize(QQuickFramebufferObject* plotareafbo)
 {
     PlotArea* plotarea = static_cast<PlotArea*>(plotareafbo);
 
-    this->timeaxis_start = plotarea->timeaxis_start;
-    this->timeaxis_end = plotarea->timeaxis_end;
+    plotarea->getTimeAxis().getDomain(this->timeaxis_start, this->timeaxis_end);
 
     this->streams.resize(plotarea->streams.size());
 

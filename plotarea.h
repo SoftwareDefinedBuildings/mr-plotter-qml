@@ -1,6 +1,7 @@
 #ifndef PLOTAREA_H
 #define PLOTAREA_H
 
+#include "axisarea.h"
 #include "cache.h"
 #include "stream.h"
 
@@ -30,6 +31,7 @@
 class PlotArea : public QQuickFramebufferObject
 {
     Q_OBJECT
+    Q_PROPERTY(TimeAxisArea* timeaxisarea READ timeAxisArea WRITE setTimeAxisArea)
 
     friend class PlotRenderer;
 
@@ -44,19 +46,22 @@ public:
     void touchEvent(QTouchEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
 
+    const TimeAxis& getTimeAxis() const;
+
+    TimeAxisArea* timeAxisArea() const;
+    void setTimeAxisArea(TimeAxisArea* newtimeaxisarea);
+
 protected:
     void geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry) override;
 
 private:
-    void fullUpdateAsyncThrottled();
-    void fullUpdateAsync();
+    void updateView();
+    void updateDataAsyncThrottled();
+    void updateDataAsync();
 
     QList<Stream*> streams;
 
     Cache cache;
-
-    int64_t timeaxis_start;
-    int64_t timeaxis_end;
 
     int64_t timeaxis_start_beforescroll;
     int64_t timeaxis_end_beforescroll;
@@ -80,6 +85,9 @@ private:
      */
     bool ready;
     bool pending;
+
+    TimeAxis timeaxis;
+    TimeAxisArea* timeaxisarea;
 };
 
 #endif // PLOTAREA_H
