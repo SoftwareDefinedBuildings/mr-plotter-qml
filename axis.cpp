@@ -114,10 +114,16 @@ float YAxis::unmap(float y)
     return this->domainLo + y * (this->domainHi - this->domainLo);
 }
 
+template<typename T> inline T ceildiv(const T x, const T y)
+{
+    Q_ASSERT(y > 0);
+    return (x / y) + ((x % y) > 0);
+}
+
 int64_t getTimeTickDelta(const int64_t* intervals, int len, int64_t span)
 {
     Q_ASSERT(len > 0);
-    int64_t idealWidth = span / TIMEAXIS_MAXTICKS;
+    int64_t idealWidth = ceildiv(span, (int64_t) TIMEAXIS_MAXTICKS);
     const int64_t* tickptr = std::lower_bound(intervals, intervals + len, idealWidth);
     if (tickptr == intervals + len)
     {
@@ -210,12 +216,6 @@ void TimeAxis::getDomain(int64_t& low, int64_t& high) const
 {
     low = this->domainLo;
     high = this->domainHi;
-}
-
-template<typename T> inline T ceildiv(const T x, const T y)
-{
-    Q_ASSERT(y > 0);
-    return (x / y) + ((x % y) > 0);
 }
 
 QVector<struct timetick> TimeAxis::getTicks()
