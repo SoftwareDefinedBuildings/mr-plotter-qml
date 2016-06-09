@@ -29,8 +29,8 @@ inline uint8_t getPWExponent(int64_t pointwidth)
     return qMin(pwe, (uint8_t) (PWE_MAX - 1));
 }
 
-PlotArea::PlotArea() : cache(), openhand(Qt::OpenHandCursor),
-    closedhand(Qt::ClosedHandCursor), timeaxis()
+PlotArea::PlotArea() : timeaxis(), cache(), openhand(Qt::OpenHandCursor),
+    closedhand(Qt::ClosedHandCursor)
 {
     this->setAcceptedMouseButtons(Qt::LeftButton);
     this->setCursor(this->openhand);
@@ -329,7 +329,10 @@ void PlotArea::geometryChanged(const QRectF& newGeometry, const QRectF& oldGeome
 {
     this->QQuickFramebufferObject::geometryChanged(newGeometry, oldGeometry);
 
-    this->updateDataAsyncThrottled();
+    if (newGeometry.width() > 0 && newGeometry.height() > 0)
+    {
+        this->updateDataAsyncThrottled();
+    }
 }
 
 /* Updates the screen in response to the x-axis having shifted. */
