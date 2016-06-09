@@ -72,6 +72,8 @@ CacheEntry::~CacheEntry()
     }
 }
 
+#define GAPMARKER 0.5f
+
 /* SPOINTS should contain all statistical points where the MIDPOINT is
  * in the (closed) interval [start, end] of this cache entry.
  * If there is a point immediately to the left of and adjacent to the
@@ -179,23 +181,25 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
             struct cachedpt* output = &this->cached[j];
 
             output->reltime = (float) (exptime - this->epoch);
-            output->min = NAN;
-            output->prevcount = prevcount;
+            output->min = prevcount;
+            output->prevcount = GAPMARKER; // DD Shader will have to be smart and look at output->min for the "correct" value of count
 
-            output->mean = NAN;
+            output->mean = 0.0f;
 
             output->reltime2 = output->reltime;
-            output->max = NAN;
-            output->count = 0.0f;
+            output->max = 0.0f;
+            output->count = GAPMARKER; // DD Shader will have to be smart and look at output->max for the "correct" value of count
 
             /* If the previous point (at index j - 1) has a gap on either
              * side, it needs to be rendered as vertical line.
              */
-            if ((j > 1 && this->cached[j - 2].count == 0.0f) || (j == 1 && !prevfirst))
+            if ((j > 1 && this->cached[j - 2].count == GAPMARKER) || (j == 1 && !prevfirst))
             {
                 /* This tells the vertex shader the appropriate info. */
-                this->cached[j - 1].prevcount *= -1;
-                this->cached[j - 1].count *= -1;
+                Q_ASSERT(this->cached[j - 1].prevcount == 0.0f);
+                Q_ASSERT(this->cached[j - 1].count != 0.0f);
+                this->cached[j - 1].prevcount = -GAPMARKER; // WILL be set to -0.5. DD Shader will have to be smart and realize this should really be 0.
+                this->cached[j - 1].count *= -1; // Will be negative, but will not be -0. DD Shader will have to be smart and interpret this as a positive number.
             }
 
             prevtime = exptime;
