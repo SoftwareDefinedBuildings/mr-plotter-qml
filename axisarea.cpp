@@ -13,10 +13,45 @@
 #define TICKTHICKNESS 1
 #define TICKLENGTH 5
 
+YAxisArea::YAxisArea(): yAxes()
+{
+}
+
+void YAxisArea::paint(QPainter* painter)
+{
+    int xval = ((int) (0.5 + this->width())) - AXISTHICKNESS - 1;
+
+    for (auto j = this->yAxes.begin(); j != this->yAxes.end(); j++)
+    {
+        painter->drawRect(QRectF(xval, 0, AXISTHICKNESS, this->height()));
+
+        YAxis* axis = *j;
+        QVector<struct tick> ticks = axis->getTicks();
+        for (auto i = ticks.begin(); i != ticks.end(); i++)
+        {
+            struct tick& tick = *i;
+            double position = (1 - axis->map((float) tick.value)) * this->height();
+
+            painter->drawRect(xval - TICKLENGTH, position, TICKLENGTH, TICKTHICKNESS);
+
+            QTextOption to(Qt::AlignRight | Qt::AlignVCenter);
+            to.setWrapMode(QTextOption::NoWrap);
+            painter->drawText(QRectF(xval - 100 - TICKLENGTH, position - 100, 100, 200),
+                              tick.label, to);
+        }
+
+        xval -= 100;
+    }
+}
+
+void YAxisArea::addYAxis(YAxis& newyaxis)
+{
+    this->yAxes.push_back(&newyaxis);
+}
+
+
 TimeAxisArea::TimeAxisArea()
 {
-    qDebug("Axis Area constructed");
-    //this->setFlag(QQuickItem::ItemHasContents);
     this->timeaxis = nullptr;
 }
 

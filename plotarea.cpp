@@ -40,27 +40,39 @@ PlotArea::PlotArea() : cache(), openhand(Qt::OpenHandCursor),
     this->ready = true;
     this->pending = false;
     this->timeaxis.setDomain(1415643675000000000LL, 1415643675000000010LL);
-    //this->timeaxis.setDomain(-10, 200);
+
+    this->timeaxisarea = nullptr;
+    this->yaxisarea = nullptr;
+
+    YAxis* axis1 = new YAxis;
+    axis1->setDomain(-2, 2);
+    YAxis* axis2 = new YAxis;
+    axis2->setDomain(-10, 2);
+    YAxis* axis3 = new YAxis;
+    axis3->setDomain(-2, 10);
 
     Stream* s = new Stream(QUuid::createUuid());
     this->addStream(s);
+    axis1->addStream(s);
 
     Stream* t = new Stream(QUuid::createUuid());
-    t->ymin = -10.0;
-    t->ymax = 2.0;
     t->color.red = 1.0f;
     t->color.green = 0.0f;
     t->color.blue = 0.0f;
     t->selected = true;
     this->addStream(t);
+    axis2->addStream(t);
 
     Stream* u = new Stream(QUuid::createUuid());
-    u->ymin = -2.0;
-    u->ymax = 10.0;
     u->color.red = 0.0f;
     u->color.green = 0.5f;
     u->color.blue = 0.0f;
     this->addStream(u);
+    axis3->addStream(u);
+
+    this->yaxes.push_back(axis1);
+    this->yaxes.push_back(axis2);
+    this->yaxes.push_back(axis3);
 }
 
 QQuickFramebufferObject::Renderer* PlotArea::createRenderer() const
@@ -393,4 +405,19 @@ void PlotArea::setTimeAxisArea(TimeAxisArea* newtimeaxisarea)
 {
     this->timeaxisarea = newtimeaxisarea;
     this->timeaxisarea->setTimeAxis(this->timeaxis);
+}
+
+YAxisArea* PlotArea::yAxisArea() const
+{
+    return this->yaxisarea;
+}
+
+void PlotArea::setYAxisArea(YAxisArea* newyaxisarea)
+{
+    this->yaxisarea = newyaxisarea;
+    for (auto i = this->yaxes.begin(); i != this->yaxes.end(); i++)
+    {
+        this->yaxisarea->addYAxis(**i);
+    }
+    this->yaxisarea->update();
 }

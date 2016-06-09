@@ -8,33 +8,49 @@ Window {
     MainForm {
         anchors.fill: parent
         mouseArea.onClicked: {
-            var s = x.addStream("91c0dd4c-8d88-4803-a0b9-3aa7cd09fa0f")
+            var s = mrp.addStream("91c0dd4c-8d88-4803-a0b9-3aa7cd09fa0f")
             console.log("Hello, world " + s.toString());
         }
     }
 
     PlotArea {
         id: pa
-        width: parent.width
+        x: parent.width / 2
+        width: parent.width / 2
         height: parent.height / 2
         timeaxisarea: taa
+        yaxisarea: yaa
+    }
+
+    YAxisArea {
+        id: yaa
+        anchors.right: pa.left
+        width: parent.width / 2
+        height: pa.height
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {
+                console.log("Clicked y axis area");
+            }
+        }
     }
 
     TimeAxisArea {
         id: taa
         anchors.top: pa.bottom
+        x: pa.width
         width: pa.width
         height: parent.height / 2
         MouseArea {
             anchors.fill: parent
             onClicked: {
-                console.log("Clicked axis area");
+                console.log("Clicked time axis area");
             }
         }
     }
 
     MrPlotter {
-        id: x
+        id: mrp
         plotarea: pa
     }
 }

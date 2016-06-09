@@ -15,6 +15,7 @@ int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
 
+    qmlRegisterType<YAxisArea>("MrPlotter", 0, 1, "YAxisArea");
     qmlRegisterType<TimeAxisArea>("MrPlotter", 0, 1, "TimeAxisArea");
     qmlRegisterType<PlotArea>("MrPlotter", 0, 1, "PlotArea");
     qmlRegisterType<MrPlotter>("MrPlotter", 0, 1, "MrPlotter");

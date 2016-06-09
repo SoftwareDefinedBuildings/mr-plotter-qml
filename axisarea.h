@@ -7,6 +7,18 @@
 #include <QQuickPaintedItem>
 #include <QSGNode>
 
+class YAxisArea : public QQuickPaintedItem
+{
+    Q_OBJECT
+
+public:
+    YAxisArea();
+    void paint(QPainter* painter);
+    void addYAxis(YAxis& newyaxis);
+
+    QList<YAxis*> yAxes;
+};
+
 class TimeAxisArea : public QQuickPaintedItem
 {
     Q_OBJECT

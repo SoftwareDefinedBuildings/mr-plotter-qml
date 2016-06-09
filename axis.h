@@ -22,10 +22,10 @@ struct tick
     QString label;
 };
 
-class Axis
+class YAxis
 {
 public:
-    Axis();
+    YAxis();
 
     /* Returns true if the stream was already added to an axis, and was
      * removed from that axis to satisfy this request.
@@ -46,9 +46,13 @@ public:
      */
     bool setDomain(float low, float high);
 
+    /* Sets the provided references LOW and HIGH to the domain of this
+     * axis.
+     */
+    void getDomain(float& low, float& high) const;
+
     QVector<struct tick> getTicks();
 
-private:
     /* Maps a floating point number in the domain of this axis to a
      * floating point number between 0.0 and 1.0.
      */
@@ -59,6 +63,7 @@ private:
      */
     float unmap(float y);
 
+private:
     float domainLo;
     float domainHi;
 
@@ -147,7 +152,7 @@ public:
      */
     bool setDomain(int64_t low, int64_t high);
 
-    /* Sets the provided pointers LOW and HIGH to the domain of this
+    /* Sets the provided references LOW and HIGH to the domain of this
      * axis.
      */
     void getDomain(int64_t& low, int64_t& high) const;

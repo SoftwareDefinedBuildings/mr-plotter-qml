@@ -22,19 +22,16 @@ Stream::Stream(const QUuid& u): uuid(u)
 
 void Stream::toDrawable(struct drawable& d) const
 {
+    Q_ASSERT(this->axis != nullptr);
+
     d.data = this->data;
-    d.ymin = this->ymin;
-    d.ymax = this->ymax;
+    this->axis->getDomain(d.ymin, d.ymax);
     d.color = this->color;
     d.selected = this->selected;
 }
 
 void Stream::init()
 {
-    /* TODO: Intelligently auto-assign an axis. */
-    this->ymin = -2.0;
-    this->ymax = 2.0;
-
     /* TODO: Auto-assign an intelligent color. */
     this->color.red = 0.0f;
     this->color.green = 0.0f;

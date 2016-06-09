@@ -29,7 +29,7 @@ struct drawable
 };
 
 /* Both Stream and Axis need declarations of each other. */
-class Axis;
+class YAxis;
 
 class Stream
 {
@@ -56,7 +56,7 @@ public:
     bool selected;
 
     /* The axis to which this stream is assigned. */
-    Axis* axis;
+    YAxis* axis;
 
 private:
     void init();

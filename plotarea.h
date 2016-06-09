@@ -32,6 +32,7 @@ class PlotArea : public QQuickFramebufferObject
 {
     Q_OBJECT
     Q_PROPERTY(TimeAxisArea* timeaxisarea READ timeAxisArea WRITE setTimeAxisArea)
+    Q_PROPERTY(YAxisArea* yaxisarea READ yAxisArea WRITE setYAxisArea)
 
     friend class PlotRenderer;
 
@@ -51,6 +52,9 @@ public:
     TimeAxisArea* timeAxisArea() const;
     void setTimeAxisArea(TimeAxisArea* newtimeaxisarea);
 
+    YAxisArea* yAxisArea() const;
+    void setYAxisArea(YAxisArea* newyaxisarea);
+
 protected:
     void geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry) override;
 
@@ -58,6 +62,12 @@ private:
     void updateView();
     void updateDataAsyncThrottled();
     void updateDataAsync();
+
+    TimeAxis timeaxis;
+    TimeAxisArea* timeaxisarea;
+
+    QList<YAxis*> yaxes;
+    YAxisArea* yaxisarea;
 
     QList<Stream*> streams;
 
@@ -85,9 +95,6 @@ private:
      */
     bool ready;
     bool pending;
-
-    TimeAxis timeaxis;
-    TimeAxisArea* timeaxisarea;
 };
 
 #endif // PLOTAREA_H

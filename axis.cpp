@@ -10,13 +10,13 @@
 #include <QTimeZone>
 #include <QVector>
 
-Axis::Axis()
+YAxis::YAxis()
 {
     this->domainLo = -1.0;
     this->domainHi = 1.0;
 }
 
-bool Axis::addStream(Stream* s)
+bool YAxis::addStream(Stream* s)
 {
     if (s->axis == this)
     {
@@ -29,7 +29,7 @@ bool Axis::addStream(Stream* s)
 }
 
 /* Linear time, for now. May optimize this later. */
-bool Axis::rmStream(Stream* s)
+bool YAxis::rmStream(Stream* s)
 {
     if (s->axis != this)
     {
@@ -41,7 +41,7 @@ bool Axis::rmStream(Stream* s)
     return true;
 }
 
-bool Axis::setDomain(float low, float high)
+bool YAxis::setDomain(float low, float high)
 {
     if (low >= high || !std::isfinite(low) || !std::isfinite(high))
     {
@@ -53,7 +53,13 @@ bool Axis::setDomain(float low, float high)
     return true;
 }
 
-QVector<struct tick> Axis::getTicks()
+void YAxis::getDomain(float& low, float& high) const
+{
+    low = this->domainLo;
+    high = this->domainHi;
+}
+
+QVector<struct tick> YAxis::getTicks()
 {
     int precision = (int) (0.5 + log10(this->domainHi - this->domainLo) - 1);
     double delta = pow(10, precision);
@@ -98,12 +104,12 @@ QVector<struct tick> Axis::getTicks()
     return ticks;
 }
 
-float Axis::map(float x)
+float YAxis::map(float x)
 {
     return (x - this->domainLo) / (this->domainHi - this->domainLo);
 }
 
-float Axis::unmap(float y)
+float YAxis::unmap(float y)
 {
     return this->domainLo + y * (this->domainHi - this->domainLo);
 }
