@@ -313,7 +313,8 @@ void PlotArea::wheelEvent(QWheelEvent* event)
     timeaxis_start = xpos - (int64_t) (0.5 + newwidth * xfrac);
     timeaxis_end = timeaxis_start + (int64_t) (0.5 + newwidth);
 
-    Q_ASSERT(this->timeaxis.setDomain(timeaxis_start, timeaxis_end));
+    bool result = this->timeaxis.setDomain(timeaxis_start, timeaxis_end);
+    Q_ASSERT(result);
 
     this->updateView();
 

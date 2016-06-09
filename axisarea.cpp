@@ -53,6 +53,7 @@ void YAxisArea::addYAxis(YAxis& newyaxis)
 TimeAxisArea::TimeAxisArea()
 {
     this->timeaxis = nullptr;
+    this->setRenderTarget(QQuickPaintedItem::FramebufferObject);
 }
 
 /*
