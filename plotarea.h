@@ -34,6 +34,8 @@ class PlotArea : public QQuickFramebufferObject
     Q_OBJECT
     Q_PROPERTY(TimeAxisArea* timeaxisarea READ timeAxisArea WRITE setTimeAxisArea)
     Q_PROPERTY(YAxisArea* yaxisarea READ yAxisArea WRITE setYAxisArea)
+    Q_PROPERTY(QList<QVariant> streamlist READ getStreamList WRITE setStreamList)
+
 
     friend class PlotRenderer;
 

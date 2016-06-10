@@ -10,6 +10,7 @@
 class YAxisArea : public QQuickPaintedItem
 {
     Q_OBJECT
+    Q_PROPERTY(QList<QVariant> axislist READ getAxisList WRITE setAxisList)
 
 public:
     YAxisArea();
