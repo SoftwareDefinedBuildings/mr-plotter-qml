@@ -54,10 +54,6 @@ public:
     /* The axis to which this stream is assigned. */
     YAxis* axis;
 
-    /* The axes with which to render this stream. */
-    float ymin;
-    float ymax;
-
     /* The color that this stream should have. */
     struct color color;
 

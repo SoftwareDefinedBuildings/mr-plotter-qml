@@ -30,6 +30,8 @@ Window {
             pa.setStreamList(streamlist);
             yaa.setAxisList(axislist);
 
+            pa.setTimeDomain(1415643674999, 1415643675001);
+
             pa.update();
             yaa.update();
 
@@ -49,7 +51,7 @@ Window {
     YAxisArea {
         id: yaa
         anchors.left: parent.left
-        width: Math.min(parent.width / 4, 400)
+        width: Math.min(parent.width / 4, 300)
         height: pa.height
     }
 

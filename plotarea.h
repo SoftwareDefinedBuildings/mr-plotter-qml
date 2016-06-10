@@ -59,6 +59,9 @@ public:
     Q_INVOKABLE QList<QVariant> getStreamList() const;
     Q_INVOKABLE void setStreamList(QList<QVariant> newstreamlist);
 
+    Q_INVOKABLE bool setTimeDomain(double domainLoMillis, double domainHiMillis,
+                                   double domainLoNanos = 0.0, double domainHiNanos = 0.0);
+
     Q_INVOKABLE void updateView();
     Q_INVOKABLE void updateDataAsyncThrottled();
     Q_INVOKABLE void updateDataAsync();

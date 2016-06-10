@@ -39,7 +39,6 @@ PlotArea::PlotArea() : timeaxis(), cache(), openhand(Qt::OpenHandCursor),
 
     this->ready = true;
     this->pending = false;
-    this->timeaxis.setDomain(1415643675000000000LL, 1415643675000000010LL);
 
     this->timeaxisarea = nullptr;
     this->yaxisarea = nullptr;
@@ -304,6 +303,14 @@ void PlotArea::geometryChanged(const QRectF& newGeometry, const QRectF& oldGeome
     {
         this->updateDataAsyncThrottled();
     }
+}
+
+bool PlotArea::setTimeDomain(double domainLoMillis, double domainHiMillis,
+                             double domainLoNanos, double domainHiNanos)
+{
+    int64_t domainLo = 1000000 * (int64_t) domainLoMillis + (int64_t) domainLoNanos;
+    int64_t domainHi = 1000000 * (int64_t) domainHiMillis + (int64_t) domainHiNanos;
+    return this->timeaxis.setDomain(domainLo, domainHi);
 }
 
 /* Updates the screen in response to the x-axis having shifted. */
