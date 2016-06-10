@@ -46,6 +46,57 @@ GLuint loadShader(QOpenGLFunctions* funcs, GLenum type, const char* shaderSrc)
     return shader;
 }
 
+GLuint compileAndLinkProgram(QOpenGLFunctions* funcs, char* vShaderStr, char* fShaderStr)
+{
+    GLuint vertexShader = loadShader(funcs, GL_VERTEX_SHADER, vShaderStr);
+    GLuint fragmentShader = loadShader(funcs, GL_FRAGMENT_SHADER, fShaderStr);
+
+    GLuint program = funcs->glCreateProgram();
+
+    if (program == 0)
+    {
+        qFatal("Could not create program object");
+        return 0;
+    }
+
+    funcs->glAttachShader(program, vertexShader);
+    funcs->glAttachShader(program, fragmentShader);
+
+    funcs->glBindAttribLocation(program, 0, "time");
+    funcs->glBindAttribLocation(program, 1, "value");
+    funcs->glBindAttribLocation(program, 2, "rendertstrip");
+
+    funcs->glLinkProgram(program);
+
+    GLint linked;
+    funcs->glGetProgramiv(program, GL_LINK_STATUS, &linked);
+
+    if (!linked) {
+        GLint infoLen = 0;
+        funcs->glGetProgramiv(program, GL_INFO_LOG_LENGTH, &infoLen);
+        if(infoLen > 1)
+        {
+           char infoLog[infoLen];
+           funcs->glGetProgramInfoLog(program, infoLen, nullptr, infoLog);
+           qFatal("Error linking program:\n%s", infoLog);
+        }
+        funcs->glDeleteProgram(program);
+        return 0;
+    }
+
+    return program;
+}
+
+bool PlotRenderer::compiled_shaders = false;
+GLuint PlotRenderer::program;
+GLuint PlotRenderer::ddprogram;
+GLint PlotRenderer::axisMatLoc;
+GLint PlotRenderer::axisVecLoc;
+GLint PlotRenderer::pointsizeLoc;
+GLint PlotRenderer::tstripLoc;
+GLint PlotRenderer::opacityLoc;
+GLint PlotRenderer::colorLoc;
+
 PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
 {
     plotarea->getTimeAxis().getDomain(this->timeaxis_start, this->timeaxis_end);
@@ -57,38 +108,19 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
     this->glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
 #endif
 
-    GLuint vertexShader = loadShader(this, GL_VERTEX_SHADER, vShaderStr);
-    GLuint fragmentShader = loadShader(this, GL_FRAGMENT_SHADER, fShaderStr);
-
-    this->program = this->glCreateProgram();
-
-    if (this->program == 0)
+    if (!this->compiled_shaders)
     {
-        qFatal("Could not create program object");
-    }
+        this->program = compileAndLinkProgram(this, vShaderStr, fShaderStr);
+        this->ddprogram = compileAndLinkProgram(this, ddvShaderStr, ddfShaderStr);
 
-    this->glAttachShader(this->program, vertexShader);
-    this->glAttachShader(this->program, fragmentShader);
+        this->axisMatLoc = this->glGetUniformLocation(this->program, "axisTransform");
+        this->axisVecLoc = this->glGetUniformLocation(this->program, "axisBase");
+        this->pointsizeLoc = this->glGetUniformLocation(this->program, "pointsize");
+        this->tstripLoc = this->glGetUniformLocation(this->program, "tstrip");
+        this->opacityLoc = this->glGetUniformLocation(this->program, "opacity");
+        this->colorLoc = this->glGetUniformLocation(this->program, "color");
 
-    this->glBindAttribLocation(this->program, 0, "time");
-    this->glBindAttribLocation(this->program, 1, "value");
-    this->glBindAttribLocation(this->program, 2, "rendertstrip");
-
-    this->glLinkProgram(this->program);
-
-    GLint linked;
-    this->glGetProgramiv(this->program, GL_LINK_STATUS, &linked);
-
-    if (!linked) {
-        GLint infoLen = 0;
-        glGetProgramiv(this->program, GL_INFO_LOG_LENGTH, &infoLen);
-        if(infoLen > 1)
-        {
-           char infoLog[infoLen];
-           this->glGetProgramInfoLog(this->program, infoLen, nullptr, infoLog);
-           qFatal("Error linking program:\n%s", infoLog);
-        }
-        glDeleteProgram(this->program);
+        this->compiled_shaders = true;
     }
 }
 
@@ -139,13 +171,6 @@ void PlotRenderer::render()
 
     this->glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     this->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    GLint axisMatLoc = this->glGetUniformLocation(this->program, "axisTransform");
-    GLint axisVecLoc = this->glGetUniformLocation(this->program, "axisBase");
-    GLint pointsizeLoc = this->glGetUniformLocation(this->program, "pointsize");
-    GLint tstripLoc = this->glGetUniformLocation(this->program, "tstrip");
-    GLint opacityLoc = this->glGetUniformLocation(this->program, "opacity");
-    GLint colorLoc = this->glGetUniformLocation(this->program, "color");
 
     for (auto i = this->streams.begin(); i != this->streams.end(); ++i)
     {

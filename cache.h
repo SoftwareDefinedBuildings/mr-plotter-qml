@@ -51,11 +51,16 @@ public:
     /* Returns whether this Cache Entry is ready to be drawn. */
     bool isPrepared() const;
 
-    /* Renders the main plot. */
+    /* Renders the contents of this cache entry in the main plot. */
     void renderPlot(QOpenGLFunctions* funcs, float yStart,
                     float yEnd, int64_t tStart, int64_t tEnd,
                     GLint axisMatUniform, GLint axisVecUniform,
                     GLint tstripUniform, GLint opacityUniform);
+
+    /* Renders the contents of this cache entry in the data density plot. */
+    void renderDDPlot(QOpenGLFunctions* funcs, float yStart,
+                      float yEnd, int64_t tStart, int64_t tEnd,
+                      GLint axisMatUniform, GLint axisVecUniform);
 
     const int64_t start;
     const int64_t end;

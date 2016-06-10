@@ -46,5 +46,47 @@ void main()
     }
 })shadercode";
 
+char ddvShaderStr[] = R"shadercode(
+uniform mat3 axisTransform;
+uniform vec2 axisBase;
+attribute float time;
+attribute float count;
+attribute float altval;
+void main()
+{
+    /* We need to do some work, since we use special values of count to signal how the main
+     * plot should be drawn.
+     */
+    float realcount;
+    if (count > 0.25 && count < 0.75)
+    {
+        realcount = altval;
+    }
+    else if (count > -0.75 && count < -0.25)
+    {
+        realcount = 0.0;
+    }
+    else if (count < 0.0)
+    {
+        realcount = -count;
+    }
+    else
+    {
+        realcount = count;
+    }
+
+    vec3 transformed = axisTransform * vec3(vec2(time, realcount) - axisBase, 1.0);
+    gl_Position = vec4(transformed.xy, 0.0, 1.0);
+}
+)shadercode";
+
+char ddfShaderStr[] = R"shadercode(
+uniform vec3 color;
+void main()
+{
+    gl_FragColor = vec4(color, 1.0);
+}
+)shadercode";
+
 
 #endif // SHADERS_H

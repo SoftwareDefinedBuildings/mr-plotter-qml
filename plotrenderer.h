@@ -20,8 +20,17 @@ public:
     void render() override;
 
 private:
+    static bool compiled_shaders;
+    static GLuint program;
+    static GLuint ddprogram;
+    static GLint axisMatLoc;
+    static GLint axisVecLoc;
+    static GLint pointsizeLoc;
+    static GLint tstripLoc;
+    static GLint opacityLoc;
+    static GLint colorLoc;
+
     /* State required to actually render the plots. */
-    GLuint program; // the shader program
     QVector<struct drawable> streams; // the streams to draw
     const PlotArea* pa;
 

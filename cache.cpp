@@ -320,6 +320,54 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
     }
 }
 
+void CacheEntry::renderDDPlot(QOpenGLFunctions* funcs, float yStart,
+                              float yEnd, int64_t tStart, int64_t tEnd,
+                              GLint axisMatUniform, GLint axisVecUniform)
+{
+    Q_ASSERT(this->prepared);
+
+    if (this->vbo != 0)
+    {
+        float matrix[9];
+        float vector[2];
+
+        /* Fill in the matrix in column-major order. */
+        matrix[0] = 2.0f / (tEnd - tStart);
+        matrix[1] = 0.0f;
+        matrix[2] = 0.0f;
+        matrix[3] = 0.0f;
+        matrix[4] = -2.0f / (yEnd - yStart);
+        matrix[5] = 0.0f;
+        matrix[6] = -1.0f;
+        matrix[7] = 1.0f;
+        matrix[8] = 1.0f;
+
+        /* Fill in the offset vector. */
+        vector[0] = (float) (tStart - epoch);
+        vector[1] = yStart;
+
+        /* Now, given a vector <time, value>, where time is relative to
+         * epoch, first subtract the offset vector, then pad the result
+         * with a 1 and multiply by the transform matrix. The result is
+         * the screen coordinates for that point.
+         */
+        funcs->glUniformMatrix3fv(axisMatUniform, 1, GL_FALSE, matrix);
+        funcs->glUniform2fv(axisVecUniform, 1, vector);
+
+        /* Draw the data density plot. */
+        funcs->glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
+        funcs->glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) 0);
+        funcs->glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) sizeof(float));
+        funcs->glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) (2 * sizeof(float)));
+        funcs->glEnableVertexAttribArray(0);
+        funcs->glEnableVertexAttribArray(1);
+        funcs->glEnableVertexAttribArray(2);
+        funcs->glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        funcs->glDrawArrays(GL_LINE_STRIP, 0, this->cachedlen << 1);
+    }
+}
+
 uint qHash(const CacheEntry& key, uint seed)
 {
     return qHash(key.start) ^ qHash(key.end) ^ seed;
