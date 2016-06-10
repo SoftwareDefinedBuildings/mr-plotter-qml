@@ -11,7 +11,6 @@
 class MrPlotter : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QString name READ name WRITE setName)
     Q_PROPERTY(PlotArea* plotarea READ plotarea WRITE setPlotArea)
 public:
     MrPlotter();
@@ -22,17 +21,20 @@ public:
     PlotArea* plotarea() const;
     void setPlotArea(PlotArea* newplotarea);
 
-    Q_INVOKABLE int addStream(QString uuid);
+    Q_INVOKABLE Stream* newStream(QString uuid);
+
+    Q_INVOKABLE YAxis* newYAxis();
+    Q_INVOKABLE YAxis* newYAxis(float domainLo, float domainHi);
+
+    Q_INVOKABLE void delStream(Stream* s);
+
+    Q_INVOKABLE void delYAxis(YAxis* ya);
 
 signals:
 
 public slots:
 
 private:
-    QHash<uint32_t, Stream*> streams;
-    uint32_t nextstreamid;
-
-    QString pname;
     PlotArea* pplotarea;
 };
 

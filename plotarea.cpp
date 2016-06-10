@@ -43,36 +43,6 @@ PlotArea::PlotArea() : timeaxis(), cache(), openhand(Qt::OpenHandCursor),
 
     this->timeaxisarea = nullptr;
     this->yaxisarea = nullptr;
-
-    YAxis* axis1 = new YAxis;
-    axis1->setDomain(-2, 2);
-    YAxis* axis2 = new YAxis;
-    axis2->setDomain(-10, 2);
-    YAxis* axis3 = new YAxis;
-    axis3->setDomain(-2, 10);
-
-    Stream* s = new Stream(QUuid::createUuid());
-    this->addStream(s);
-    axis1->addStream(s);
-
-    Stream* t = new Stream(QUuid::createUuid());
-    t->color.red = 1.0f;
-    t->color.green = 0.0f;
-    t->color.blue = 0.0f;
-    t->selected = true;
-    this->addStream(t);
-    axis2->addStream(t);
-
-    Stream* u = new Stream(QUuid::createUuid());
-    u->color.red = 0.0f;
-    u->color.green = 0.5f;
-    u->color.blue = 0.0f;
-    this->addStream(u);
-    axis3->addStream(u);
-
-    this->yaxes.push_back(axis1);
-    this->yaxes.push_back(axis2);
-    this->yaxes.push_back(axis3);
 }
 
 QQuickFramebufferObject::Renderer* PlotArea::createRenderer() const
@@ -371,18 +341,26 @@ void PlotArea::updateDataAsyncThrottled()
 
 void PlotArea::updateDataAsync()
 {
+    int64_t screenwidth = (int64_t) (0.5 + this->width());
+
+    if (screenwidth == 0)
+    {
+        return;
+    }
+
     int64_t timeaxis_start, timeaxis_end;
     this->timeaxis.getDomain(timeaxis_start, timeaxis_end);
 
     uint64_t id = ++this->fullUpdateID;
-    int64_t nanosperpixel = (timeaxis_end - timeaxis_start) / (int64_t) (0.5 + this->width());
+    int64_t nanosperpixel = (timeaxis_end - timeaxis_start) / screenwidth;
     uint8_t pwe = getPWExponent(nanosperpixel);
 
-    int64_t screenwidth = timeaxis_end - timeaxis_start;
+    int64_t timewidth = timeaxis_end - timeaxis_start;
 
     for (auto i = this->streams.begin(); i != this->streams.end(); i++)
     {
         Stream* s = *i;
+        Q_ASSERT_X(s != nullptr, "updateDataAsync", "invalid value in streamlist");
         this->cache.requestData(s->uuid, timeaxis_start, timeaxis_end, pwe,
                                 [this, s, id](QList<QSharedPointer<CacheEntry>> data)
         {
@@ -391,7 +369,7 @@ void PlotArea::updateDataAsync()
                 s->data = data;
                 this->update();
             }
-        }, screenwidth);
+        }, timewidth);
     }
 }
 
@@ -421,7 +399,33 @@ void PlotArea::setYAxisArea(YAxisArea* newyaxisarea)
     this->yaxisarea = newyaxisarea;
     for (auto i = this->yaxes.begin(); i != this->yaxes.end(); i++)
     {
-        this->yaxisarea->addYAxis(**i);
+        this->yaxisarea->addYAxis(*i);
     }
     this->yaxisarea->update();
+}
+
+QList<QVariant> PlotArea::getStreamList() const
+{
+    QList<QVariant> streamlist;
+
+    for (auto i = this->streams.begin(); i != this->streams.end(); i++)
+    {
+        streamlist.append(QVariant::fromValue(*i));
+    }
+
+    return streamlist;
+}
+
+void PlotArea::setStreamList(QList<QVariant> newstreamlist)
+{
+    QList<Stream*> newStreams;
+
+    for (auto i = newstreamlist.begin(); i != newstreamlist.end(); i++)
+    {
+        Stream* s = i->value<Stream*>();
+        Q_ASSERT_X(s != nullptr, "setStreamList", "invalid member in stream list");
+        newStreams.append(s);
+    }
+
+    this->streams = qMove(newStreams);
 }

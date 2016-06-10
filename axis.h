@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include <QList>
+#include <QObject>
 #include <QPair>
 #include <QString>
 
@@ -22,10 +23,13 @@ struct tick
     QString label;
 };
 
-class YAxis
+class YAxis : public QObject
 {
+    Q_OBJECT
+
 public:
-    YAxis();
+    YAxis(QObject* parent = nullptr);
+    YAxis(float domainLow, float domainHigh, QObject* parent = nullptr);
 
     /* Returns true if the stream was already added to an axis, and was
      * removed from that axis to satisfy this request.
@@ -33,18 +37,18 @@ public:
      * Returns false if the stream was already added to this axis (in
      * which case no work was done), returns false.
      */
-    bool addStream(Stream* s);
+    Q_INVOKABLE bool addStream(Stream* s);
 
     /* Removes the stream from this axis. Returns true if the stream
      * was removed from this axis. Returns false if no action was taken,
      * because the provided stream was not assigned to this axis.
      */
-    bool rmStream(Stream* s);
+    Q_INVOKABLE bool rmStream(Stream* s);
 
     /* Sets the domain of this axis to be the interval [low, high].
      * Returns true on success and false on failure.
      */
-    bool setDomain(float low, float high);
+    Q_INVOKABLE bool setDomain(float low, float high);
 
     /* Sets the provided references LOW and HIGH to the domain of this
      * axis.

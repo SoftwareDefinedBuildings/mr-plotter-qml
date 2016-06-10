@@ -10,10 +10,16 @@
 #include <QTimeZone>
 #include <QVector>
 
-YAxis::YAxis()
+YAxis::YAxis(QObject* parent): QObject(parent)
 {
     this->domainLo = -1.0;
     this->domainHi = 1.0;
+}
+
+YAxis::YAxis(float domainLow, float domainHigh, QObject* parent): QObject(parent)
+{
+    this->domainLo = domainLow;
+    this->domainHi = domainHigh;
 }
 
 bool YAxis::addStream(Stream* s)

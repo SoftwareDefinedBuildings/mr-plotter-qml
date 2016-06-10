@@ -101,11 +101,17 @@ void PlotRenderer::synchronize(QQuickFramebufferObject* plotareafbo)
     this->streams.resize(plotarea->streams.size());
 
     int index = 0;
-    for (auto i = plotarea->streams.begin(); i != plotarea->streams.end(); ++i)
+    for (auto i = plotarea->streams.begin(); i != plotarea->streams.end(); i++)
     {
-        (*i)->toDrawable(this->streams[index]);
+        Stream* s = *i;
+        Q_ASSERT_X(s != nullptr, "synchronize", "invalid value in streamlist");
+        bool hasaxis = s->toDrawable(this->streams[index]);
+        if (!hasaxis)
+        {
+            continue;
+        }
         QList<QSharedPointer<CacheEntry>>& todraw = this->streams[index].data;
-        for (auto j = todraw.begin(); j != todraw.end(); ++j)
+        for (auto j = todraw.begin(); j != todraw.end(); j++)
         {
             QSharedPointer<CacheEntry>& ce = *j;
             Q_ASSERT(!ce->isPlaceholder());

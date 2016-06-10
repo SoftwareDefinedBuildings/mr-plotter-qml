@@ -44,11 +44,35 @@ void YAxisArea::paint(QPainter* painter)
     }
 }
 
-void YAxisArea::addYAxis(YAxis& newyaxis)
+void YAxisArea::addYAxis(YAxis* newyaxis)
 {
-    this->yAxes.push_back(&newyaxis);
+    this->yAxes.push_back(newyaxis);
 }
 
+QList<QVariant> YAxisArea::getAxisList() const
+{
+    QList<QVariant> yAxesVariant;
+
+    for (auto i = this->yAxes.begin(); i != this->yAxes.end(); i++)
+    {
+        yAxesVariant.append(QVariant::fromValue(*i));
+    }
+    return yAxesVariant;
+}
+
+void YAxisArea::setAxisList(QList<QVariant> newaxislist)
+{
+    QList<YAxis*> newYAxes;
+
+    for (auto i = newaxislist.begin(); i != newaxislist.end(); i++)
+    {
+        YAxis* a = i->value<YAxis*>();
+        Q_ASSERT_X(a != nullptr, "setAxisList", "invalid element in new axis list");
+        newYAxes.append(a);
+    }
+
+    this->yAxes = qMove(newYAxes);
+}
 
 TimeAxisArea::TimeAxisArea()
 {

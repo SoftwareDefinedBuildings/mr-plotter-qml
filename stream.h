@@ -6,6 +6,7 @@
 
 #include <QByteArray>
 #include <QList>
+#include <QObject>
 #include <QSharedPointer>
 #include <QString>
 #include <QUuid>
@@ -31,19 +32,27 @@ struct drawable
 /* Both Stream and Axis need declarations of each other. */
 class YAxis;
 
-class Stream
+class Stream : public QObject
 {
-public:
-    Stream();
-    Stream(const QString& u);
-    Stream(const QUuid& u);
+    Q_OBJECT
+    Q_PROPERTY(bool selected MEMBER selected)
 
-    void toDrawable(struct drawable& d) const;
+public:
+    Stream(QObject* parent = nullptr);
+    Stream(const QString& u, QObject* parent = nullptr);
+    Stream(const QUuid& u, QObject* parent = nullptr);
+
+    bool toDrawable(struct drawable& d) const;
+
+    Q_INVOKABLE bool setColor(float red, float green, float blue);
 
     QUuid uuid;
 
     /* The currently visible cache entries. */
     QList<QSharedPointer<CacheEntry>> data;
+
+    /* The axis to which this stream is assigned. */
+    YAxis* axis;
 
     /* The axes with which to render this stream. */
     float ymin;
@@ -54,9 +63,6 @@ public:
 
     /* True if this stream should be rendered as if it is selected. */
     bool selected;
-
-    /* The axis to which this stream is assigned. */
-    YAxis* axis;
 
 private:
     void init();

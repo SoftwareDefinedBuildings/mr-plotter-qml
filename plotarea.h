@@ -11,6 +11,7 @@
 #include <QRectF>
 #include <QSharedPointer>
 #include <QTouchEvent>
+#include <QVariant>
 #include <QWheelEvent>
 
 /* How close together a user is allowed to "pinch" their fingers to zoom
@@ -39,7 +40,7 @@ class PlotArea : public QQuickFramebufferObject
 public:
     PlotArea();
     QQuickFramebufferObject::Renderer* createRenderer() const override;
-    void addStream(Stream* s);
+    Q_INVOKABLE void addStream(Stream* s);
 
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
@@ -55,14 +56,17 @@ public:
     YAxisArea* yAxisArea() const;
     void setYAxisArea(YAxisArea* newyaxisarea);
 
+    Q_INVOKABLE QList<QVariant> getStreamList() const;
+    Q_INVOKABLE void setStreamList(QList<QVariant> newstreamlist);
+
+    Q_INVOKABLE void updateView();
+    Q_INVOKABLE void updateDataAsyncThrottled();
+    Q_INVOKABLE void updateDataAsync();
+
 protected:
     void geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry) override;
 
 private:
-    void updateView();
-    void updateDataAsyncThrottled();
-    void updateDataAsync();
-
     TimeAxis timeaxis;
     TimeAxisArea* timeaxisarea;
 
