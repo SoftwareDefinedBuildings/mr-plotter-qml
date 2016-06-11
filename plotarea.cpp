@@ -39,6 +39,7 @@ PlotArea::PlotArea() : timeaxis(), cache(), openhand(Qt::OpenHandCursor),
 
     this->ready = true;
     this->pending = false;
+    this->showDataDensity = false;
 
     this->timeaxisarea = nullptr;
     this->yaxisarea = nullptr;

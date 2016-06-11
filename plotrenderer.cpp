@@ -46,10 +46,10 @@ GLuint loadShader(QOpenGLFunctions* funcs, GLenum type, const char* shaderSrc)
     return shader;
 }
 
-GLuint compileAndLinkProgram(QOpenGLFunctions* funcs, char* vShaderStr, char* fShaderStr)
+GLuint compileAndLinkProgram(QOpenGLFunctions* funcs, char* vShader, char* fShader)
 {
-    GLuint vertexShader = loadShader(funcs, GL_VERTEX_SHADER, vShaderStr);
-    GLuint fragmentShader = loadShader(funcs, GL_FRAGMENT_SHADER, fShaderStr);
+    GLuint vertexShader = loadShader(funcs, GL_VERTEX_SHADER, vShader);
+    GLuint fragmentShader = loadShader(funcs, GL_FRAGMENT_SHADER, fShader);
 
     GLuint program = funcs->glCreateProgram();
 
@@ -62,9 +62,18 @@ GLuint compileAndLinkProgram(QOpenGLFunctions* funcs, char* vShaderStr, char* fS
     funcs->glAttachShader(program, vertexShader);
     funcs->glAttachShader(program, fragmentShader);
 
-    funcs->glBindAttribLocation(program, 0, "time");
-    funcs->glBindAttribLocation(program, 1, "value");
-    funcs->glBindAttribLocation(program, 2, "rendertstrip");
+    if (vShader == vShaderStr)
+    {
+        funcs->glBindAttribLocation(program, TIME_ATTR_LOC, "time");
+        funcs->glBindAttribLocation(program, VALUE_ATTR_LOC, "value");
+        funcs->glBindAttribLocation(program, RENDERTSTRIP_ATTR_LOC, "rendertstrip");
+    }
+    else
+    {
+        funcs->glBindAttribLocation(program, TIME_ATTR_LOC, "time");
+        funcs->glBindAttribLocation(program, COUNT_ATTR_LOC, "count");
+        funcs->glBindAttribLocation(program, ALTVAL_ATTR_LOC, "altval");
+    }
 
     funcs->glLinkProgram(program);
 
@@ -90,12 +99,16 @@ GLuint compileAndLinkProgram(QOpenGLFunctions* funcs, char* vShaderStr, char* fS
 bool PlotRenderer::compiled_shaders = false;
 GLuint PlotRenderer::program;
 GLuint PlotRenderer::ddprogram;
+
 GLint PlotRenderer::axisMatLoc;
 GLint PlotRenderer::axisVecLoc;
 GLint PlotRenderer::pointsizeLoc;
 GLint PlotRenderer::tstripLoc;
 GLint PlotRenderer::opacityLoc;
 GLint PlotRenderer::colorLoc;
+
+GLint PlotRenderer::axisMatLocDD;
+GLint PlotRenderer::axisVecLocDD;
 
 PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
 {
@@ -119,6 +132,9 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
         this->tstripLoc = this->glGetUniformLocation(this->program, "tstrip");
         this->opacityLoc = this->glGetUniformLocation(this->program, "opacity");
         this->colorLoc = this->glGetUniformLocation(this->program, "color");
+
+        this->axisMatLocDD = this->glGetUniformLocation(this->ddprogram, "axisTransform");
+        this->axisVecLocDD = this->glGetUniformLocation(this->ddprogram, "axisBase");
 
         this->compiled_shaders = true;
     }
@@ -166,7 +182,7 @@ void PlotRenderer::render()
     int width = fbo->width();
     int height = fbo->height();
 
-    this->glUseProgram(this->program);
+    this->glUseProgram(this->pa->showDataDensity ? this->ddprogram : this->program);
     this->glViewport(0, 0, width, height);
 
     this->glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -184,7 +200,14 @@ void PlotRenderer::render()
         {
             QSharedPointer<CacheEntry>& ce = *j;
             Q_ASSERT(!ce->isPlaceholder());
-            ce->renderPlot(this, s.ymin, s.ymax, this->timeaxis_start, this->timeaxis_end, axisMatLoc, axisVecLoc, tstripLoc, opacityLoc);
+            if (this->pa->showDataDensity)
+            {
+                ce->renderDDPlot(this, s.ymin, s.ymax, this->timeaxis_start, this->timeaxis_end, axisMatLocDD, axisVecLocDD);
+            }
+            else
+            {
+                ce->renderPlot(this, s.ymin, s.ymax, this->timeaxis_start, this->timeaxis_end, axisMatLoc, axisVecLoc, tstripLoc, opacityLoc);
+            }
         }
     }
 

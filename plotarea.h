@@ -36,7 +36,6 @@ class PlotArea : public QQuickFramebufferObject
     Q_PROPERTY(YAxisArea* yaxisarea READ yAxisArea WRITE setYAxisArea)
     Q_PROPERTY(QList<QVariant> streamlist READ getStreamList WRITE setStreamList)
 
-
     friend class PlotRenderer;
 
 public:
@@ -67,6 +66,8 @@ public:
     Q_INVOKABLE void updateView();
     Q_INVOKABLE void updateDataAsyncThrottled();
     Q_INVOKABLE void updateDataAsync();
+
+    bool showDataDensity;
 
 protected:
     void geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry) override;

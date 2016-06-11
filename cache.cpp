@@ -1,4 +1,5 @@
 #include "cache.h"
+#include "plotrenderer.h"
 #include "requester.h"
 
 #include <cstdint>
@@ -277,12 +278,12 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
         funcs->glUniform1i(tstripUniform, 1);
 
         funcs->glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
-        funcs->glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) 0);
-        funcs->glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) sizeof(float));
-        funcs->glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) (2 * sizeof(float)));
-        funcs->glEnableVertexAttribArray(0);
-        funcs->glEnableVertexAttribArray(1);
-        funcs->glEnableVertexAttribArray(2);
+        funcs->glVertexAttribPointer(TIME_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) 0);
+        funcs->glVertexAttribPointer(VALUE_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) sizeof(float));
+        funcs->glVertexAttribPointer(RENDERTSTRIP_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) (2 * sizeof(float)));
+        funcs->glEnableVertexAttribArray(TIME_ATTR_LOC);
+        funcs->glEnableVertexAttribArray(VALUE_ATTR_LOC);
+        funcs->glEnableVertexAttribArray(RENDERTSTRIP_ATTR_LOC);
         funcs->glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         funcs->glDrawArrays(GL_TRIANGLE_STRIP, 0, this->cachedlen << 1);
@@ -301,12 +302,12 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
         funcs->glUniform1i(tstripUniform, 1);
 
         funcs->glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
-        funcs->glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, sizeof(struct cachedpt), (const void*) 0);
-        funcs->glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(struct cachedpt), (const void*) (3 * sizeof(float)));
-        funcs->glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(struct cachedpt), (const void*) (2 * sizeof(float)));
-        funcs->glEnableVertexAttribArray(0);
-        funcs->glEnableVertexAttribArray(1);
-        funcs->glEnableVertexAttribArray(2);
+        funcs->glVertexAttribPointer(TIME_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, sizeof(struct cachedpt), (const void*) 0);
+        funcs->glVertexAttribPointer(VALUE_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, sizeof(struct cachedpt), (const void*) (3 * sizeof(float)));
+        funcs->glVertexAttribPointer(RENDERTSTRIP_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, sizeof(struct cachedpt), (const void*) (2 * sizeof(float)));
+        funcs->glEnableVertexAttribArray(TIME_ATTR_LOC);
+        funcs->glEnableVertexAttribArray(VALUE_ATTR_LOC);
+        funcs->glEnableVertexAttribArray(RENDERTSTRIP_ATTR_LOC);
         funcs->glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         funcs->glDrawArrays(GL_LINE_STRIP, 0, this->cachedlen);
@@ -356,12 +357,12 @@ void CacheEntry::renderDDPlot(QOpenGLFunctions* funcs, float yStart,
 
         /* Draw the data density plot. */
         funcs->glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
-        funcs->glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) 0);
-        funcs->glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) sizeof(float));
-        funcs->glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) (2 * sizeof(float)));
-        funcs->glEnableVertexAttribArray(0);
-        funcs->glEnableVertexAttribArray(1);
-        funcs->glEnableVertexAttribArray(2);
+        funcs->glVertexAttribPointer(TIME_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) 0);
+        funcs->glVertexAttribPointer(COUNT_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) (2 * sizeof(float)));
+        funcs->glVertexAttribPointer(ALTVAL_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) sizeof(float));
+        funcs->glEnableVertexAttribArray(TIME_ATTR_LOC);
+        funcs->glEnableVertexAttribArray(COUNT_ATTR_LOC);
+        funcs->glEnableVertexAttribArray(ALTVAL_ATTR_LOC);
         funcs->glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         funcs->glDrawArrays(GL_LINE_STRIP, 0, this->cachedlen << 1);

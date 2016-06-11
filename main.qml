@@ -10,7 +10,7 @@ Window {
         var s2 = mrp.newStream("ff51541a-d71c-47bc-bd63-fbbe68f94acd");
         var s3 = mrp.newStream("ff51541a-d71c-47bc-bd63-fbbe68f94acd");
 
-        var a1 = mrp.newYAxis(-2, 2);
+        var a1 = mrp.newYAxis(-2, 1000);
         var a2 = mrp.newYAxis(-10, 2);
         var a3 = mrp.newYAxis(-2, 10);
 

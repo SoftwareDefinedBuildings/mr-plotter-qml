@@ -11,6 +11,12 @@
 #include <QVector>
 #include <QUuid>
 
+#define TIME_ATTR_LOC 0
+#define VALUE_ATTR_LOC 1
+#define RENDERTSTRIP_ATTR_LOC 2
+#define COUNT_ATTR_LOC 3
+#define ALTVAL_ATTR_LOC 4
+
 class PlotRenderer : public QQuickFramebufferObject::Renderer,
         protected QOpenGLFunctions
 {
@@ -23,12 +29,16 @@ private:
     static bool compiled_shaders;
     static GLuint program;
     static GLuint ddprogram;
+
     static GLint axisMatLoc;
     static GLint axisVecLoc;
     static GLint pointsizeLoc;
     static GLint tstripLoc;
     static GLint opacityLoc;
     static GLint colorLoc;
+
+    static GLint axisMatLocDD;
+    static GLint axisVecLocDD;
 
     /* State required to actually render the plots. */
     QVector<struct drawable> streams; // the streams to draw
