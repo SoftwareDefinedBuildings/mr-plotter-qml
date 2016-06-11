@@ -109,6 +109,7 @@ GLint PlotRenderer::colorLoc;
 
 GLint PlotRenderer::axisMatLocDD;
 GLint PlotRenderer::axisVecLocDD;
+GLint PlotRenderer::colorLocDD;
 
 PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
 {
@@ -135,6 +136,7 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
 
         this->axisMatLocDD = this->glGetUniformLocation(this->ddprogram, "axisTransform");
         this->axisVecLocDD = this->glGetUniformLocation(this->ddprogram, "axisBase");
+        this->colorLocDD = this->glGetUniformLocation(this->ddprogram, "color");
 
         this->compiled_shaders = true;
     }
@@ -182,7 +184,9 @@ void PlotRenderer::render()
     int width = fbo->width();
     int height = fbo->height();
 
-    this->glUseProgram(this->pa->showDataDensity ? this->ddprogram : this->program);
+    bool datadensity = this->pa->showDataDensity;
+
+    this->glUseProgram(datadensity ? this->ddprogram : this->program);
     this->glViewport(0, 0, width, height);
 
     this->glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -195,12 +199,12 @@ void PlotRenderer::render()
         /* Set uniforms depending on whether *i is a selected stream. */
         this->glLineWidth(s.selected ? 2.0 : 1.0);
         this->glUniform1f(pointsizeLoc, s.selected ? 5.0 : 3.0);
-        this->glUniform3fv(colorLoc, 1, COLOR_TO_ARRAY(s.color));
+        this->glUniform3fv(datadensity ? colorLocDD : colorLoc, 1, COLOR_TO_ARRAY(s.color));
         for (auto j = todraw.begin(); j != todraw.end(); ++j)
         {
             QSharedPointer<CacheEntry>& ce = *j;
             Q_ASSERT(!ce->isPlaceholder());
-            if (this->pa->showDataDensity)
+            if (datadensity)
             {
                 ce->renderDDPlot(this, s.ymin, s.ymax, this->timeaxis_start, this->timeaxis_end, axisMatLocDD, axisVecLocDD);
             }

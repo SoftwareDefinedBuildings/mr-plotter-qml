@@ -39,6 +39,7 @@ private:
 
     static GLint axisMatLocDD;
     static GLint axisVecLocDD;
+    static GLint colorLocDD;
 
     /* State required to actually render the plots. */
     QVector<struct drawable> streams; // the streams to draw
