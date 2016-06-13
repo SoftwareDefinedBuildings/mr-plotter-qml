@@ -10,16 +10,22 @@
 #include <QTimeZone>
 #include <QVector>
 
-YAxis::YAxis(QObject* parent): QObject(parent)
+uint64_t YAxis::nextID = 0;
+
+uint qHash(const YAxis*& yaxis, uint seed)
 {
-    this->domainLo = -1.0;
-    this->domainHi = 1.0;
+    return qHash(yaxis->id) ^ seed;
 }
 
-YAxis::YAxis(float domainLow, float domainHigh, QObject* parent): QObject(parent)
+YAxis::YAxis(QObject* parent): YAxis(-1.0f, 1.0f, parent)
+{
+}
+
+YAxis::YAxis(float domainLow, float domainHigh, QObject* parent): QObject(parent), id(YAxis::nextID++)
 {
     this->domainLo = domainLow;
     this->domainHi = domainHigh;
+    this->dynamicAutoscale = false;
 }
 
 bool YAxis::addStream(Stream* s)
@@ -108,6 +114,37 @@ QVector<struct tick> YAxis::getTicks()
     }
 
     return ticks;
+}
+
+void YAxis::autoscale(int64_t start, int64_t end, bool rangecount)
+{
+    float minimum = rangecount ? 0.0f : INFINITY;
+    float maximum = -INFINITY;
+    for (auto i = this->streams.begin(); i != this->streams.end(); i++)
+    {
+        Stream* s = *i;
+        QList<QSharedPointer<CacheEntry>>& entries = s->data;
+        for (auto j = entries.begin(); j != entries.end(); j++)
+        {
+            QSharedPointer<CacheEntry> entry = *j;
+            entry->getRange(start, end, rangecount, minimum, maximum);
+        }
+    }
+
+    if (std::isfinite(minimum) && std::isfinite(maximum))
+    {
+        if (rangecount)
+        {
+            maximum *= 1.2f;
+        }
+        else if (minimum == maximum)
+        {
+            minimum -= 1.0f;
+            maximum += 1.0f;
+        }
+        this->domainLo = minimum;
+        this->domainHi = maximum;
+    }
 }
 
 float YAxis::map(float x)

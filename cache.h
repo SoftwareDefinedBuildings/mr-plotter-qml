@@ -62,6 +62,8 @@ public:
                       float yEnd, int64_t tStart, int64_t tEnd,
                       GLint axisMatUniform, GLint axisVecUniform);
 
+    void getRange(int64_t starttime, int64_t endtime, bool count, float& minimum, float& maximum);
+
     const int64_t start;
     const int64_t end;
 

@@ -201,6 +201,9 @@ void PlotRenderer::render()
     this->glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     this->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    this->glEnable(GL_BLEND);
+    this->glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     for (auto i = this->streams.begin(); i != this->streams.end(); ++i)
     {
         struct drawable& s = *i;

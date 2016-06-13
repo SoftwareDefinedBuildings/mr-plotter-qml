@@ -69,7 +69,7 @@ protected:
     void geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry) override;
 
 private:
-    QList<YAxis*> yaxes;
+    QHash<YAxis*, uint64_t> yAxes;
     YAxisArea* yaxisarea;
 
     QList<Stream*> streams;

@@ -10,7 +10,7 @@ Window {
         var s2 = mrp.newStream("ff51541a-d71c-47bc-bd63-fbbe68f94acd");
         var s3 = mrp.newStream("ff51541a-d71c-47bc-bd63-fbbe68f94acd");
 
-        var a1 = mrp.newYAxis(-2, 1000);
+        var a1 = mrp.newYAxis(-2, 2);
         var a2 = mrp.newYAxis(-10, 2);
         var a3 = mrp.newYAxis(-2, 10);
 
@@ -22,9 +22,12 @@ Window {
         a2.addStream(s2);
         a3.addStream(s3);
 
+        a2.dynamicAutoscale = true;
+
         var dds = mrp.newStream("ff51541a-d71c-47bc-bd63-fbbe68f94acd");
         dds.setColor(0, 0, 1.0);
         var dda = mrp.newYAxis(0, 10);
+        dda.dynamicAutoscale = true;
         dda.addStream(dds);
 
         var streamlist = [s1, s2, s3];

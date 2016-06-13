@@ -27,7 +27,7 @@ struct cachedpt
     float max;
     float count;
 
-    int32_t _pad;
+    float truecount;
 } __attribute__((packed, aligned(16)));
 
 /* The overhead cost, in cached points, of the data stored in a
@@ -160,6 +160,8 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         output->max = (float) input->max;
         output->count = (float) input->count;
 
+        output->truecount = output->count;
+
         prevtime = input->time;
         prevcount = output->count;
 
@@ -190,6 +192,8 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
             output->reltime2 = output->reltime;
             output->max = 0.0f;
             output->count = GAPMARKER; // DD Shader will have to be smart and look at output->max for the "correct" value of count
+
+            output->truecount = 0.0f;
 
             /* If the previous point (at index j - 1) has a gap on either
              * side, it needs to be rendered as vertical line.
@@ -366,6 +370,28 @@ void CacheEntry::renderDDPlot(QOpenGLFunctions* funcs, float yStart,
         funcs->glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         funcs->glDrawArrays(GL_LINE_STRIP, 0, this->cachedlen << 1);
+    }
+}
+
+void CacheEntry::getRange(int64_t starttime, int64_t endtime, bool count, float& minimum, float& maximum)
+{
+    float relstart = (float) (starttime - this->epoch);
+    float relend = (float) (endtime - this->epoch);
+    for (int i = 0; i < cachedlen; i++)
+    {
+        struct cachedpt* pt = &this->cached[i];
+        if (pt->count != GAPMARKER && pt->reltime >= relstart && pt->reltime <= relend)
+        {
+            if (count)
+            {
+                maximum = qMax(maximum, pt->truecount);
+            }
+            else
+            {
+                minimum = qMin(minimum, pt->min);
+                maximum = qMax(maximum , pt->max);
+            }
+        }
     }
 }
 

@@ -26,6 +26,7 @@ struct tick
 class YAxis : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(bool dynamicAutoscale MEMBER dynamicAutoscale)
 
 public:
     YAxis(QObject* parent = nullptr);
@@ -35,7 +36,7 @@ public:
      * removed from that axis to satisfy this request.
      *
      * Returns false if the stream was already added to this axis (in
-     * which case no work was done), returns false.
+     * which case no work was done).
      */
     Q_INVOKABLE bool addStream(Stream* s);
 
@@ -57,6 +58,12 @@ public:
 
     QVector<struct tick> getTicks();
 
+    /* Sets the domain such that it contains the streams over the provided
+     * time range. If RANGECOUNT is true, the autoscale is done using the
+     * counts of the statistical points, rather than their values;
+     */
+    void autoscale(int64_t start, int64_t end, bool rangecount);
+
     /* Maps a floating point number in the domain of this axis to a
      * floating point number between 0.0 and 1.0.
      */
@@ -67,7 +74,13 @@ public:
      */
     float unmap(float y);
 
+    const uint64_t id;
+
+    bool dynamicAutoscale;
+
 private:
+    static uint64_t nextID;
+
     float domainLo;
     float domainHi;
 

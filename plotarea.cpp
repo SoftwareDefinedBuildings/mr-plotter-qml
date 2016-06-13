@@ -88,10 +88,14 @@ void PlotArea::mouseMoveEvent(QMouseEvent* event)
 void PlotArea::mouseReleaseEvent(QMouseEvent* event)
 {
     Q_UNUSED(event);
+    int64_t timeaxis_start, timeaxis_end;
+
     if (this->plot == nullptr)
     {
         return;
     }
+
+    this->plot->timeaxis.getDomain(timeaxis_start, timeaxis_end);
 
     this->setCursor(this->openhand);
     this->plot->updateView();
@@ -341,6 +345,19 @@ void PlotArea::updateDataAsync(Cache& cache)
     int64_t timeaxis_start, timeaxis_end;
     this->plot->timeaxis.getDomain(timeaxis_start, timeaxis_end);
 
+    /* Dynamically autoscale the axes, if necessary. */
+    QSet<YAxis*> axes;
+    for (auto i = this->streams.begin(); i != this->streams.end(); i++)
+    {
+        Stream* s = *i;
+        YAxis* ya = s->axis;
+        if (ya != nullptr && ya->dynamicAutoscale && !axes.contains(ya))
+        {
+            ya->autoscale(timeaxis_start, timeaxis_end, this->showDataDensity);
+            axes << ya;
+        }
+    }
+
     uint64_t id = ++this->fullUpdateID;
     int64_t nanosperpixel = (timeaxis_end - timeaxis_start) / screenwidth;
     uint8_t pwe = getPWExponent(nanosperpixel);
@@ -380,11 +397,6 @@ YAxisArea* PlotArea::yAxisArea() const
 void PlotArea::setYAxisArea(YAxisArea* newyaxisarea)
 {
     this->yaxisarea = newyaxisarea;
-    for (auto i = this->yaxes.begin(); i != this->yaxes.end(); i++)
-    {
-        this->yaxisarea->addYAxis(*i);
-    }
-    this->yaxisarea->update();
 }
 
 QList<QVariant> PlotArea::getStreamList() const
