@@ -113,7 +113,12 @@ GLint PlotRenderer::colorLocDD;
 
 PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
 {
-    plotarea->getTimeAxis().getDomain(this->timeaxis_start, this->timeaxis_end);
+    const TimeAxis* timeaxis = plotarea->getTimeAxis();
+    if (timeaxis == nullptr)
+    {
+        return;
+    }
+    timeaxis->getDomain(this->timeaxis_start, this->timeaxis_end);
 
     this->initializeOpenGLFunctions();
 
@@ -145,8 +150,12 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
 void PlotRenderer::synchronize(QQuickFramebufferObject* plotareafbo)
 {
     PlotArea* plotarea = static_cast<PlotArea*>(plotareafbo);
-
-    plotarea->getTimeAxis().getDomain(this->timeaxis_start, this->timeaxis_end);
+    const TimeAxis* timeaxis = plotarea->getTimeAxis();
+    if (timeaxis == nullptr)
+    {
+        return;
+    }
+    timeaxis->getDomain(this->timeaxis_start, this->timeaxis_end);
 
     this->streams.resize(plotarea->streams.size());
 

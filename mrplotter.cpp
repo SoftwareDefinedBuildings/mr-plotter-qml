@@ -3,10 +3,12 @@
 
 #include <QTimer>
 
-MrPlotter::MrPlotter()
+MrPlotter::MrPlotter() : timeaxis(), cache()
 {
     this->mainplot = nullptr;
     this->ddplot = nullptr;
+
+    this->timeaxisarea = nullptr;
 
     this->ready = true;
     this->pending = false;
@@ -19,6 +21,7 @@ PlotArea* MrPlotter::mainPlot() const
 
 void MrPlotter::setMainPlot(PlotArea* newmainplot)
 {
+    newmainplot->showDataDensity = false;
     this->mainplot = newmainplot;
     newmainplot->plot = this;
 }
@@ -30,6 +33,7 @@ PlotArea* MrPlotter::dataDensityPlot() const
 
 void MrPlotter::setDataDensityPlot(PlotArea* newddplot)
 {
+    newddplot->showDataDensity = true;
     this->ddplot = newddplot;
     newddplot->plot = this;
 }
@@ -90,6 +94,44 @@ void MrPlotter::updateDataAsync()
     }
     if (ddplot != nullptr)
     {
-        mainplot->updateDataAsync(this->cache);
+        ddplot->updateDataAsync(this->cache);
     }
+}
+
+/* Updates the screen in response to the x-axis having shifted. */
+
+void MrPlotter::updateView()
+{
+    if (this->mainplot != nullptr)
+    {
+        this->mainplot->update();
+    }
+    if (this->ddplot != nullptr)
+    {
+        this->ddplot->update();
+    }
+    if (this->timeaxisarea != nullptr)
+    {
+        this->timeaxisarea->update();
+    }
+}
+
+TimeAxisArea* MrPlotter::timeAxisArea() const
+{
+    return this->timeaxisarea;
+}
+
+void MrPlotter::setTimeAxisArea(TimeAxisArea* newtimeaxisarea)
+{
+    this->timeaxisarea = newtimeaxisarea;
+    newtimeaxisarea->setTimeAxis(this->timeaxis);
+}
+
+
+bool MrPlotter::setTimeDomain(double domainLoMillis, double domainHiMillis,
+                              double domainLoNanos, double domainHiNanos)
+{
+    int64_t domainLo = 1000000 * (int64_t) domainLoMillis + (int64_t) domainLoNanos;
+    int64_t domainHi = 1000000 * (int64_t) domainHiMillis + (int64_t) domainHiNanos;
+    return this->timeaxis.setDomain(domainLo, domainHi);
 }

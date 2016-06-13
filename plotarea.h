@@ -35,7 +35,6 @@ class MrPlotter;
 class PlotArea : public QQuickFramebufferObject
 {
     Q_OBJECT
-    Q_PROPERTY(TimeAxisArea* timeaxisarea READ timeAxisArea WRITE setTimeAxisArea)
     Q_PROPERTY(YAxisArea* yaxisarea READ yAxisArea WRITE setYAxisArea)
     Q_PROPERTY(QList<QVariant> streamlist READ getStreamList WRITE setStreamList)
 
@@ -52,10 +51,7 @@ public:
     void touchEvent(QTouchEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
 
-    const TimeAxis& getTimeAxis() const;
-
-    TimeAxisArea* timeAxisArea() const;
-    void setTimeAxisArea(TimeAxisArea* newtimeaxisarea);
+    const TimeAxis* getTimeAxis() const;
 
     YAxisArea* yAxisArea() const;
     void setYAxisArea(YAxisArea* newyaxisarea);
@@ -63,10 +59,6 @@ public:
     Q_INVOKABLE QList<QVariant> getStreamList() const;
     Q_INVOKABLE void setStreamList(QList<QVariant> newstreamlist);
 
-    Q_INVOKABLE bool setTimeDomain(double domainLoMillis, double domainHiMillis,
-                                   double domainLoNanos = 0.0, double domainHiNanos = 0.0);
-
-    Q_INVOKABLE void updateView();
     void updateDataAsync(Cache& cache);
 
     MrPlotter* plot;
@@ -77,9 +69,6 @@ protected:
     void geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry) override;
 
 private:
-    TimeAxis timeaxis;
-    TimeAxisArea* timeaxisarea;
-
     QList<YAxis*> yaxes;
     YAxisArea* yaxisarea;
 

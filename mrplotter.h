@@ -13,6 +13,7 @@ class PlotArea;
 class MrPlotter : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(TimeAxisArea* timeaxisarea READ timeAxisArea WRITE setTimeAxisArea)
     Q_PROPERTY(PlotArea* mainPlot READ mainPlot WRITE setMainPlot)
     Q_PROPERTY(PlotArea* dataDensityPlot READ dataDensityPlot WRITE setDataDensityPlot)
 public:
@@ -27,8 +28,14 @@ public:
     PlotArea* dataDensityPlot() const;
     void setDataDensityPlot(PlotArea* newddplot);
 
+    TimeAxisArea* timeAxisArea() const;
+    void setTimeAxisArea(TimeAxisArea* newtimeaxisarea);
+
     Q_INVOKABLE Stream* newStream(QString uuid);
     Q_INVOKABLE void delStream(Stream* s);
+
+    Q_INVOKABLE bool setTimeDomain(double domainLoMillis, double domainHiMillis,
+                                   double domainLoNanos = 0.0, double domainHiNanos = 0.0);
 
     Q_INVOKABLE YAxis* newYAxis();
     Q_INVOKABLE YAxis* newYAxis(float domainLo, float domainHi);
@@ -36,13 +43,15 @@ public:
 
     Q_INVOKABLE void updateDataAsyncThrottled();
     Q_INVOKABLE void updateDataAsync();
+    Q_INVOKABLE void updateView();
+
+    TimeAxis timeaxis;
 
 signals:
 
 public slots:
 
 private:
-    TimeAxis timeaxis;
     TimeAxisArea* timeaxisarea;
 
     Cache cache;

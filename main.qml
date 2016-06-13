@@ -22,13 +22,19 @@ Window {
         a2.addStream(s2);
         a3.addStream(s3);
 
+        var dds = mrp.newStream("ff51541a-d71c-47bc-bd63-fbbe68f94acd");
+        dds.setColor(0, 0, 1.0);
+        var dda = mrp.newYAxis(0, 10);
+        dda.addStream(dds);
+
         var streamlist = [s1, s2, s3];
         var axislist = [a1, a2, a3];
 
         pa.setStreamList(streamlist);
+        ddpa.setStreamList([dds]);
         yaa.setAxisList(axislist);
 
-        pa.setTimeDomain(1415643674999, 1415643675001);
+        mrp.setTimeDomain(1415643674999, 1415643675001);
 
         pa.update();
         yaa.update();
@@ -37,16 +43,24 @@ Window {
     }
 
     PlotArea {
+        id: ddpa
+        anchors.left: pa.left
+        width: pa.width
+        height: 60
+    }
+
+    PlotArea {
         id: pa
+        anchors.top: ddpa.bottom
         anchors.left: yaa.right
         width: parent.width - yaa.width
-        height: Math.max(parent.height - taa.height, 50)
-        timeaxisarea: taa
+        height: Math.max(parent.height - taa.height - ddpa.height, 50)
         yaxisarea: yaa
     }
 
     YAxisArea {
         id: yaa
+        anchors.top: pa.top
         anchors.left: parent.left
         width: Math.min(parent.width / 4, 300)
         height: pa.height
@@ -63,5 +77,7 @@ Window {
     MrPlotter {
         id: mrp
         mainPlot: pa
+        dataDensityPlot: ddpa
+        timeaxisarea: taa
     }
 }
