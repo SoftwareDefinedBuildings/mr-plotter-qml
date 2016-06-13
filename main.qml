@@ -33,7 +33,7 @@ Window {
         pa.update();
         yaa.update();
 
-        pa.updateDataAsync();
+        mrp.updateDataAsync();
     }
 
     PlotArea {
@@ -62,6 +62,6 @@ Window {
 
     MrPlotter {
         id: mrp
-        plotarea: pa
+        mainPlot: pa
     }
 }

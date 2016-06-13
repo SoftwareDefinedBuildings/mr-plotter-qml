@@ -10,7 +10,6 @@
 #include <QMouseEvent>
 #include <QQuickFramebufferObject>
 #include <QSharedPointer>
-#include <QTimer>
 #include <QTouchEvent>
 #include <QWheelEvent>
 
@@ -37,12 +36,12 @@ PlotArea::PlotArea() : timeaxis(), cache(), openhand(Qt::OpenHandCursor),
 
     this->fullUpdateID = 0;
 
-    this->ready = true;
-    this->pending = false;
     this->showDataDensity = false;
 
     this->timeaxisarea = nullptr;
     this->yaxisarea = nullptr;
+
+    this->plot = nullptr;
 }
 
 QQuickFramebufferObject::Renderer* PlotArea::createRenderer() const
@@ -88,7 +87,7 @@ void PlotArea::mouseReleaseEvent(QMouseEvent* event)
     this->setCursor(this->openhand);
     this->updateView();
 
-    this->updateDataAsync();
+    this->plot->updateDataAsync();
 }
 
 void PlotArea::touchEvent(QTouchEvent* event)
@@ -174,7 +173,7 @@ void PlotArea::touchEvent(QTouchEvent* event)
         /* The user removed his or her finger(s) from the screen, and
          * now there are no fingers touching the screen.
          */
-        this->updateDataAsync();
+        this->plot->updateDataAsync();
         return;
     }
     else if ((event->touchPointStates() & Qt::TouchPointReleased) != 0)
@@ -293,7 +292,7 @@ void PlotArea::wheelEvent(QWheelEvent* event)
      * It's probably a common pattern to start at a wide graph and scroll
      * in rapidly into a small area of it.
      */
-    this->updateDataAsyncThrottled();
+    this->plot->updateDataAsyncThrottled();
 }
 
 void PlotArea::geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry)
@@ -302,7 +301,7 @@ void PlotArea::geometryChanged(const QRectF& newGeometry, const QRectF& oldGeome
 
     if (newGeometry.width() > 0 && newGeometry.height() > 0)
     {
-        this->updateDataAsyncThrottled();
+        this->plot->updateDataAsyncThrottled();
     }
 }
 
@@ -324,30 +323,7 @@ void PlotArea::updateView()
     }
 }
 
-void PlotArea::updateDataAsyncThrottled()
-{
-    if (this->ready)
-    {
-        Q_ASSERT(!this->pending);
-        this->updateDataAsync();
-        this->ready = false;
-        QTimer::singleShot(THROTTLE_MSEC, [this]()
-        {
-            this->ready = true;
-            if (this->pending)
-            {
-                this->pending = false;
-                this->updateDataAsyncThrottled();
-            }
-        });
-    }
-    else
-    {
-        this->pending = true;
-    }
-}
-
-void PlotArea::updateDataAsync()
+void PlotArea::updateDataAsync(Cache& cache)
 {
     int64_t screenwidth = (int64_t) (0.5 + this->width());
 
@@ -369,7 +345,7 @@ void PlotArea::updateDataAsync()
     {
         Stream* s = *i;
         Q_ASSERT_X(s != nullptr, "updateDataAsync", "invalid value in streamlist");
-        this->cache.requestData(s->uuid, timeaxis_start, timeaxis_end, pwe,
+        cache.requestData(s->uuid, timeaxis_start, timeaxis_end, pwe,
                                 [this, s, id](QList<QSharedPointer<CacheEntry>> data)
         {
             if (id == this->fullUpdateID)

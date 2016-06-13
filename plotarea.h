@@ -3,6 +3,7 @@
 
 #include "axisarea.h"
 #include "cache.h"
+#include "mrplotter.h"
 #include "stream.h"
 
 #include <QCursor>
@@ -28,6 +29,8 @@
  * supports scrolling. MUST be a floating point number.
  */
 #define WHEEL_SENSITIVITY (1.0 / 2048.0)
+
+class MrPlotter;
 
 class PlotArea : public QQuickFramebufferObject
 {
@@ -64,8 +67,9 @@ public:
                                    double domainLoNanos = 0.0, double domainHiNanos = 0.0);
 
     Q_INVOKABLE void updateView();
-    Q_INVOKABLE void updateDataAsyncThrottled();
-    Q_INVOKABLE void updateDataAsync();
+    void updateDataAsync(Cache& cache);
+
+    MrPlotter* plot;
 
     bool showDataDensity;
 
@@ -98,13 +102,6 @@ private:
     QCursor closedhand;
 
     uint64_t fullUpdateID;
-
-    /* For throttling full updates. READY indicates whether a call can be
-     * made, and PENDING indicates whether there is a call waiting to be
-     * made.
-     */
-    bool ready;
-    bool pending;
 };
 
 #endif // PLOTAREA_H
