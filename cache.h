@@ -102,6 +102,18 @@ private:
     /* The length of the CACHED array. */
     int cachedlen;
 
+//    /* Offset to first point in the main plot. */
+//    int mainoff;
+
+//    /* Offset to first point in the data density plot. */
+//    int ddoff;
+
+//    /* Number of points in main mean plot. */
+//    int maincnt;
+
+//    /* Number of points in the data density plot. */
+//    int ddcnt;
+
     /* The VBO used to render this Cache Entry. */
     GLuint vbo;
 

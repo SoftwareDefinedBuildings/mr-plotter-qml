@@ -75,6 +75,22 @@ CacheEntry::~CacheEntry()
 
 #define GAPMARKER 0.5f
 
+/* Pulls the data density graph to zero, and creates a gap in the main plot. */
+void pullToZero(struct cachedpt* pt, float reltime, float prevcnt)
+{
+    pt->reltime = reltime;
+    pt->min = prevcnt;
+    pt->prevcount = GAPMARKER; // DD Shader will have to be smart and look at output->min for the "correct" value of count
+
+    pt->mean = 0.0f;
+
+    pt->reltime2 = pt->reltime;
+    pt->max = 0.0f;
+    pt->count = GAPMARKER; // DD Shader will have to be smart and look at output->max for the "correct" value of count
+
+    pt->truecount = 0.0f;
+}
+
 /* SPOINTS should contain all statistical points where the MIDPOINT is
  * in the (closed) interval [start, end] of this cache entry.
  * If there is a point immediately to the left of and adjacent to the
@@ -101,8 +117,19 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
     bool prevfirst = (len > 0 && spoints[0].time == ((start - halfpw - 1) & pwmask));
     bool nextlast = (len > 0 && spoints[len - 1].time == (((end - halfpw) & pwmask) + pw));
 
-    int truelen = len;
+    /* NUMINPUTS is the number of inputs that we look at in the main iteration over
+     * the array.
+     */
+    int numinputs = len;
     statpt* inputs = spoints;
+
+//    this->mainoff = 0;
+//    this->ddoff = 0;
+//    this->ddcnt = len << 1;
+//    this->maincnt = len;
+
+    bool ddstartatzero = false;
+    bool ddendatzero = false;
 
     if (prevfirst && !this->joinsPrev)
     {
@@ -110,8 +137,19 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
          * in, but we don't have to connect with it because the previous entry takes
          * care of it.
          */
-        truelen--;
+        numinputs--;
         inputs++;
+    }
+    else if (!prevfirst)
+    {
+        /* There's no point immediately before the first point, so we need to make
+         * sure that the data density plot starts at the beginning of the cache entry.
+         */
+//        this->mainoff += sizeof(struct cachedpt);
+//        this->ddoff = sizeof(struct cachedpt) / 2;
+//        this->ddcnt += 1;
+
+        ddstartatzero = true;
     }
 
     if (nextlast && !this->joinsNext)
@@ -120,7 +158,16 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
          * in, but we don't have to connect with it because the next entry takes care
          * of it.
          */
-        truelen--;
+        numinputs--;
+    }
+    else if (!nextlast)
+    {
+        /* There's no point immediately after the last point, so we need to pull the
+         * data density plot to 0 and then extend it to the end of this cache entry.
+         */
+//        this->ddcnt += 3;
+
+        ddendatzero = true;
     }
 
     /* We can get two distinct bounds on the number of cached points.
@@ -133,22 +180,29 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
      * memory than we really need. If we make it too low, then we'll write past the end
      * of the buffer.
      */
-    this->cachedlen = qMin((((int64_t) truelen) << 1), ((end - start) >> this->pwe) + 3);
-    this->cached = new struct cachedpt[cachedlen];
+    this->cachedlen = qMin((((int64_t) len) << 1), ((end - start) >> this->pwe) + 3);
+    this->cached = new struct cachedpt[cachedlen + ddstartatzero + (2 * ddendatzero)];
+
+    struct cachedpt* outputs = this->cached + ddstartatzero;
+
+    if (ddstartatzero)
+    {
+        pullToZero(&this->cached[0], (float) (this->start - this->epoch), 0.0f);
+    }
 
     float prevcount = prevfirst ? spoints[0].count : 0.0f;
     int64_t prevtime; // Don't need to initialize this.
 
     int i, j;
     int64_t exptime;
-    for (i = 0, j = 0; i < truelen; i++, j++)
+    for (i = 0, j = 0; i < numinputs; i++, j++)
     {
         struct statpt* input = &inputs[i];
         struct cachedpt* output;
 
         Q_ASSERT(j < this->cachedlen);
 
-        output = &this->cached[j];
+        output = &outputs[j];
 
         output->reltime = (float) (input->time - this->epoch);
         output->min = (float) input->min;
@@ -170,7 +224,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
          * have to worry about inserting a gap before the first point.
          */
         exptime = prevtime + pw;
-        if ((i == truelen - 1 && !nextlast) || (i != truelen - 1 && inputs[i + 1].time > exptime))
+        if ((i == numinputs - 1 && !nextlast) || (i != numinputs - 1 && inputs[i + 1].time > exptime))
         {
             j++;
 
@@ -181,7 +235,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
              * doesn't fill anything in between the two real points on
              * either side.
              */
-            struct cachedpt* output = &this->cached[j];
+            output = &outputs[j];
 
             output->reltime = (float) (exptime - this->epoch);
             output->min = prevcount;
@@ -198,21 +252,30 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
             /* If the previous point (at index j - 1) has a gap on either
              * side, it needs to be rendered as vertical line.
              */
-            if ((j > 1 && this->cached[j - 2].count == GAPMARKER) || (j == 1 && !prevfirst))
+            if ((j > 1 && outputs[j - 2].count == GAPMARKER) || (j == 1 && !prevfirst))
             {
                 /* This tells the vertex shader the appropriate info. */
-                Q_ASSERT(this->cached[j - 1].prevcount == 0.0f);
-                Q_ASSERT(this->cached[j - 1].count != 0.0f);
-                this->cached[j - 1].prevcount = -GAPMARKER; // WILL be set to -0.5. DD Shader will have to be smart and realize this should really be 0.
-                this->cached[j - 1].count *= -1; // Will be negative, but will not be -0. DD Shader will have to be smart and interpret this as a positive number.
+                Q_ASSERT(outputs[j - 1].prevcount == 0.0f);
+                Q_ASSERT(outputs[j - 1].count != 0.0f);
+                outputs[j - 1].prevcount = -GAPMARKER; // WILL be set to -0.5. DD Shader will have to be smart and realize this should really be 0.
+                outputs[j - 1].count *= -1; // Will be negative, but will not be -0. DD Shader will have to be smart and interpret this as a positive number.
             }
 
             prevtime = exptime;
             prevcount = 0.0f;
+
+            exptime += pw;
         }
     }
 
-    this->cachedlen = j; // The remaining were extra...
+    if (ddendatzero)
+    {
+        pullToZero(&outputs[j], (float) (exptime - this->epoch), prevcount);
+        pullToZero(&outputs[j + 1], (float) (this->end + 1 - this->epoch), 0.0f);
+        j += 2;
+    }
+
+    this->cachedlen = j + ddstartatzero; // The remaining were extra...
 }
 
 bool CacheEntry::isPlaceholder()
