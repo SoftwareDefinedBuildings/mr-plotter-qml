@@ -333,18 +333,8 @@ void PlotArea::geometryChanged(const QRectF& newGeometry, const QRectF& oldGeome
     }
 }
 
-void PlotArea::updateDataAsync(Cache& cache)
+void PlotArea::rescaleAxes(int64_t timeaxis_start, int64_t timeaxis_end)
 {
-    int64_t screenwidth = (int64_t) (0.5 + this->width());
-
-    if (screenwidth == 0 || this->plot == nullptr)
-    {
-        return;
-    }
-
-    int64_t timeaxis_start, timeaxis_end;
-    this->plot->timeaxis.getDomain(timeaxis_start, timeaxis_end);
-
     /* Dynamically autoscale the axes, if necessary. */
     QSet<YAxis*> axes;
     for (auto i = this->streams.begin(); i != this->streams.end(); i++)
@@ -357,6 +347,25 @@ void PlotArea::updateDataAsync(Cache& cache)
             axes << ya;
         }
     }
+    if (axes.size() != 0 && this->yaxisarea != nullptr)
+    {
+        this->yaxisarea->update();
+    }
+}
+
+void PlotArea::updateDataAsync(Cache& cache)
+{
+    int64_t screenwidth = (int64_t) (0.5 + this->width());
+
+    if (screenwidth == 0 || this->plot == nullptr)
+    {
+        return;
+    }
+
+    int64_t timeaxis_start, timeaxis_end;
+    this->plot->timeaxis.getDomain(timeaxis_start, timeaxis_end);
+
+    this->rescaleAxes(timeaxis_start, timeaxis_end);
 
     uint64_t id = ++this->fullUpdateID;
     int64_t nanosperpixel = (timeaxis_end - timeaxis_start) / screenwidth;
@@ -369,11 +378,12 @@ void PlotArea::updateDataAsync(Cache& cache)
         Stream* s = *i;
         Q_ASSERT_X(s != nullptr, "updateDataAsync", "invalid value in streamlist");
         cache.requestData(s->uuid, timeaxis_start, timeaxis_end, pwe,
-                                [this, s, id](QList<QSharedPointer<CacheEntry>> data)
+                                [this, s, id, timeaxis_start, timeaxis_end](QList<QSharedPointer<CacheEntry>> data)
         {
             if (id == this->fullUpdateID)
             {
                 s->data = data;
+                this->rescaleAxes(timeaxis_start, timeaxis_end);
                 this->update();
             }
         }, timewidth);

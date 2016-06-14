@@ -69,6 +69,8 @@ protected:
     void geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry) override;
 
 private:
+    void rescaleAxes(int64_t timeaxis_start, int64_t timeaxis_end);
+
     QHash<YAxis*, uint64_t> yAxes;
     YAxisArea* yaxisarea;
 

@@ -36,6 +36,7 @@ Window {
         pa.setStreamList(streamlist);
         ddpa.setStreamList([dds]);
         yaa.setAxisList(axislist);
+        ddyaa.setAxisList([dda]);
 
         mrp.setTimeDomain(1415643674979, 1415643674979, 469055, 469318);
 
@@ -49,12 +50,21 @@ Window {
         id: ddpa
         anchors.left: pa.left
         width: pa.width
-        height: 60
+        height: 70
+        yaxisarea: ddyaa
+    }
+
+    YAxisArea {
+        id: ddyaa
+        anchors.top: ddpa.top
+        anchors.right: ddpa.left
+        width: yaa.width
+        height: ddpa.height
     }
 
     PlotArea {
         id: pa
-        anchors.top: ddpa.bottom
+        y: ddpa.height + 8
         anchors.left: yaa.right
         width: parent.width - yaa.width
         height: Math.max(parent.height - taa.height - ddpa.height, 50)
