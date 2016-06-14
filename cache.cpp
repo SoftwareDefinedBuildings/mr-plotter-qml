@@ -254,24 +254,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
 
             Q_ASSERT(j < this->cachedlen);
 
-            /* Insert a gap. We need this "gap point" to pull the data
-             * density graph to 0, and to make sure the fragment shader
-             * doesn't fill anything in between the two real points on
-             * either side.
-             */
-            output = &outputs[j];
-
-            output->reltime = (float) (exptime - this->epoch);
-            output->min = prevcount;
-            output->prevcount = GAPMARKER; // DD Shader will have to be smart and look at output->min for the "correct" value of count
-
-            output->mean = 0.0f;
-
-            output->reltime2 = output->reltime;
-            output->max = 0.0f;
-            output->count = GAPMARKER; // DD Shader will have to be smart and look at output->max for the "correct" value of count
-
-            output->truecount = 0.0f;
+            pullToZero(&outputs[j], (float) (exptime - this->epoch), prevcount);
 
             /* If the previous point (at index j - 1) has a gap on either
              * side, it needs to be rendered as vertical line.
@@ -362,7 +345,7 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
         matrix[8] = 1.0f;
 
         /* Fill in the offset vector. */
-        vector[0] = (float) (tStart - epoch - ((1 << pwe) >> 1));
+        vector[0] = (float) (tStart - epoch - ((1ll << pwe) >> 1));
         vector[1] = yStart;
 
         /* Now, given a vector <time, value>, where time is relative to
@@ -446,7 +429,7 @@ void CacheEntry::renderDDPlot(QOpenGLFunctions* funcs, float yStart,
         matrix[8] = 1.0f;
 
         /* Fill in the offset vector. */
-        vector[0] = (float) (tStart - epoch);
+        vector[0] = (float) (tStart - epoch) + (1ll << pwe) / 2.0f;
         vector[1] = yStart;
 
         /* Now, given a vector <time, value>, where time is relative to
