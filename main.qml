@@ -37,7 +37,7 @@ Window {
         ddpa.setStreamList([dds]);
         yaa.setAxisList(axislist);
 
-        mrp.setTimeDomain(1415643674999, 1415643675001);
+        mrp.setTimeDomain(1415643674979, 1415643674979, 469055, 469318);
 
         pa.update();
         yaa.update();

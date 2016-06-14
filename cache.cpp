@@ -109,10 +109,28 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
 
     int64_t halfpw = pw >> 1;
 
+    if (len == 0)
+    {
+        /* Edge case: no data. Just draw 0 data density plot. */
+        this->epoch = (this->start >> 1) + (this->end >> 1);
+        this->cachedlen = 2;
+        this->cached = new struct cachedpt[this->cachedlen];
+        pullToZero(&this->cached[0], (float) (this->start - this->epoch), 0.0f);
+        pullToZero(&this->cached[1], (float) (this->end + 1 - this->epoch), 0.0f);
+        return;
+    }
+
     this->joinsPrev = (prev != nullptr && !prev->joinsNext && prev->cachedlen != 0);
     this->joinsNext = (next != nullptr && !next->joinsPrev && next->cachedlen != 0);
 
-    this->epoch = (spoints[len - 1].time >> 1) + (spoints[0].time >> 1);
+    if (len > 0)
+    {
+        this->epoch = (spoints[len - 1].time >> 1) + (spoints[0].time >> 1);
+    }
+    else
+    {
+        this->epoch = 0;
+    }
 
     bool prevfirst = (len > 0 && spoints[0].time == ((start - halfpw - 1) & pwmask));
     bool nextlast = (len > 0 && spoints[len - 1].time == (((end - halfpw) & pwmask) + pw));
@@ -122,11 +140,6 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
      */
     int numinputs = len;
     statpt* inputs = spoints;
-
-//    this->mainoff = 0;
-//    this->ddoff = 0;
-//    this->ddcnt = len << 1;
-//    this->maincnt = len;
 
     bool ddstartatzero = false;
     bool ddendatzero = false;
@@ -145,9 +158,6 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         /* There's no point immediately before the first point, so we need to make
          * sure that the data density plot starts at the beginning of the cache entry.
          */
-//        this->mainoff += sizeof(struct cachedpt);
-//        this->ddoff = sizeof(struct cachedpt) / 2;
-//        this->ddcnt += 1;
 
         ddstartatzero = true;
     }
@@ -165,22 +175,21 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         /* There's no point immediately after the last point, so we need to pull the
          * data density plot to 0 and then extend it to the end of this cache entry.
          */
-//        this->ddcnt += 3;
 
         ddendatzero = true;
     }
 
     /* We can get two distinct bounds on the number of cached points.
      * In the worst case, we will create a single "gap point" for every point we consider
-     * in the spoints array. We can also say that, in the worst case, we will have one
-     * point for every possible statistical point between end and start
+     * in the spoints array, plus one before and two after. We can also say that, in the
+     * worst case, we will have one point for every possible statistical point,
      * (i.e. ((end - start) >> pwe) + 1), plus one additional point to the left and
-     * one additional point to the right. We take the smaller of the two to use the
+     * two additional point to the right. We take the smaller of the two to use the
      * tighter upper bound. If we make this too high it's OK; we just allocate more
      * memory than we really need. If we make it too low, then we'll write past the end
      * of the buffer.
      */
-    this->cachedlen = qMin((((int64_t) len) << 1), ((end - start) >> this->pwe) + 3);
+    this->cachedlen = qMin((((int64_t) len) << 1) + 2, ((end - start) >> this->pwe) + 4);
     this->cached = new struct cachedpt[cachedlen + ddstartatzero + (2 * ddendatzero)];
 
     struct cachedpt* outputs = this->cached + ddstartatzero;
@@ -195,7 +204,22 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
 
     int i, j;
     int64_t exptime;
-    for (i = 0, j = 0; i < numinputs; i++, j++)
+
+    j = 0;
+
+    if (prevfirst)
+    {
+        /* Edge case: What if there's a gap before any points? */
+        exptime = spoints[0].time + pw;
+        if (len > 1 && spoints[1].time > exptime)
+        {
+            pullToZero(&outputs[0], (float) (exptime - this->epoch), 0.0f);
+            prevcount = 0.0f;
+            j = 1;
+        }
+    }
+
+    for (i = 0; i < numinputs; i++, j++)
     {
         struct statpt* input = &inputs[i];
         struct cachedpt* output;
@@ -265,6 +289,17 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
             prevcount = 0.0f;
 
             exptime += pw;
+        }
+    }
+
+    if (nextlast)
+    {
+        /* This is mutually exclusive with ddendatzero. */
+        if (spoints[len - 1].time > exptime)
+        {
+            pullToZero(&outputs[j], (float) (exptime - this->epoch), prevcount);
+            pullToZero(&outputs[j + 1], (float) (spoints[len - 1].time - this->epoch), 0.0f);
+            j += 2;
         }
     }
 
