@@ -25,6 +25,9 @@ public:
     void synchronize(QQuickFramebufferObject* plotareafbo) override;
     void render() override;
 
+protected:
+    QOpenGLFramebufferObject* createFramebufferObject(const QSize& size) override;
+
 private:
     static bool compiled_shaders;
     static GLuint program;

@@ -1,7 +1,6 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QtQml>
-#include <QSurfaceFormat>
 #include <QUuid>
 
 #include "axis.h"
@@ -13,10 +12,6 @@
 
 int main(int argc, char *argv[])
 {
-    QSurfaceFormat sf;
-    sf.setSamples(4);
-    QSurfaceFormat::setDefaultFormat(sf);
-
     QGuiApplication app(argc, argv);
 
     qmlRegisterType<YAxis>("MrPlotter", 0, 1, "YAxis");
