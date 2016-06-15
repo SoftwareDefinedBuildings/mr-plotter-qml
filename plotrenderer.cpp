@@ -126,6 +126,24 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
 #ifdef GL_VERTEX_PROGRAM_POINT_SIZE
     this->glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
 #endif
+#ifdef GL_MULTISAMPLE
+    this->glEnable(GL_MULTISAMPLE);
+#endif
+#ifdef GL_LINE_SMOOTH
+    this->glEnable(GL_LINE_SMOOTH);
+#endif
+#ifdef GL_POINT_SMOOTH
+    this->glEnable(GL_POINT_SMOOTH);
+#endif
+#ifdef GL_EXT_framebuffer_multisample
+    this->glEnable(GL_EXT_framebuffer_multisample);
+#endif
+#ifdef GL_EXT_framebuffer_blit
+    this->glEnable(GL_EXT_framebuffer_blit);
+#endif
+#ifdef GL_EXT_framebuffer_multisample_blit_scaled
+    this->glEnable(GL_EXT_framebuffer_multisample_blit_scaled);
+#endif
 
     if (!this->compiled_shaders)
     {
@@ -209,8 +227,8 @@ void PlotRenderer::render()
         struct drawable& s = *i;
         QList<QSharedPointer<CacheEntry>>& todraw = s.data;
         /* Set uniforms depending on whether *i is a selected stream. */
-        this->glLineWidth(s.selected ? 2.0 : 1.0);
-        this->glUniform1f(pointsizeLoc, s.selected ? 5.0 : 3.0);
+        this->glLineWidth(s.selected ? 4.0 : 2.0);
+        this->glUniform1f(pointsizeLoc, s.selected ? 6.0 : 4.0);
         this->glUniform3fv(datadensity ? colorLocDD : colorLoc, 1, COLOR_TO_ARRAY(s.color));
         for (auto j = todraw.begin(); j != todraw.end(); ++j)
         {

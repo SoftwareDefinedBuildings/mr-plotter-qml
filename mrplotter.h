@@ -41,6 +41,9 @@ public:
     Q_INVOKABLE YAxis* newYAxis(float domainLo, float domainHi);
     Q_INVOKABLE void delYAxis(YAxis* ya);
 
+    bool setTimeZone(QByteArray timezone);
+    Q_INVOKABLE bool setTimeZone(QString timezone);
+
     Q_INVOKABLE void updateDataAsyncThrottled();
     Q_INVOKABLE void updateDataAsync();
     Q_INVOKABLE void updateView();

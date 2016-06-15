@@ -5,10 +5,12 @@
 
 #include <cstdint>
 
+#include <QByteArray>
 #include <QList>
 #include <QObject>
 #include <QPair>
 #include <QString>
+#include <QTimeZone>
 
 /* Number of ticks to show on the axis. */
 #define MINTICKS 4
@@ -174,6 +176,8 @@ public:
      */
     void getDomain(int64_t& low, int64_t& high) const;
 
+    bool setTimeZone(QByteArray& arr);
+
     QVector<struct timetick> getTicks();
 
     double map(int64_t time);
@@ -181,6 +185,7 @@ public:
 private:
     int64_t domainLo;
     int64_t domainHi;
+    QTimeZone tz;
 };
 
 #endif // AXIS_H

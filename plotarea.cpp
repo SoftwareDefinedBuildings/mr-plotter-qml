@@ -9,7 +9,9 @@
 #include <QCursor>
 #include <QMouseEvent>
 #include <QQuickFramebufferObject>
+#include <QQuickWindow>
 #include <QSharedPointer>
+#include <QSurfaceFormat>
 #include <QTouchEvent>
 #include <QWheelEvent>
 
@@ -37,6 +39,8 @@ PlotArea::PlotArea() : openhand(Qt::OpenHandCursor), closedhand(Qt::ClosedHandCu
     this->showDataDensity = false;
     this->yaxisarea = nullptr;
     this->plot = nullptr;
+
+    this->setAntialiasing(true);
 }
 
 QQuickFramebufferObject::Renderer* PlotArea::createRenderer() const

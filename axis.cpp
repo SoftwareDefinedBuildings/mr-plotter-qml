@@ -237,7 +237,7 @@ QString getTimeTickLabel(int64_t timestamp, QDateTime& datetime, Timescale granu
     Q_UNREACHABLE();
 }
 
-TimeAxis::TimeAxis()
+TimeAxis::TimeAxis(): tz(QTimeZone::utc())
 {
     this->domainLo = 1451606400000000000LL;
     this->domainHi = 1483228799999999999LL;
@@ -331,7 +331,7 @@ QVector<struct timetick> TimeAxis::getTicks()
         int yeardelta = (int) (deltatick / YEAR_NS);
         Q_ASSERT((deltatick % YEAR_NS) == 0);
 
-        QDateTime date = QDateTime::fromMSecsSinceEpoch(domainLoMSecs - 1, QTimeZone::utc());
+        QDateTime date = QDateTime::fromMSecsSinceEpoch(domainLoMSecs - 1, this->tz);
         int curryear = ceildiv(date.date().year(), yeardelta) * yeardelta;
         date.setDate(QDate(curryear, 1, 1));
         date.setTime(QTime());
@@ -353,7 +353,7 @@ QVector<struct timetick> TimeAxis::getTicks()
         int monthdelta = (int) (deltatick / MONTH_NS);
         Q_ASSERT((deltatick % MONTH_NS) == 0);
 
-        QDateTime date = QDateTime::fromMSecsSinceEpoch(domainLoMSecs - 1, QTimeZone::utc());
+        QDateTime date = QDateTime::fromMSecsSinceEpoch(domainLoMSecs - 1, this->tz);
         date.setTime(QTime());
 
         /* currmonth is an int from 0 to 11. */
@@ -378,7 +378,7 @@ QVector<struct timetick> TimeAxis::getTicks()
         starttime = ceildiv(this->domainLo, deltatick) * deltatick;
         while (starttime <= this->domainHi) {
             // Add the tick to ticks
-            QDateTime date = QDateTime::fromMSecsSinceEpoch(ceildiv(starttime, MILLISECOND_NS), QTimeZone::utc());
+            QDateTime date = QDateTime::fromMSecsSinceEpoch(ceildiv(starttime, MILLISECOND_NS), this->tz);
             ticks.append({ starttime, getTimeTickLabel(starttime, date, granularity) });
             starttime += deltatick;
         }
@@ -391,4 +391,15 @@ QVector<struct timetick> TimeAxis::getTicks()
 double TimeAxis::map(int64_t time)
 {
     return (time - this->domainLo) / (double) (this->domainHi - this->domainLo);
+}
+
+bool TimeAxis::setTimeZone(QByteArray& arr)
+{
+    QTimeZone newtz(arr);
+    if (!newtz.isValid())
+    {
+        return false;
+    }
+    newtz.swap(this->tz);
+    return true;
 }

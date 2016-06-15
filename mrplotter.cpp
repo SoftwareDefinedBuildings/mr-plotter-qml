@@ -2,6 +2,7 @@
 #include "plotarea.h"
 
 #include <QTimer>
+#include <QTimeZone>
 
 MrPlotter::MrPlotter() : timeaxis(), cache()
 {
@@ -134,4 +135,14 @@ bool MrPlotter::setTimeDomain(double domainLoMillis, double domainHiMillis,
     int64_t domainLo = 1000000 * (int64_t) domainLoMillis + (int64_t) domainLoNanos;
     int64_t domainHi = 1000000 * (int64_t) domainHiMillis + (int64_t) domainHiNanos;
     return this->timeaxis.setDomain(domainLo, domainHi);
+}
+
+bool MrPlotter::setTimeZone(QByteArray timezone)
+{
+    return this->timeaxis.setTimeZone(timezone);
+}
+
+bool MrPlotter::setTimeZone(QString timezone)
+{
+    return this->setTimeZone(timezone.toLatin1());
 }
