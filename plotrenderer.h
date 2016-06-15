@@ -8,8 +8,9 @@
 #include <QQuickFramebufferObject>
 #include <QOpenGLFunctions>
 #include <QList>
-#include <QVector>
+#include <QSize>
 #include <QUuid>
+#include <QVector>
 
 #define TIME_ATTR_LOC 0
 #define VALUE_ATTR_LOC 1
@@ -17,13 +18,20 @@
 #define COUNT_ATTR_LOC 3
 #define ALTVAL_ATTR_LOC 4
 
-class PlotRenderer : public QQuickFramebufferObject::Renderer,
-        protected QOpenGLFunctions
+class PlotArea;
+
+class PlotRenderer : public QObject, protected QOpenGLFunctions
 {
+    Q_OBJECT
 public:
     PlotRenderer(const PlotArea* plotarea);
-    void synchronize(QQuickFramebufferObject* plotareafbo) override;
-    void render() override;
+    void synchronize(const PlotArea* plotarea);
+
+    void setViewportSize(const QSize& newsize);
+    void setWindow(QQuickWindow* newwindow);
+
+public slots:
+    void render();
 
 private:
     static bool compiled_shaders;
@@ -45,10 +53,13 @@ private:
     QVector<struct drawable> streams; // the streams to draw
     const PlotArea* pa;
 
-    /* For now... */
-    QList<QSharedPointer<CacheEntry>> todraw;
+//    /* For now... */
+//    QList<QSharedPointer<CacheEntry>> todraw;
     int64_t timeaxis_start;
     int64_t timeaxis_end;
+
+    QSize viewportSize;
+    QQuickWindow* window;
 };
 
 #endif // PLOTRENDERER_H

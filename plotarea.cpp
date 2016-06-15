@@ -32,6 +32,8 @@ inline uint8_t getPWExponent(int64_t pointwidth)
 
 PlotArea::PlotArea() : openhand(Qt::OpenHandCursor), closedhand(Qt::ClosedHandCursor)
 {
+    this->renderer = nullptr;
+
     this->setAcceptedMouseButtons(Qt::LeftButton);
     this->setCursor(this->openhand);
 
@@ -41,11 +43,63 @@ PlotArea::PlotArea() : openhand(Qt::OpenHandCursor), closedhand(Qt::ClosedHandCu
     this->plot = nullptr;
 
     this->setAntialiasing(true);
+
+    QObject::connect(this, &QQuickItem::windowChanged, this, &PlotArea::handleWindowChanged);
 }
 
-QQuickFramebufferObject::Renderer* PlotArea::createRenderer() const
+//QQuickFramebufferObject::Renderer* PlotArea::createRenderer() const
+//{
+//    return new PlotRenderer(this);
+//}
+
+void PlotArea::handleWindowChanged(QQuickWindow* win)
 {
-    return new PlotRenderer(this);
+    if (win != nullptr)
+    {
+        QObject::connect(win, &QQuickWindow::beforeSynchronizing, this, &PlotArea::sync, Qt::DirectConnection);
+        QObject::connect(win, &QQuickWindow::sceneGraphInvalidated, this, &PlotArea::cleanup, Qt::DirectConnection);
+        QObject::connect(win, &QQuickWindow::widthChanged, this, &PlotArea::widthChanged);
+        QObject::connect(win, &QQuickWindow::heightChanged, this, &PlotArea::heightChanged);
+        win->setClearBeforeRendering(false);
+    }
+}
+
+void PlotArea::widthChanged(int newWidth)
+{
+    if (this->plot != nullptr && newWidth > 0)
+    {
+        this->plot->updateDataAsyncThrottled();
+    }
+}
+
+void PlotArea::heightChanged(int newHeight)
+{
+    if (this->plot != nullptr && newHeight > 0)
+    {
+        this->plot->updateDataAsyncThrottled();
+    }
+}
+
+void PlotArea::sync()
+{
+    QQuickWindow* window = this->window();
+    if (this->renderer == nullptr)
+    {
+        this->renderer = new PlotRenderer(this);
+        QObject::connect(window, &QQuickWindow::beforeRendering, this->renderer, &PlotRenderer::render, Qt::DirectConnection);
+    }
+    this->renderer->setViewportSize(window->size() * window->devicePixelRatio());
+    this->renderer->setWindow(window);
+    this->renderer->synchronize(this);
+}
+
+void PlotArea::cleanup()
+{
+    if (this->renderer != nullptr)
+    {
+        delete this->renderer;
+        this->renderer = nullptr;
+    }
 }
 
 void PlotArea::addStream(Stream* s)
@@ -322,16 +376,6 @@ void PlotArea::wheelEvent(QWheelEvent* event)
      * in rapidly into a small area of it.
      */
     if (this->plot != nullptr)
-    {
-        this->plot->updateDataAsyncThrottled();
-    }
-}
-
-void PlotArea::geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry)
-{
-    this->QQuickFramebufferObject::geometryChanged(newGeometry, oldGeometry);
-
-    if (this->plot != nullptr && newGeometry.width() > 0 && newGeometry.height() > 0)
     {
         this->plot->updateDataAsyncThrottled();
     }

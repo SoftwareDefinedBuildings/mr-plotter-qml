@@ -4,6 +4,7 @@
 #include "axisarea.h"
 #include "cache.h"
 #include "mrplotter.h"
+#include "plotrenderer.h"
 #include "stream.h"
 
 #include <QCursor>
@@ -32,7 +33,8 @@
 
 class MrPlotter;
 
-class PlotArea : public QQuickFramebufferObject
+class PlotRenderer;
+class PlotArea : public QQuickItem
 {
     Q_OBJECT
     Q_PROPERTY(YAxisArea* yaxisarea READ yAxisArea WRITE setYAxisArea)
@@ -42,7 +44,7 @@ class PlotArea : public QQuickFramebufferObject
 
 public:
     PlotArea();
-    QQuickFramebufferObject::Renderer* createRenderer() const override;
+    //QQuickFramebufferObject::Renderer* createRenderer() const override;
     Q_INVOKABLE void addStream(Stream* s);
 
     void mousePressEvent(QMouseEvent* event) override;
@@ -65,11 +67,21 @@ public:
 
     bool showDataDensity;
 
-protected:
-    void geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry) override;
+public slots:
+    void sync();
+    void cleanup();
+
+private slots:
+    void handleWindowChanged(QQuickWindow* win);
+
+protected slots:
+    void widthChanged(int newWidth);
+    void heightChanged(int newHeight);
 
 private:
     void rescaleAxes(int64_t timeaxis_start, int64_t timeaxis_end);
+
+    PlotRenderer* renderer;
 
     QHash<YAxis*, uint64_t> yAxes;
     YAxisArea* yaxisarea;

@@ -119,7 +119,56 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
         return;
     }
     timeaxis->getDomain(this->timeaxis_start, this->timeaxis_end);
+}
 
+void PlotRenderer::setViewportSize(const QSize& newsize)
+{
+    this->viewportSize = newsize;
+}
+
+void PlotRenderer::setWindow(QQuickWindow* newwindow)
+{
+    this->window = newwindow;
+}
+
+void PlotRenderer::synchronize(const PlotArea* plotarea)
+{
+    const TimeAxis* timeaxis = plotarea->getTimeAxis();
+    if (timeaxis == nullptr)
+    {
+        return;
+    }
+    timeaxis->getDomain(this->timeaxis_start, this->timeaxis_end);
+
+    this->streams.resize(plotarea->streams.size());
+
+    int index = 0;
+    for (auto i = plotarea->streams.begin(); i != plotarea->streams.end(); i++)
+    {
+        Stream* s = *i;
+        Q_ASSERT_X(s != nullptr, "synchronize", "invalid value in streamlist");
+        bool hasaxis = s->toDrawable(this->streams[index]);
+        if (!hasaxis)
+        {
+            continue;
+        }
+        QList<QSharedPointer<CacheEntry>>& todraw = this->streams[index].data;
+        for (auto j = todraw.begin(); j != todraw.end(); j++)
+        {
+            QSharedPointer<CacheEntry>& ce = *j;
+            Q_ASSERT(!ce->isPlaceholder());
+            if (!ce->isPrepared())
+            {
+                ce->prepare(this);
+            }
+        }
+
+        index++;
+    }
+}
+
+void PlotRenderer::render()
+{
     this->initializeOpenGLFunctions();
 
     /* Needed to draw points correctly. This constant isn't always included for some reason. */
@@ -163,60 +212,18 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
 
         this->compiled_shaders = true;
     }
-}
 
-void PlotRenderer::synchronize(QQuickFramebufferObject* plotareafbo)
-{
-    PlotArea* plotarea = static_cast<PlotArea*>(plotareafbo);
-    const TimeAxis* timeaxis = plotarea->getTimeAxis();
-    if (timeaxis == nullptr)
-    {
-        return;
-    }
-    timeaxis->getDomain(this->timeaxis_start, this->timeaxis_end);
-
-    this->streams.resize(plotarea->streams.size());
-
-    int index = 0;
-    for (auto i = plotarea->streams.begin(); i != plotarea->streams.end(); i++)
-    {
-        Stream* s = *i;
-        Q_ASSERT_X(s != nullptr, "synchronize", "invalid value in streamlist");
-        bool hasaxis = s->toDrawable(this->streams[index]);
-        if (!hasaxis)
-        {
-            continue;
-        }
-        QList<QSharedPointer<CacheEntry>>& todraw = this->streams[index].data;
-        for (auto j = todraw.begin(); j != todraw.end(); j++)
-        {
-            QSharedPointer<CacheEntry>& ce = *j;
-            Q_ASSERT(!ce->isPlaceholder());
-            if (!ce->isPrepared())
-            {
-                ce->prepare(this);
-            }
-        }
-
-        index++;
-    }
-}
-
-void PlotRenderer::render()
-{
     this->initializeOpenGLFunctions();
 
-    QOpenGLFramebufferObject* fbo = this->framebufferObject();
-
-    int width = fbo->width();
-    int height = fbo->height();
+    int width = this->viewportSize.width();
+    int height = this->viewportSize.height();
 
     bool datadensity = this->pa->showDataDensity;
 
     this->glUseProgram(datadensity ? this->ddprogram : this->program);
     this->glViewport(0, 0, width, height);
 
-    this->glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    this->glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     this->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     this->glEnable(GL_BLEND);
