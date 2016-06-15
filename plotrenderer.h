@@ -58,7 +58,10 @@ private:
     int64_t timeaxis_start;
     int64_t timeaxis_end;
 
-    QSize viewportSize;
+    int x;
+    int y;
+    int width;
+    int height;
     QQuickWindow* window;
 };
 

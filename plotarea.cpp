@@ -88,7 +88,6 @@ void PlotArea::sync()
         this->renderer = new PlotRenderer(this);
         QObject::connect(window, &QQuickWindow::beforeRendering, this->renderer, &PlotRenderer::render, Qt::DirectConnection);
     }
-    this->renderer->setViewportSize(window->size() * window->devicePixelRatio());
     this->renderer->setWindow(window);
     this->renderer->synchronize(this);
 }

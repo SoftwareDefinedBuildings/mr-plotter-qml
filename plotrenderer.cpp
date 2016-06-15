@@ -121,11 +121,6 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
     timeaxis->getDomain(this->timeaxis_start, this->timeaxis_end);
 }
 
-void PlotRenderer::setViewportSize(const QSize& newsize)
-{
-    this->viewportSize = newsize;
-}
-
 void PlotRenderer::setWindow(QQuickWindow* newwindow)
 {
     this->window = newwindow;
@@ -139,6 +134,11 @@ void PlotRenderer::synchronize(const PlotArea* plotarea)
         return;
     }
     timeaxis->getDomain(this->timeaxis_start, this->timeaxis_end);
+
+    this->x = (int) (this->pa->x() + 0.5);
+    this->y = (int) (this->pa->y() + 0.5);
+    this->width = (int) (this->pa->width() + 0.5);
+    this->height = (int) (this->pa->height() + 0.5);
 
     this->streams.resize(plotarea->streams.size());
 
@@ -215,15 +215,12 @@ void PlotRenderer::render()
 
     this->initializeOpenGLFunctions();
 
-    int width = this->viewportSize.width();
-    int height = this->viewportSize.height();
-
     bool datadensity = this->pa->showDataDensity;
 
     this->glUseProgram(datadensity ? this->ddprogram : this->program);
-    this->glViewport(0, 0, width, height);
+    this->glViewport(this->x, this->window->height() - this->y - this->height, this->width, this->height);
 
-    this->glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    this->glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
     this->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     this->glEnable(GL_BLEND);
@@ -234,8 +231,8 @@ void PlotRenderer::render()
         struct drawable& s = *i;
         QList<QSharedPointer<CacheEntry>>& todraw = s.data;
         /* Set uniforms depending on whether *i is a selected stream. */
-        this->glLineWidth(s.selected ? 4.0 : 2.0);
-        this->glUniform1f(pointsizeLoc, s.selected ? 6.0 : 4.0);
+        this->glLineWidth(s.selected ? 3.0 : 1.0);
+        this->glUniform1f(pointsizeLoc, s.selected ? 5.0 : 3.0);
         this->glUniform3fv(datadensity ? colorLocDD : colorLoc, 1, COLOR_TO_ARRAY(s.color));
         for (auto j = todraw.begin(); j != todraw.end(); ++j)
         {
