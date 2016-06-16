@@ -22,6 +22,10 @@ Window {
         a2.addStream(s2);
         a3.addStream(s3);
 
+        a1.name = "Axis 1";
+        a2.name = "Axis 2";
+        a3.name = "Axis 3";
+
         a2.dynamicAutoscale = true;
 
         var dds = mrp.newStream("ff51541a-d71c-47bc-bd63-fbbe68f94acd");
@@ -68,7 +72,7 @@ Window {
         anchors.left: yaa.right
         width: parent.width - yaa.width
         height: Math.max(parent.height - taa.height - ddpa.height, 50)
-        //yaxisarea: yaa
+        yaxisarea: yaa
     }
 
     YAxisArea {
@@ -84,7 +88,7 @@ Window {
         anchors.top: pa.bottom
         x: pa.x
         width: pa.width
-        height: 30
+        height: 60
     }
 
     MrPlotter {

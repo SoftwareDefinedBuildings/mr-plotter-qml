@@ -7,6 +7,7 @@
 #include <QDate>
 #include <QDateTime>
 #include <QPair>
+#include <QTextOption>
 #include <QTimeZone>
 #include <QVector>
 
@@ -255,10 +256,14 @@ QString getTimeTickLabel(int64_t timestamp, QDateTime& datetime, Timescale granu
     Q_UNREACHABLE();
 }
 
+QString TimeAxis::labelformat("Time [%1]");
+
 TimeAxis::TimeAxis(): tz(QTimeZone::utc())
 {
     this->domainLo = 1451606400000000000LL;
     this->domainHi = 1483228799999999999LL;
+    this->setTimeZone(this->tz);
+    this->label.setTextOption(QTextOption(Qt::AlignHCenter | Qt::AlignTop));
 }
 
 bool TimeAxis::setDomain(int64_t low, int64_t high)
@@ -411,13 +416,14 @@ double TimeAxis::map(int64_t time)
     return (time - this->domainLo) / (double) (this->domainHi - this->domainLo);
 }
 
-bool TimeAxis::setTimeZone(QByteArray& arr)
+void TimeAxis::setTimeZone(QTimeZone& newtz)
 {
-    QTimeZone newtz(arr);
-    if (!newtz.isValid())
-    {
-        return false;
-    }
     newtz.swap(this->tz);
-    return true;
+    QString newlabel = TimeAxis::labelformat.arg(this->tz.displayName(QTimeZone::GenericTime));
+    this->label.setText(newlabel);
+}
+
+const QStaticText& TimeAxis::getLabel() const
+{
+    return this->label;
 }

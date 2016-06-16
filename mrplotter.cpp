@@ -139,7 +139,13 @@ bool MrPlotter::setTimeDomain(double domainLoMillis, double domainHiMillis,
 
 bool MrPlotter::setTimeZone(QByteArray timezone)
 {
-    return this->timeaxis.setTimeZone(timezone);
+    QTimeZone tz(timezone);
+    if (!tz.isValid())
+    {
+        return false;
+    }
+    this->timeaxis.setTimeZone(tz);
+    return false;
 }
 
 bool MrPlotter::setTimeZone(QString timezone)

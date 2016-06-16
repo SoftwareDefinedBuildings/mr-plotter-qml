@@ -3,7 +3,6 @@
 
 #include "axis.h"
 
-//#include <QQuickItem>
 #include <QQuickPaintedItem>
 #include <QSGNode>
 

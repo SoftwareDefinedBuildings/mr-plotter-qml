@@ -358,7 +358,7 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
 
         /* First, draw the min-max background. */
 
-        funcs->glUniform1f(opacityUniform, 0.3);
+        funcs->glUniform1f(opacityUniform, 0.5);
 
         funcs->glUniform1i(tstripUniform, 1);
 

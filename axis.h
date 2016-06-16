@@ -10,6 +10,7 @@
 #include <QObject>
 #include <QPair>
 #include <QString>
+#include <QStaticText>
 #include <QTimeZone>
 
 /* Number of ticks to show on the axis. */
@@ -29,6 +30,7 @@ class YAxis : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(bool dynamicAutoscale MEMBER dynamicAutoscale)
+    Q_PROPERTY(QString name MEMBER name)
 
 public:
     YAxis(QObject* parent = nullptr);
@@ -77,7 +79,7 @@ public:
     float unmap(float y);
 
     const uint64_t id;
-
+    QString name;
     bool dynamicAutoscale;
 
 private:
@@ -87,8 +89,6 @@ private:
     float domainHi;
 
     QList<Stream*> streams;
-
-    QString name;
 };
 
 /* Milliseconds, since that's what we need to work with QDateTime... */
@@ -176,7 +176,9 @@ public:
      */
     void getDomain(int64_t& low, int64_t& high) const;
 
-    bool setTimeZone(QByteArray& arr);
+    void setTimeZone(QTimeZone& newtz);
+
+    const QStaticText& getLabel() const;
 
     QVector<struct timetick> getTicks();
 
@@ -186,6 +188,8 @@ private:
     int64_t domainLo;
     int64_t domainHi;
     QTimeZone tz;
+    QStaticText label;
+    static QString labelformat;
 };
 
 #endif // AXIS_H
