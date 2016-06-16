@@ -68,7 +68,7 @@ Window {
         anchors.left: yaa.right
         width: parent.width - yaa.width
         height: Math.max(parent.height - taa.height - ddpa.height, 50)
-        yaxisarea: yaa
+        //yaxisarea: yaa
     }
 
     YAxisArea {

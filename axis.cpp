@@ -71,6 +71,18 @@ void YAxis::getDomain(float& low, float& high) const
     high = this->domainHi;
 }
 
+QString getTickString(double ticknum, int precision)
+{
+    if (ticknum < 10000)
+    {
+        return QString::number(ticknum, 'f', precision);
+    }
+    else
+    {
+        return QString::number(ticknum, 'e', precision - 1);
+    }
+}
+
 QVector<struct tick> YAxis::getTicks()
 {
     int precision = (int) (0.5 + log10(this->domainHi - this->domainLo) - 1);
@@ -86,7 +98,7 @@ QVector<struct tick> YAxis::getTicks()
     {
         delta /= 2;
         numTicks *= 2;
-        precision += 1;
+        precision -= 1;
     }
 
     double low = ceil(this->domainLo / delta) * delta;
@@ -99,7 +111,16 @@ QVector<struct tick> YAxis::getTicks()
     {
         while (low < this->domainHi + delta / (MAXTICKS + 1))
         {
-            ticks.append({low, QString::number(low, 'e', precision)});
+            QString label;
+            if (delta >= 0.0001)
+            {
+                label = QString::number(low, 'f', precision);
+            }
+            else
+            {
+                label = QString::number(low, 'e', precision - 1);
+            }
+            ticks.append({low, label});
             low += delta;
         }
     }
@@ -108,7 +129,16 @@ QVector<struct tick> YAxis::getTicks()
         double power = pow(10, precision);
         while (low < this->domainHi + delta / (MAXTICKS + 1))
         {
-            ticks.append({low, QString::number(round(low / power) * power, 'e', 0)});
+            QString label;
+            if (delta < 10000)
+            {
+                label = QString::number(round(low / power) * power, 'f', 0);
+            }
+            else
+            {
+                label = QString::number(low, 'e', ((int) log10(low)) + precision);
+            }
+            ticks.append({low, label});
             low += delta;
         }
     }
