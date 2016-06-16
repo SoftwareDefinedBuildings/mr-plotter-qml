@@ -71,18 +71,6 @@ void YAxis::getDomain(float& low, float& high) const
     high = this->domainHi;
 }
 
-QString getTickString(double ticknum, int precision)
-{
-    if (ticknum < 10000)
-    {
-        return QString::number(ticknum, 'f', precision);
-    }
-    else
-    {
-        return QString::number(ticknum, 'e', precision - 1);
-    }
-}
-
 QVector<struct tick> YAxis::getTicks()
 {
     int precision = (int) (0.5 + log10(this->domainHi - this->domainLo) - 1);
