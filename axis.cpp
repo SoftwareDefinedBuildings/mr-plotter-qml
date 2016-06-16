@@ -188,7 +188,7 @@ template<typename T> inline T ceildiv(const T x, const T y)
     return (x / y) + ((x % y) > 0);
 }
 
-int64_t getTimeTickDelta(const uint64_t* intervals, int len, uint64_t span)
+uint64_t getTimeTickDelta(const uint64_t* intervals, int len, uint64_t span)
 {
     Q_ASSERT(len > 0);
     uint64_t idealWidth = ceildiv(span, (uint64_t) TIMEAXIS_MAXTICKS);
@@ -293,7 +293,7 @@ QVector<struct timetick> TimeAxis::getTicks()
 {
     uint64_t delta = (uint64_t) (this->domainHi - this->domainLo);
 
-    int64_t deltatick;
+    uint64_t deltatick;
     Timescale granularity;
 
     /* First find deltatick. In the case of months and years, which are
@@ -409,7 +409,7 @@ QVector<struct timetick> TimeAxis::getTicks()
         break;
     }
     default:
-        starttime = ceildiv(this->domainLo, deltatick) * deltatick;
+        starttime = ceildiv(this->domainLo, (int64_t) deltatick) * deltatick;
         while (starttime <= this->domainHi) {
             // Add the tick to ticks
             QDateTime date = QDateTime::fromMSecsSinceEpoch(ceildiv(starttime, MILLISECOND_NS), this->tz);
@@ -424,7 +424,7 @@ QVector<struct timetick> TimeAxis::getTicks()
 
 double TimeAxis::map(int64_t time)
 {
-    return (time - this->domainLo) / (double) ((uint64_t) (this->domainHi - this->domainLo));
+    return ((uint64_t) (time - this->domainLo)) / (double) ((uint64_t) (this->domainHi - this->domainLo));
 }
 
 void TimeAxis::setTimeZone(QTimeZone& newtz)
