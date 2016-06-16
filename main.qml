@@ -43,6 +43,7 @@ Window {
         ddyaa.setAxisList([dda]);
 
         mrp.setTimeDomain(1415643674979, 1415643674979, 469055, 469318);
+        mrp.setTimeZone("America/Los_Angeles");
 
         pa.update();
         yaa.update();
@@ -71,7 +72,7 @@ Window {
         y: ddpa.height + 8
         anchors.left: yaa.right
         width: parent.width - yaa.width
-        height: Math.max(parent.height - taa.height - ddpa.height, 50)
+        height: Math.max(parent.height - taa.height - ddpa.height, 60)
         yaxisarea: yaa
     }
 
@@ -88,7 +89,7 @@ Window {
         anchors.top: pa.bottom
         x: pa.x
         width: pa.width
-        height: 60
+        height: 70
     }
 
     MrPlotter {

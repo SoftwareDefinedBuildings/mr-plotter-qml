@@ -7,7 +7,6 @@
 #include <QDate>
 #include <QDateTime>
 #include <QPair>
-#include <QTextOption>
 #include <QTimeZone>
 #include <QVector>
 
@@ -263,7 +262,6 @@ TimeAxis::TimeAxis(): tz(QTimeZone::utc())
     this->domainLo = 1451606400000000000LL;
     this->domainHi = 1483228799999999999LL;
     this->setTimeZone(this->tz);
-    this->label.setTextOption(QTextOption(Qt::AlignHCenter | Qt::AlignTop));
 }
 
 bool TimeAxis::setDomain(int64_t low, int64_t high)

@@ -99,7 +99,8 @@ void TimeAxisArea::paint(QPainter* painter)
         }
     }
 
-    painter->drawStaticText(this->width() / 2, 30, this->timeaxis->getLabel());
+    const QStaticText& label = this->timeaxis->getLabel();
+    painter->drawStaticText((this->width() - label.size().width()) / 2, 30, label);
 }
 
 void TimeAxisArea::setTimeAxis(TimeAxis& newtimeaxis)
