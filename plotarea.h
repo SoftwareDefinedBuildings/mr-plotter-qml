@@ -69,6 +69,7 @@ protected:
     void geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry) override;
 
 private:
+    void performScroll(int screendelta, double pixelsToTime);
     void rescaleAxes(int64_t timeaxis_start, int64_t timeaxis_end);
 
     QHash<YAxis*, uint64_t> yAxes;

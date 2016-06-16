@@ -14,8 +14,8 @@
 #include <QTimeZone>
 
 /* Number of ticks to show on the axis. */
-#define MINTICKS 4
-#define MAXTICKS (MINTICKS << 1)
+#define DEFAULT_MINTICKS 4
+#define DEFAULT_MAXTICKS (DEFAULT_MINTICKS << 1)
 
 /* Both Stream and Axis need declarations of each other. */
 class Stream;
@@ -35,6 +35,10 @@ class YAxis : public QObject
 public:
     YAxis(QObject* parent = nullptr);
     YAxis(float domainLow, float domainHigh, QObject* parent = nullptr);
+
+    /* Sets the minimum number of ticks that may appear on this axis. The
+     * true number of ticks will not exceed twice the minimum number. */
+    Q_INVOKABLE void setMinTicks(int numMinTicks);
 
     /* Returns true if the stream was already added to an axis, and was
      * removed from that axis to satisfy this request.
@@ -85,6 +89,8 @@ public:
 private:
     static uint64_t nextID;
 
+    int minticks;
+
     float domainLo;
     float domainHi;
 
@@ -112,30 +118,30 @@ const int64_t MONTH_NS = MONTH_MS * MILLISECOND_NS;
 
 #define TIMEAXIS_MAXTICKS 7
 // I should multiply each element by NANOSECOND_NS... but I'm going to take a shortcut here since it is just 1.
-const int64_t NANOTICK_INTERVALS[18] = { 1LL, 2LL, 5LL, 10LL, 20LL, 50LL, 100LL, 200LL, 500LL, 1000LL, 2000LL, 5000LL, 10000LL, 20000LL, 50000LL, 100000LL, 200000LL, 500000LL };
+const uint64_t NANOTICK_INTERVALS[18] = { 1ULL, 2ULL, 5ULL, 10ULL, 20ULL, 50ULL, 100ULL, 200ULL, 500ULL, 1000ULL, 2000ULL, 5000ULL, 10000ULL, 20000ULL, 50000ULL, 100000ULL, 200000ULL, 500000ULL };
 const int NANOTICK_INTERVALS_LEN = 18;
-const int64_t MAX_NANOTICK = 500000LL * NANOSECOND_NS;
-const int64_t MILLITICK_INTERVALS[9] = { 1LL * MILLISECOND_NS, 2LL * MILLISECOND_NS, 5LL * MILLISECOND_NS, 10LL * MILLISECOND_NS, 20LL * MILLISECOND_NS, 50LL * MILLISECOND_NS, 100LL * MILLISECOND_NS, 200LL * MILLISECOND_NS, 500LL * MILLISECOND_NS };
+const uint64_t MAX_NANOTICK = 500000ULL * NANOSECOND_NS;
+const uint64_t MILLITICK_INTERVALS[9] = { 1ULL * MILLISECOND_NS, 2ULL * MILLISECOND_NS, 5ULL * MILLISECOND_NS, 10ULL * MILLISECOND_NS, 20ULL * MILLISECOND_NS, 50ULL * MILLISECOND_NS, 100ULL * MILLISECOND_NS, 200ULL * MILLISECOND_NS, 500ULL * MILLISECOND_NS };
 const int MILLITICK_INTERVALS_LEN = 9;
-const int64_t MAX_MILLITICK = 500LL * MILLISECOND_NS;
-const int64_t SECTICK_INTERVALS[6] = { 1LL * SECOND_NS, 2LL * SECOND_NS, 5LL * SECOND_NS, 10LL * SECOND_NS, 20LL * SECOND_NS, 30LL * SECOND_NS };
+const uint64_t MAX_MILLITICK = 500ULL * MILLISECOND_NS;
+const uint64_t SECTICK_INTERVALS[6] = { 1ULL * SECOND_NS, 2ULL * SECOND_NS, 5ULL * SECOND_NS, 10ULL * SECOND_NS, 20ULL * SECOND_NS, 30ULL * SECOND_NS };
 const int SECTICK_INTERVALS_LEN = 6;
-const int64_t MAX_SECTICK = 30LL * SECOND_NS;
-const int64_t MINUTETICK_INTERVALS[6] = { 1LL * MINUTE_NS, 2LL * MINUTE_NS, 5LL * MINUTE_NS, 10LL * MINUTE_NS, 20LL * MINUTE_NS, 30LL * MINUTE_NS };
+const uint64_t MAX_SECTICK = 30ULL * SECOND_NS;
+const uint64_t MINUTETICK_INTERVALS[6] = { 1ULL * MINUTE_NS, 2ULL * MINUTE_NS, 5ULL * MINUTE_NS, 10ULL * MINUTE_NS, 20ULL * MINUTE_NS, 30ULL * MINUTE_NS };
 const int MINUTETICK_INTERVALS_LEN = 6;
-const int64_t MAX_MINUTETICK = 30LL * MINUTE_NS;
-const int64_t HOURTICK_INTERVALS[6] = { 1LL * HOUR_NS, 2LL * HOUR_NS, 3LL * HOUR_NS, 4LL * HOUR_NS, 6LL * HOUR_NS, 12LL * HOUR_NS };
+const uint64_t MAX_MINUTETICK = 30ULL * MINUTE_NS;
+const uint64_t HOURTICK_INTERVALS[6] = { 1ULL * HOUR_NS, 2ULL * HOUR_NS, 3ULL * HOUR_NS, 4ULL * HOUR_NS, 6ULL * HOUR_NS, 12ULL * HOUR_NS };
 const int HOURTICK_INTERVALS_LEN = 6;
-const int64_t MAX_HOURTICK = 12LL * HOUR_NS;
-const int64_t DAYTICK_INTERVALS[5] = { 1LL * DAY_NS, 2LL * DAY_NS, 4LL * DAY_NS, 7LL * DAY_NS, 14LL * DAY_NS };
+const uint64_t MAX_HOURTICK = 12ULL * HOUR_NS;
+const uint64_t DAYTICK_INTERVALS[5] = { 1ULL * DAY_NS, 2ULL * DAY_NS, 4ULL * DAY_NS, 7ULL * DAY_NS, 14ULL * DAY_NS };
 const int DAYTICK_INTERVALS_LEN = 5;
-const int64_t MAX_DAYTICK = 14LL * DAY_NS;
-const int64_t MONTHTICK_INTERVALS[4] = {1LL * MONTH_NS, 2LL * MONTH_NS, 3LL * MONTH_NS, 6LL * MONTH_NS};
+const uint64_t MAX_DAYTICK = 14ULL * DAY_NS;
+const uint64_t MONTHTICK_INTERVALS[4] = {1ULL * MONTH_NS, 2ULL * MONTH_NS, 3ULL * MONTH_NS, 6ULL * MONTH_NS};
 const int MONTHTICK_INTERVALS_LEN = 4;
-const int64_t MAX_MONTHTICK = 6LL * MONTH_NS;
-const int64_t YEARTICK_INTERVALS[10] = { 1LL * YEAR_NS, 2LL * YEAR_NS, 5LL * YEAR_NS, 10LL * YEAR_NS, 20LL * YEAR_NS, 50LL * YEAR_NS, 100LL * YEAR_NS, 200LL * YEAR_NS };
-const int YEARTICK_INTERVALS_LEN = 10;
-const int64_t MAX_YEARTICK = 200LL * YEAR_NS;
+const uint64_t MAX_MONTHTICK = 6ULL * MONTH_NS;
+const uint64_t YEARTICK_INTERVALS[8] = { 1ULL * YEAR_NS, 2ULL * YEAR_NS, 5ULL * YEAR_NS, 10ULL * YEAR_NS, 20ULL * YEAR_NS, 50ULL * YEAR_NS, 100ULL * YEAR_NS, 200ULL * YEAR_NS };
+const int YEARTICK_INTERVALS_LEN = 8;
+const uint64_t MAX_YEARTICK = 200ULL * YEAR_NS;
 
 enum class Timescale
 {

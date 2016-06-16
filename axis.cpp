@@ -26,6 +26,12 @@ YAxis::YAxis(float domainLow, float domainHigh, QObject* parent): QObject(parent
     this->domainLo = domainLow;
     this->domainHi = domainHigh;
     this->dynamicAutoscale = false;
+    this->minticks = DEFAULT_MINTICKS;
+}
+
+void YAxis::setMinTicks(int numMinTicks)
+{
+    this->minticks = numMinTicks;
 }
 
 bool YAxis::addStream(Stream* s)
@@ -73,16 +79,17 @@ void YAxis::getDomain(float& low, float& high) const
 
 QVector<struct tick> YAxis::getTicks()
 {
-    int precision = (int) (0.5 + log10(this->domainHi - this->domainLo) - 1);
+    int maxticks = this->minticks << 1;
+    int precision = (int) (0.5 + log10(this->domainHi - this->domainLo) - log10(maxticks));
     double delta = pow(10, precision);
 
     double numTicks = (this->domainHi - this->domainLo) / delta;
-    while (numTicks > MAXTICKS)
+    while (numTicks > maxticks)
     {
         delta *= 2;
         numTicks /= 2;
     }
-    while (numTicks < MINTICKS)
+    while (numTicks < minticks)
     {
         delta /= 2;
         numTicks *= 2;
@@ -92,12 +99,12 @@ QVector<struct tick> YAxis::getTicks()
     double low = ceil(this->domainLo / delta) * delta;
 
     QVector<struct tick> ticks;
-    ticks.reserve(MAXTICKS + 1);
+    ticks.reserve(maxticks + 1);
 
     precision = -precision;
     if (precision >= 0)
     {
-        while (low < this->domainHi + delta / (MAXTICKS + 1))
+        while (low < this->domainHi + delta / (maxticks + 1))
         {
             QString label;
             if (delta >= 0.0001)
@@ -115,7 +122,7 @@ QVector<struct tick> YAxis::getTicks()
     else
     {
         double power = pow(10, precision);
-        while (low < this->domainHi + delta / (MAXTICKS + 1))
+        while (low < this->domainHi + delta / (maxticks + 1))
         {
             QString label;
             if (delta < 10000)
@@ -181,11 +188,11 @@ template<typename T> inline T ceildiv(const T x, const T y)
     return (x / y) + ((x % y) > 0);
 }
 
-int64_t getTimeTickDelta(const int64_t* intervals, int len, int64_t span)
+int64_t getTimeTickDelta(const uint64_t* intervals, int len, uint64_t span)
 {
     Q_ASSERT(len > 0);
-    int64_t idealWidth = ceildiv(span, (int64_t) TIMEAXIS_MAXTICKS);
-    const int64_t* tickptr = std::lower_bound(intervals, intervals + len, idealWidth);
+    uint64_t idealWidth = ceildiv(span, (uint64_t) TIMEAXIS_MAXTICKS);
+    const uint64_t* tickptr = std::lower_bound(intervals, intervals + len, idealWidth);
     if (tickptr == intervals + len)
     {
         tickptr--;
@@ -297,7 +304,7 @@ QVector<struct timetick> TimeAxis::getTicks()
         deltatick = getTimeTickDelta(NANOTICK_INTERVALS, NANOTICK_INTERVALS_LEN, delta);
         granularity = Timescale::NANOSECOND;
     }
-    else if(delta < MAX_MILLITICK * TIMEAXIS_MAXTICKS)
+    else if (delta < MAX_MILLITICK * TIMEAXIS_MAXTICKS)
     {
         deltatick = getTimeTickDelta(MILLITICK_INTERVALS, MILLITICK_INTERVALS_LEN, delta);
         granularity = Timescale::MILLISECOND;
@@ -339,7 +346,7 @@ QVector<struct timetick> TimeAxis::getTicks()
     int64_t domainLoNSecs = this->domainLo % MILLISECOND_NS;
     if (domainLoNSecs < 0)
     {
-        domainLoMSecs -=1;
+        domainLoMSecs -= 1;
         domainLoNSecs += MILLISECOND_NS;
     }
 
@@ -362,10 +369,16 @@ QVector<struct timetick> TimeAxis::getTicks()
             date = date.addYears(yeardelta);
         }
 
-        while ((starttime = date.toMSecsSinceEpoch() * MILLISECOND_NS) <= this->domainHi)
+        starttime = date.toMSecsSinceEpoch() * MILLISECOND_NS;
+        int64_t prevstart = starttime;
+
+        /* This is the lowest granularity, so we need to check for overflow. */
+        while (starttime <= this->domainHi && starttime >= prevstart)
         {
             ticks.append({ starttime, getTimeTickLabel(starttime, date, granularity) });
             date = date.addYears(yeardelta);
+            prevstart = starttime;
+            starttime = date.toMSecsSinceEpoch() * MILLISECOND_NS;
         }
         break;
     }
@@ -411,7 +424,7 @@ QVector<struct timetick> TimeAxis::getTicks()
 
 double TimeAxis::map(int64_t time)
 {
-    return (time - this->domainLo) / (double) (this->domainHi - this->domainLo);
+    return (time - this->domainLo) / (double) ((uint64_t) (this->domainHi - this->domainLo));
 }
 
 void TimeAxis::setTimeZone(QTimeZone& newtz)

@@ -5,6 +5,7 @@
 #include "stream.h"
 
 #include <cmath>
+#include <cstdint>
 
 #include <QCursor>
 #include <QMouseEvent>
@@ -15,8 +16,18 @@
 #include <QTouchEvent>
 #include <QWheelEvent>
 
+#ifndef INT64_MIN
+#define INT64_MIN ((int64_t) 0x8000000000000000)
+#endif
+#ifndef INT64_MAX
+#define INT64_MAX ((int64_t) 0x7FFFFFFFFFFFFFFF)
+#endif
+#ifndef UINT64_MAX
+#define UINT64_MAX ((uint64_t) 0xFFFFFFFFFFFFFFFF)
+#endif
+
 /* Computes the number x such that 2 ^ x <= POINTWIDTH < 2 ^ (x + 1). */
-inline uint8_t getPWExponent(int64_t pointwidth)
+inline uint8_t getPWExponent(uint64_t pointwidth)
 {
     uint8_t pwe = 0;
 
@@ -53,6 +64,62 @@ void PlotArea::addStream(Stream* s)
     this->streams.append(s);
 }
 
+int64_t safeRound(double x)
+{
+    if (x > (double) INT64_MAX)
+    {
+        return INT64_MAX;
+    }
+    else if (x < (double) INT64_MIN)
+    {
+        return INT64_MIN;
+    }
+    return (int64_t) (0.5 + x);
+}
+
+void PlotArea::performScroll(int screendelta, double pixelToTime)
+{
+    int64_t delta = safeRound(pixelToTime * screendelta);
+    /* Handle overflow. */
+    if (screendelta > 0 && delta < 0)
+    {
+        delta = INT64_MAX;
+    }
+    else if (screendelta < 0 && delta > 0)
+    {
+        delta = INT64_MIN;
+    }
+
+    int64_t timeaxis_start;
+    int64_t timeaxis_end;
+    /* Safely subract the delta from timeaxis_{start, end}_beforescroll. */
+    if (delta > 0)
+    {
+        if ((uint64_t) delta > (uint64_t) (this->timeaxis_start_beforescroll - INT64_MIN))
+        {
+            timeaxis_start = INT64_MIN;
+            timeaxis_end = timeaxis_start + this->timeaxis_end_beforescroll - this->timeaxis_start_beforescroll;
+            goto setdomain;
+        }
+    }
+    else
+    {
+        if ((uint64_t) (-delta) > (uint64_t) (INT64_MAX - this->timeaxis_end_beforescroll))
+        {
+            timeaxis_end = INT64_MAX;
+            timeaxis_start = timeaxis_end - this->timeaxis_end_beforescroll + this->timeaxis_start_beforescroll;
+            goto setdomain;
+        }
+    }
+    timeaxis_start = this->timeaxis_start_beforescroll - delta;
+    timeaxis_end = this->timeaxis_end_beforescroll - delta;
+
+setdomain:
+    this->plot->timeaxis.setDomain(timeaxis_start, timeaxis_end);
+
+    this->plot->updateView();
+}
+
 void PlotArea::mousePressEvent(QMouseEvent* event)
 {
     if (this->plot == nullptr)
@@ -68,8 +135,27 @@ void PlotArea::mousePressEvent(QMouseEvent* event)
     this->timeaxis_start_beforescroll = timeaxis_start;
     this->timeaxis_end_beforescroll = timeaxis_end;
 
-    this->pixelToTime = (timeaxis_end - timeaxis_start) / (double) this->width();
+    this->pixelToTime = ((uint64_t) (timeaxis_end - timeaxis_start)) / (double) this->width();
     this->scrollstart = event->x();
+}
+
+int64_t safeSub(int64_t x, int64_t y)
+{
+    if (y > 0)
+    {
+        if ((uint64_t) y > (uint64_t) (x - INT64_MIN))
+        {
+            return INT64_MIN;
+        }
+    }
+    else
+    {
+        if ((uint64_t) (-y) > (uint64_t) (INT64_MAX - x))
+        {
+            return INT64_MAX;
+        }
+    }
+    return x - y;
 }
 
 void PlotArea::mouseMoveEvent(QMouseEvent* event)
@@ -80,13 +166,8 @@ void PlotArea::mouseMoveEvent(QMouseEvent* event)
     }
 
     /* Only executes when a mouse button is pressed. */
-    int64_t delta = (int64_t) (0.5 + this->pixelToTime * (event->x() - this->scrollstart));
-    int64_t timeaxis_start = this->timeaxis_start_beforescroll - delta;
-    int64_t timeaxis_end = this->timeaxis_end_beforescroll - delta;
-
-    this->plot->timeaxis.setDomain(timeaxis_start, timeaxis_end);
-
-    this->plot->updateView();
+    int screendelta = event->x() - this->scrollstart;
+    performScroll(screendelta, this->pixelToTime);
 }
 
 void PlotArea::mouseReleaseEvent(QMouseEvent* event)
@@ -225,11 +306,7 @@ void PlotArea::touchEvent(QTouchEvent* event)
     if (numtouching == 1)
     {
         int deltapixels = xleft - initleft;
-        int64_t deltatime = (int64_t) (0.5 + (this->timeaxis_end_beforescroll - this->timeaxis_start_beforescroll) / this->width() * deltapixels);
-        timeaxis_start = this->timeaxis_start_beforescroll - deltatime;
-        timeaxis_end = this->timeaxis_end_beforescroll - deltatime;
-        this->plot->timeaxis.setDomain(timeaxis_start, timeaxis_end);
-        this->plot->updateView();
+        performScroll(deltapixels, ((uint64_t) (this->timeaxis_end_beforescroll - this->timeaxis_start_beforescroll)) / this->width());
         return;
     }
     else
@@ -269,8 +346,31 @@ void PlotArea::touchEvent(QTouchEvent* event)
         /* Now we start working with timestamps. Up to this point, we were
          * only working with screen coordinates.
          */
-        timeaxis_start = this->timeaxis_start_beforescroll + (int64_t) (0.5 + (newleftoldscreen / width) * (this->timeaxis_end_beforescroll - this->timeaxis_start_beforescroll));
-        timeaxis_end = timeaxis_start + (int64_t) (0.5 + (timeaxis_end_beforescroll - timeaxis_start_beforescroll) * oldgap / newgap);
+        int64_t deltastart = safeRound(((newleftoldscreen / width) * (uint64_t) (this->timeaxis_end_beforescroll - this->timeaxis_start_beforescroll)));
+        timeaxis_start = this->timeaxis_start_beforescroll + deltastart;
+        if (deltastart <= 0)
+        {
+            if (timeaxis_start > this->timeaxis_start_beforescroll || timeaxis_start > (INT64_MAX + deltastart))
+            {
+                /* Handle overflow. */
+                timeaxis_start = INT64_MIN;
+            }
+        }
+        else
+        {
+            if (timeaxis_start < this->timeaxis_start_beforescroll/* || timeaxis_start < (INT64_MIN + deltastart)*/)
+            {
+                /* Handle overflow. */
+                timeaxis_start = INT64_MAX;
+            }
+        }
+        uint64_t totalwidth = (uint64_t) (0.5 + ((uint64_t) (timeaxis_end_beforescroll - timeaxis_start_beforescroll)) * oldgap / newgap);
+        timeaxis_end = timeaxis_start + totalwidth;
+        if (timeaxis_end < timeaxis_start || timeaxis_end < (int64_t) (INT64_MIN + totalwidth))
+        {
+            /* Handle overflow. */
+            timeaxis_end = INT64_MAX;
+        }
 
         this->plot->timeaxis.setDomain(timeaxis_start, timeaxis_end);
 
@@ -280,6 +380,7 @@ void PlotArea::touchEvent(QTouchEvent* event)
 
 void PlotArea::wheelEvent(QWheelEvent* event)
 {
+    int64_t timeaxis_start_orig, timeaxis_end_orig;
     int64_t timeaxis_start, timeaxis_end;
 
     if (this->plot == nullptr)
@@ -288,15 +389,19 @@ void PlotArea::wheelEvent(QWheelEvent* event)
     }
 
     this->plot->timeaxis.getDomain(timeaxis_start, timeaxis_end);
+    timeaxis_start_orig = timeaxis_start;
+    timeaxis_end_orig = timeaxis_end;
+
+    uint64_t intwidth = (uint64_t) (timeaxis_end - timeaxis_start);
 
     int64_t xpos = (int64_t) (0.5 + ((event->pos().x() / this->width()) *
-            (timeaxis_end - timeaxis_start))) + timeaxis_start;
+            intwidth)) + timeaxis_start;
     int scrollAmt = event->angleDelta().y();
 
     /* We scroll relative to xpos; we must ensure that the point
      * underneath the mouse doesn't change.
      */
-    double width = (int64_t) (timeaxis_end - timeaxis_start);
+    double width = (double) intwidth;
     double xfrac = (xpos - timeaxis_start) / width;
 
     double scalefactor = 1.0 + (abs(scrollAmt) * WHEEL_SENSITIVITY);
@@ -308,8 +413,22 @@ void PlotArea::wheelEvent(QWheelEvent* event)
 
     double newwidth = width * scalefactor;
 
-    timeaxis_start = xpos - (int64_t) (0.5 + newwidth * xfrac);
-    timeaxis_end = timeaxis_start + (int64_t) (0.5 + newwidth);
+    uint64_t deltastart = (uint64_t) (0.5 + newwidth * xfrac);
+    timeaxis_start = xpos - deltastart;
+    if (timeaxis_start > xpos || deltastart > (uint64_t) (INT64_MAX - timeaxis_start))
+    {
+        /* Handle overflow. */
+        timeaxis_start = INT64_MIN;
+    }
+    uint64_t totalwidth = newwidth > (double) UINT64_MAX ? UINT64_MAX : (uint64_t) (0.5 + newwidth);
+    timeaxis_end = (int64_t) (totalwidth + (uint64_t) timeaxis_start);
+    if (timeaxis_end < timeaxis_start || (uint64_t) (timeaxis_end - INT64_MIN) < totalwidth)
+    {
+        /* Handle overflow. */
+        timeaxis_end = INT64_MAX;
+    }
+
+    Q_ASSERT(timeaxis_start < timeaxis_end);
 
     bool result = this->plot->timeaxis.setDomain(timeaxis_start, timeaxis_end);
     Q_ASSERT(result);
@@ -359,7 +478,7 @@ void PlotArea::rescaleAxes(int64_t timeaxis_start, int64_t timeaxis_end)
 
 void PlotArea::updateDataAsync(Cache& cache)
 {
-    int64_t screenwidth = (int64_t) (0.5 + this->width());
+    uint64_t screenwidth = (uint64_t) (0.5 + this->width());
 
     if (screenwidth == 0 || this->plot == nullptr)
     {
@@ -372,7 +491,7 @@ void PlotArea::updateDataAsync(Cache& cache)
     this->rescaleAxes(timeaxis_start, timeaxis_end);
 
     uint64_t id = ++this->fullUpdateID;
-    int64_t nanosperpixel = (timeaxis_end - timeaxis_start) / screenwidth;
+    uint64_t nanosperpixel = ((uint64_t) (timeaxis_end - timeaxis_start)) / screenwidth;
     uint8_t pwe = getPWExponent(nanosperpixel);
 
     int64_t timewidth = timeaxis_end - timeaxis_start;

@@ -18,9 +18,9 @@ Window {
         s2.setColor(1.0, 0, 0);
         s3.setColor(0, 0.5, 0);
 
-        a1.addStream(s1);
-        a2.addStream(s2);
-        a3.addStream(s3);
+        //a1.addStream(s1);
+        //a2.addStream(s2);
+        //a3.addStream(s3);
 
         a1.name = "Axis 1";
         a2.name = "Axis 2";
@@ -32,13 +32,14 @@ Window {
         dds.setColor(0, 0, 1.0);
         var dda = mrp.newYAxis(0, 10);
         dda.dynamicAutoscale = true;
-        dda.addStream(dds);
+        dda.setMinTicks(2);
+        //dda.addStream(dds);
 
         var streamlist = [s1, s2, s3];
         var axislist = [a1, a2, a3];
 
-        pa.setStreamList(streamlist);
-        ddpa.setStreamList([dds]);
+        //pa.setStreamList(streamlist);
+        //ddpa.setStreamList([dds]);
         yaa.setAxisList(axislist);
         ddyaa.setAxisList([dda]);
 
