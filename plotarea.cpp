@@ -380,7 +380,6 @@ void PlotArea::touchEvent(QTouchEvent* event)
 
 void PlotArea::wheelEvent(QWheelEvent* event)
 {
-    int64_t timeaxis_start_orig, timeaxis_end_orig;
     int64_t timeaxis_start, timeaxis_end;
 
     if (this->plot == nullptr)
@@ -389,20 +388,18 @@ void PlotArea::wheelEvent(QWheelEvent* event)
     }
 
     this->plot->timeaxis.getDomain(timeaxis_start, timeaxis_end);
-    timeaxis_start_orig = timeaxis_start;
-    timeaxis_end_orig = timeaxis_end;
 
     uint64_t intwidth = (uint64_t) (timeaxis_end - timeaxis_start);
 
-    int64_t xpos = (int64_t) (0.5 + ((event->pos().x() / this->width()) *
-            intwidth)) + timeaxis_start;
+    int64_t xpos = (int64_t) ((uint64_t) (0.5 + ((event->pos().x() / this->width()) *
+            intwidth)) + timeaxis_start);
     int scrollAmt = event->angleDelta().y();
 
     /* We scroll relative to xpos; we must ensure that the point
      * underneath the mouse doesn't change.
      */
     double width = (double) intwidth;
-    double xfrac = (xpos - timeaxis_start) / width;
+    double xfrac = ((uint64_t) (xpos - timeaxis_start)) / width;
 
     double scalefactor = 1.0 + (abs(scrollAmt) * WHEEL_SENSITIVITY);
 
@@ -415,14 +412,14 @@ void PlotArea::wheelEvent(QWheelEvent* event)
 
     uint64_t deltastart = (uint64_t) (0.5 + newwidth * xfrac);
     timeaxis_start = xpos - deltastart;
-    if (timeaxis_start > xpos || deltastart > (uint64_t) (INT64_MAX - timeaxis_start))
+    if (timeaxis_start > xpos || timeaxis_start > (int64_t) (INT64_MAX - xpos))
     {
         /* Handle overflow. */
         timeaxis_start = INT64_MIN;
     }
     uint64_t totalwidth = newwidth > (double) UINT64_MAX ? UINT64_MAX : (uint64_t) (0.5 + newwidth);
-    timeaxis_end = (int64_t) (totalwidth + (uint64_t) timeaxis_start);
-    if (timeaxis_end < timeaxis_start || (uint64_t) (timeaxis_end - INT64_MIN) < totalwidth)
+    timeaxis_end = totalwidth + timeaxis_start;
+    if (timeaxis_end < timeaxis_start || timeaxis_end < (int64_t) (INT64_MIN + totalwidth))
     {
         /* Handle overflow. */
         timeaxis_end = INT64_MAX;
