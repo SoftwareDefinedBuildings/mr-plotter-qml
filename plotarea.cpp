@@ -214,8 +214,8 @@ void PlotArea::touchEvent(QTouchEvent* event)
     const QList<QTouchEvent::TouchPoint>& tpoints = event->touchPoints();
 
     int numtouching = 0;
-    double xleft;
-    double xright;
+    double xleft = 0;
+    double xright = 0;
     for (auto i = tpoints.constBegin(); i != tpoints.end() && numtouching < 2; ++i)
     {
         const QTouchEvent::TouchPoint& pt = *i;
