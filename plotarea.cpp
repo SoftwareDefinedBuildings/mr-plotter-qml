@@ -444,10 +444,6 @@ void PlotArea::wheelEvent(QWheelEvent* event)
         /* Handle overflow. */
         timeaxis_end = INT64_MAX;
     }
-    if (timeaxis_start >= timeaxis_end)
-    {
-        qDebug("%lld, %lld", timeaxis_start, timeaxis_end);
-    }
 
     Q_ASSERT(timeaxis_start < timeaxis_end);
 
