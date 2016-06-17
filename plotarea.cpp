@@ -64,7 +64,7 @@ void PlotArea::addStream(Stream* s)
     this->streams.append(s);
 }
 
-int64_t safeRound(double x)
+int64_t safeRoundSigned(double x)
 {
     if (x > (double) INT64_MAX)
     {
@@ -77,9 +77,22 @@ int64_t safeRound(double x)
     return (int64_t) (0.5 + x);
 }
 
+uint64_t safeRoundUnsigned(double x)
+{
+    if (x > (double) UINT64_MAX)
+    {
+        return UINT64_MAX;
+    }
+    else if (x < 0.0)
+    {
+        return 0;
+    }
+    return (uint64_t) (0.5 + x);
+}
+
 void PlotArea::performScroll(int screendelta, double pixelToTime)
 {
-    int64_t delta = safeRound(pixelToTime * screendelta);
+    int64_t delta = safeRoundSigned(pixelToTime * screendelta);
     /* Handle overflow. */
     if (screendelta > 0 && delta < 0)
     {
@@ -346,11 +359,13 @@ void PlotArea::touchEvent(QTouchEvent* event)
         /* Now we start working with timestamps. Up to this point, we were
          * only working with screen coordinates.
          */
-        int64_t deltastart = safeRound(((newleftoldscreen / width) * (uint64_t) (this->timeaxis_end_beforescroll - this->timeaxis_start_beforescroll)));
-        timeaxis_start = this->timeaxis_start_beforescroll + deltastart;
-        if (deltastart <= 0)
+        double deltastart = ((newleftoldscreen / width) * (uint64_t) (this->timeaxis_end_beforescroll - this->timeaxis_start_beforescroll));
+        bool negative = std::signbit(deltastart);
+        uint64_t absdeltastart = safeRoundUnsigned(negative ? -deltastart : deltastart);
+        if (negative)
         {
-            if (timeaxis_start > this->timeaxis_start_beforescroll || timeaxis_start > (INT64_MAX + deltastart))
+            timeaxis_start = this->timeaxis_start_beforescroll - absdeltastart;
+            if (timeaxis_start > this->timeaxis_start_beforescroll || timeaxis_start > (int64_t) (INT64_MAX - absdeltastart))
             {
                 /* Handle overflow. */
                 timeaxis_start = INT64_MIN;
@@ -358,13 +373,14 @@ void PlotArea::touchEvent(QTouchEvent* event)
         }
         else
         {
-            if (timeaxis_start < this->timeaxis_start_beforescroll/* || timeaxis_start < (INT64_MIN + deltastart)*/)
+            timeaxis_start = this->timeaxis_start_beforescroll + absdeltastart;
+            if (timeaxis_start < this->timeaxis_start_beforescroll || timeaxis_start < (int64_t) (INT64_MIN + absdeltastart))
             {
                 /* Handle overflow. */
                 timeaxis_start = INT64_MAX;
             }
         }
-        uint64_t totalwidth = (uint64_t) (0.5 + ((uint64_t) (timeaxis_end_beforescroll - timeaxis_start_beforescroll)) * oldgap / newgap);
+        uint64_t totalwidth = (uint64_t) (0.5 + ((uint64_t) (timeaxis_end_beforescroll - timeaxis_start_beforescroll)) * (oldgap / newgap));
         timeaxis_end = timeaxis_start + totalwidth;
         if (timeaxis_end < timeaxis_start || timeaxis_end < (int64_t) (INT64_MIN + totalwidth))
         {
