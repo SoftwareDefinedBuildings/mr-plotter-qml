@@ -79,7 +79,7 @@ int64_t safeRoundSigned(double x)
 
 uint64_t safeRoundUnsigned(double x)
 {
-    if (x > (double) UINT64_MAX)
+    if (x >= (double) UINT64_MAX)
     {
         return UINT64_MAX;
     }
@@ -380,7 +380,7 @@ void PlotArea::touchEvent(QTouchEvent* event)
                 timeaxis_start = INT64_MAX;
             }
         }
-        uint64_t totalwidth = (uint64_t) (0.5 + ((uint64_t) (timeaxis_end_beforescroll - timeaxis_start_beforescroll)) * (oldgap / newgap));
+        uint64_t totalwidth = safeRoundUnsigned(((uint64_t) (timeaxis_end_beforescroll - timeaxis_start_beforescroll)) * (oldgap / newgap));
         timeaxis_end = timeaxis_start + totalwidth;
         if (timeaxis_end < timeaxis_start || timeaxis_end < (int64_t) (INT64_MIN + totalwidth))
         {
@@ -426,19 +426,27 @@ void PlotArea::wheelEvent(QWheelEvent* event)
 
     double newwidth = width * scalefactor;
 
-    uint64_t deltastart = (uint64_t) (0.5 + newwidth * xfrac);
+    uint64_t deltastart = safeRoundUnsigned(newwidth * xfrac);
     timeaxis_start = xpos - deltastart;
-    if (timeaxis_start > xpos || timeaxis_start > (int64_t) (INT64_MAX - xpos))
+    if (timeaxis_start > xpos || timeaxis_start > (int64_t) (INT64_MAX - deltastart))
     {
         /* Handle overflow. */
         timeaxis_start = INT64_MIN;
     }
-    uint64_t totalwidth = newwidth > (double) UINT64_MAX ? UINT64_MAX : (uint64_t) (0.5 + newwidth);
+    uint64_t totalwidth = safeRoundUnsigned(newwidth);
     timeaxis_end = totalwidth + timeaxis_start;
+    if (totalwidth == 0)
+    {
+        qDebug("New width: %f", newwidth);
+    }
     if (timeaxis_end < timeaxis_start || timeaxis_end < (int64_t) (INT64_MIN + totalwidth))
     {
         /* Handle overflow. */
         timeaxis_end = INT64_MAX;
+    }
+    if (timeaxis_start >= timeaxis_end)
+    {
+        qDebug("%lld, %lld", timeaxis_start, timeaxis_end);
     }
 
     Q_ASSERT(timeaxis_start < timeaxis_end);
