@@ -435,18 +435,10 @@ void PlotArea::wheelEvent(QWheelEvent* event)
     }
     uint64_t totalwidth = safeRoundUnsigned(newwidth);
     timeaxis_end = totalwidth + timeaxis_start;
-    if (totalwidth == 0)
-    {
-        qDebug("New width: %f", newwidth);
-    }
     if (timeaxis_end < timeaxis_start || timeaxis_end < (int64_t) (INT64_MIN + totalwidth))
     {
         /* Handle overflow. */
         timeaxis_end = INT64_MAX;
-    }
-    if (timeaxis_start >= timeaxis_end)
-    {
-        qDebug("%lld, %lld", timeaxis_start, timeaxis_end);
     }
 
     Q_ASSERT(timeaxis_start < timeaxis_end);
