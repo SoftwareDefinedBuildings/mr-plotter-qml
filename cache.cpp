@@ -495,6 +495,10 @@ Cache::Cache() : cache(), outstanding(), loading(), lru()
 
 Cache::~Cache()
 {
+    for (auto i = this->cache.begin(); i != this->cache.end(); i++)
+    {
+        delete[] i->second;
+    }
     delete this->requester;
 }
 

@@ -57,8 +57,6 @@ public slots:
 private:
     TimeAxisArea* timeaxisarea;
 
-    Cache cache;
-
     PlotArea* mainplot;
     PlotArea* ddplot;
 
@@ -68,6 +66,8 @@ private:
      */
     bool ready;
     bool pending;
+
+    static Cache cache;
 };
 
 #endif // MRPLOTTER_H

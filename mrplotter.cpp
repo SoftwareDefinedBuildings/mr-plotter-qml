@@ -1,10 +1,13 @@
+#include "cache.h"
 #include "mrplotter.h"
 #include "plotarea.h"
 
 #include <QTimer>
 #include <QTimeZone>
 
-MrPlotter::MrPlotter() : timeaxis(), cache()
+Cache MrPlotter::cache;
+
+MrPlotter::MrPlotter(): timeaxis()
 {
     this->mainplot = nullptr;
     this->ddplot = nullptr;
