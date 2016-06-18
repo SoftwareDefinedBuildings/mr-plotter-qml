@@ -350,7 +350,7 @@ QVector<struct timetick> TimeAxis::getTicks()
         domainLoNSecs += MILLISECOND_NS;
     }
 
-    int64_t starttime;
+    int64_t starttime, prevstart;
 
     switch(granularity)
     {
@@ -369,8 +369,9 @@ QVector<struct timetick> TimeAxis::getTicks()
             date = date.addYears(yeardelta);
         }
 
+        /* TODO: this multiplication might overflow */
         starttime = date.toMSecsSinceEpoch() * MILLISECOND_NS;
-        int64_t prevstart = starttime;
+        prevstart = starttime;
 
         /* This is the lowest granularity, so we need to check for overflow. */
         while (starttime <= this->domainHi && starttime >= prevstart)
@@ -401,19 +402,26 @@ QVector<struct timetick> TimeAxis::getTicks()
         {
             date = date.addMonths(monthdelta);
         }
-        while ((starttime = date.toMSecsSinceEpoch() * MILLISECOND_NS) <= this->domainHi)
+
+        starttime = date.toMSecsSinceEpoch() * (int64_t) MILLISECOND_NS;
+        prevstart = starttime;
+        while (starttime <= this->domainHi && starttime >= prevstart)
         {
             ticks.append({ starttime, getTimeTickLabel(starttime, date, granularity) });
             date = date.addMonths(monthdelta);
+            prevstart = starttime;
+            starttime = date.toMSecsSinceEpoch() * (int64_t) MILLISECOND_NS;
         }
         break;
     }
     default:
         starttime = ceildiv(this->domainLo, (int64_t) deltatick) * deltatick;
-        while (starttime <= this->domainHi) {
+        prevstart = starttime;
+        while (starttime <= this->domainHi && starttime >= prevstart) {
             // Add the tick to ticks
             QDateTime date = QDateTime::fromMSecsSinceEpoch(ceildiv(starttime, MILLISECOND_NS), this->tz);
             ticks.append({ starttime, getTimeTickLabel(starttime, date, granularity) });
+            prevstart = starttime;
             starttime += deltatick;
         }
         break;

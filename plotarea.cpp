@@ -66,11 +66,11 @@ void PlotArea::addStream(Stream* s)
 
 int64_t safeRoundSigned(double x)
 {
-    if (x > (double) INT64_MAX)
+    if (x > std::nextafter((double) INT64_MAX, 0.0))
     {
         return INT64_MAX;
     }
-    else if (x < (double) INT64_MIN)
+    else if (x < std::nextafter((double) INT64_MIN , 0.0))
     {
         return INT64_MIN;
     }
@@ -79,7 +79,7 @@ int64_t safeRoundSigned(double x)
 
 uint64_t safeRoundUnsigned(double x)
 {
-    if (x >= (double) UINT64_MAX)
+    if (x >= std::nextafter((double) UINT64_MAX, 0.0))
     {
         return UINT64_MAX;
     }
