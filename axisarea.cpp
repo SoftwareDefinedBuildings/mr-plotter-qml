@@ -1,4 +1,6 @@
 #include "axisarea.h"
+
+#include <cmath>
 #include <QPainter>
 
 #define AXISTHICKNESS 1
@@ -16,16 +18,18 @@ void YAxisArea::paint(QPainter* painter)
     to.setWrapMode(QTextOption::NoWrap);
     QTextOption labelo(Qt::AlignCenter);
 
+    double range = this->rangeHi - this->rangeLo;
+
     for (auto j = this->yAxes.begin(); j != this->yAxes.end(); j++)
     {
-        painter->drawRect(QRectF(xval, 0, AXISTHICKNESS, this->height()));
+        painter->drawRect(QRectF(xval, this->rangeHi, AXISTHICKNESS, std::abs(range)));
 
         YAxis* axis = *j;
         QVector<struct tick> ticks = axis->getTicks();
         for (auto i = ticks.begin(); i != ticks.end(); i++)
         {
             struct tick& tick = *i;
-            double position = (1 - axis->map((float) tick.value)) * this->height();
+            double position = range * axis->map((float) tick.value) + this->rangeLo;
 
             painter->drawRect(xval - TICKLENGTH, position, TICKLENGTH, TICKTHICKNESS);
             painter->drawText(QRectF(xval - 100 - TICKLENGTH, position - 100, 100, 200),
@@ -80,7 +84,9 @@ TimeAxisArea::TimeAxisArea()
 
 void TimeAxisArea::paint(QPainter* painter)
 {
-    painter->drawRect(0, 0, (int) (0.5 + this->width()), AXISTHICKNESS);
+    double range = this->rangeHi - this->rangeLo;
+
+    painter->drawRect(this->rangeLo, 0, (int) (0.5 + range), AXISTHICKNESS);
 
     QTextOption to(Qt::AlignHCenter | Qt::AlignTop);
     to.setWrapMode(QTextOption::NoWrap);
@@ -91,7 +97,7 @@ void TimeAxisArea::paint(QPainter* painter)
         for (auto i = ticks.begin(); i != ticks.end(); i++)
         {
             struct timetick& tick = *i;
-            double position = this->timeaxis->map(tick.timeval) * this->width();
+            double position = range * this->timeaxis->map(tick.timeval) + this->rangeLo;
 
             painter->drawRect(position, 0, TICKTHICKNESS, AXISTHICKNESS + TICKLENGTH);
             painter->drawText(QRectF(position - 100, AXISTHICKNESS + TICKLENGTH, 200, 300),

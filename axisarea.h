@@ -10,6 +10,8 @@ class YAxisArea : public QQuickPaintedItem
 {
     Q_OBJECT
     Q_PROPERTY(QList<QVariant> axislist READ getAxisList WRITE setAxisList)
+    Q_PROPERTY(double rangeStart MEMBER rangeLo)
+    Q_PROPERTY(double rangeEnd MEMBER rangeHi)
 
 public:
     YAxisArea();
@@ -23,11 +25,17 @@ public:
      * in order to make this list directly accessible from Javascript.
      */
     QList<YAxis*> yAxes;
+
+private:
+    double rangeLo;
+    double rangeHi;
 };
 
 class TimeAxisArea : public QQuickPaintedItem
 {
     Q_OBJECT
+    Q_PROPERTY(double rangeStart MEMBER rangeLo)
+    Q_PROPERTY(double rangeEnd MEMBER rangeHi)
 
 public:
     TimeAxisArea();
@@ -36,6 +44,10 @@ public:
     void setTimeAxis(TimeAxis& newtimeaxis);
 
     TimeAxis* timeaxis;
+
+private:
+    double rangeLo;
+    double rangeHi;
 };
 
 #endif // AXISAREA_H
