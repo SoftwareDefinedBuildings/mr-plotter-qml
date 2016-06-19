@@ -140,6 +140,35 @@ bool MrPlotter::setTimeDomain(double domainLoMillis, double domainHiMillis,
     return this->timeaxis.setDomain(domainLo, domainHi);
 }
 
+QVector<qreal> MrPlotter::getTimeDomain()
+{
+    int64_t low;
+    int64_t high;
+    this->timeaxis.getDomain(low, high);
+    int64_t lowMillis = low / 1000000;
+    int64_t lowNanos = low % 1000000;
+    if (lowNanos < 0)
+    {
+        lowMillis -= 1;
+        lowNanos += 1000000;
+    }
+    int64_t highMillis = high / 1000000;
+    int64_t highNanos = high % 1000000;
+    if (highNanos < 0)
+    {
+        highMillis -= 1;
+        highNanos += 1000000;
+    }
+
+    QVector<qreal> toreturn(4);
+    toreturn[0] = (qreal) lowMillis;
+    toreturn[1] = (qreal) highMillis;
+    toreturn[2] = (qreal) lowNanos;
+    toreturn[3] = (qreal) highNanos;
+
+    return toreturn;
+}
+
 bool MrPlotter::setTimeZone(QByteArray timezone)
 {
     QTimeZone tz(timezone);

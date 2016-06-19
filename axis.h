@@ -72,6 +72,9 @@ public:
      */
     void autoscale(int64_t start, int64_t end, bool rangecount);
 
+    /* Autoscale function invokable from Javascript. */
+    Q_INVOKABLE void autoscale(bool rangecount, double startMillis, double endMillis, double startNanos, double endNanos);
+
     /* Maps a floating point number in the domain of this axis to a
      * floating point number between 0.0 and 1.0.
      */

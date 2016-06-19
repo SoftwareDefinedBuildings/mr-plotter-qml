@@ -37,6 +37,8 @@ public:
     Q_INVOKABLE bool setTimeDomain(double domainLoMillis, double domainHiMillis,
                                    double domainLoNanos = 0.0, double domainHiNanos = 0.0);
 
+    Q_INVOKABLE QVector<qreal> getTimeDomain();
+
     Q_INVOKABLE YAxis* newYAxis();
     Q_INVOKABLE YAxis* newYAxis(float domainLo, float domainHi);
     Q_INVOKABLE void delYAxis(YAxis* ya);

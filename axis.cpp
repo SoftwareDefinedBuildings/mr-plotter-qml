@@ -172,6 +172,13 @@ void YAxis::autoscale(int64_t start, int64_t end, bool rangecount)
     }
 }
 
+void YAxis::autoscale(bool rangecount, double startMillis, double endMillis, double startNanos, double endNanos)
+{
+    int64_t start = 1000000 * (int64_t) startMillis + (int64_t) startNanos;
+    int64_t end = 1000000 * (int64_t) endMillis + (int64_t) endNanos;
+    this->autoscale(start, end, rangecount);
+}
+
 float YAxis::map(float x)
 {
     return (x - this->domainLo) / (this->domainHi - this->domainLo);
