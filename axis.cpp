@@ -416,6 +416,20 @@ QVector<struct timetick> TimeAxis::getTicks()
     }
     default:
         starttime = ceildiv(this->domainLo, (int64_t) deltatick) * deltatick;
+        if (granularity == Timescale::DAY || granularity == Timescale::HOUR)
+        {
+            /* I'm assuming that the timezone offset is never in smaller granularity than minutes. */
+            QDateTime d = QDateTime::fromMSecsSinceEpoch(ceildiv(starttime, MILLISECOND_NS), this->tz);
+            starttime -= SECOND_NS * (int64_t) d.offsetFromUtc();
+            while (starttime > this->domainLo)
+            {
+                starttime -= deltatick;
+            }
+            while (starttime < this->domainLo)
+            {
+                starttime += deltatick;
+            }
+        }
         prevstart = starttime;
         while (starttime <= this->domainHi && starttime >= prevstart) {
             // Add the tick to ticks
