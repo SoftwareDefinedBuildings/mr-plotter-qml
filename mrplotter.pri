@@ -11,7 +11,8 @@ SOURCES += \
     $$PWD/stream.cpp \
     $$PWD/mrplotter.cpp \
     $$PWD/axis.cpp \
-    $$PWD/axisarea.cpp
+    $$PWD/axisarea.cpp \
+    $$PWD/libmrplotter.cpp
 
 HEADERS += \
     $$PWD/plotarea.h \
@@ -22,4 +23,5 @@ HEADERS += \
     $$PWD/stream.h \
     $$PWD/mrplotter.h \
     $$PWD/axis.h \
-    $$PWD/axisarea.h
+    $$PWD/axisarea.h \
+    $$PWD/libmrplotter.h
