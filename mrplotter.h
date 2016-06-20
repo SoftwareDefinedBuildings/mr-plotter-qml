@@ -52,6 +52,8 @@ public:
 
     TimeAxis timeaxis;
 
+    static Cache cache;
+
 signals:
 
 public slots:
@@ -68,8 +70,6 @@ private:
      */
     bool ready;
     bool pending;
-
-    static Cache cache;
 };
 
 #endif // MRPLOTTER_H

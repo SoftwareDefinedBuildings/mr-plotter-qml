@@ -9,6 +9,7 @@
 #include <QLinkedList>
 #include <QMap>
 #include <QUuid>
+#include <QVector>
 
 #include "requester.h"
 
@@ -18,6 +19,8 @@
 /* The maximum number of datapoints that can be cached. */
 /* Currently set to 320 MiB. */
 #define CACHE_THRESHOLD 10000000
+
+class Cache;
 
 /* A Cache Entry represents a set of contiguous data cached in memory.
  *
@@ -70,7 +73,7 @@ public:
 private:
     /* Constructs a placeholder entry (no data). The start and end
      * are both inclusive. */
-    CacheEntry(const QUuid& u, int64_t startRange, int64_t endRange, uint8_t pwe);
+    CacheEntry(Cache* c, const QUuid& u, int64_t startRange, int64_t endRange, uint8_t pwe);
 
     /* Position of this entry in the cache, with regard to eviction.
      * Handled by the Cache class.
@@ -94,6 +97,9 @@ private:
      */
     int64_t epoch;
 
+    /* The cache that this entry is part of. */
+    Cache* maincache;
+
     /* The data needed to construct a VBO for this cache entry, including
      * the gaps that this cache entry has taken responsibility for.
      */
@@ -101,18 +107,6 @@ private:
 
     /* The length of the CACHED array. */
     int cachedlen;
-
-//    /* Offset to first point in the main plot. */
-//    int mainoff;
-
-//    /* Offset to first point in the data density plot. */
-//    int ddoff;
-
-//    /* Number of points in main mean plot. */
-//    int maincnt;
-
-//    /* Number of points in the data density plot. */
-//    int ddcnt;
 
     /* The VBO used to render this Cache Entry. */
     GLuint vbo;
@@ -156,6 +150,9 @@ public:
     void requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
                      std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
                      int64_t request_hint = 0);
+
+    /* The VBOs that need to be deleted. */
+    QVector<GLuint> todelete;
 
 private:
     void use(QSharedPointer<CacheEntry> ce, bool firstuse);

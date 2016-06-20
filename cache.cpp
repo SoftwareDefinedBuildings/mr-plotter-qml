@@ -41,8 +41,8 @@ struct cachedpt
 #define CACHE_ENTRY_OVERHEAD ((sizeof(CacheEntry) / sizeof(struct cachedpt)) + 1)
 
 
-CacheEntry::CacheEntry(const QUuid& u, int64_t startRange, int64_t endRange, uint8_t pwexp) :
-    start(startRange), end(endRange), uuid(u), pwe(pwexp)
+CacheEntry::CacheEntry(Cache* c, const QUuid& u, int64_t startRange, int64_t endRange, uint8_t pwexp) :
+    start(startRange), end(endRange), uuid(u), maincache(c), pwe(pwexp)
 {
     Q_ASSERT(pwexp < PWE_MAX);
     Q_ASSERT(endRange >= startRange);
@@ -69,7 +69,8 @@ CacheEntry::~CacheEntry()
 
     if (this->vbo != 0)
     {
-        /* TODO: Somehow mark the VBO for deletion. */
+        /* Mark the VBO for deletion. */
+        this->maincache->todelete.push_back(this->vbo);
     }
 }
 
@@ -603,7 +604,7 @@ void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t p
                     }
                 }
             }
-            QSharedPointer<CacheEntry> gapfill(new CacheEntry(uuid, nextexp, filluntil, pwe));
+            QSharedPointer<CacheEntry> gapfill(new CacheEntry(this, uuid, nextexp, filluntil, pwe));
             /* I could call this->addCost here, but it actually drops cache entries immediately,
              * altering the structure of the tree. If I get unlucky, it may remove the entry
              * that the iterator is pointing to (the variable ENTRY), invalidating the iterator.

@@ -166,6 +166,14 @@ void PlotRenderer::synchronize(QQuickFramebufferObject* plotareafbo)
     }
     timeaxis->getDomain(this->timeaxis_start, this->timeaxis_end);
 
+    /* Delete any VBOs pending deletion. */
+    QVector<GLuint>& todelete = plotarea->plot->cache.todelete;
+    if (todelete.size() != 0)
+    {
+        this->glDeleteBuffers(todelete.size(), todelete.data());
+        todelete.clear();
+    }
+
     this->streams.resize(plotarea->streams.size());
 
     int index = 0;

@@ -77,8 +77,6 @@ private:
 
     QList<Stream*> streams;
 
-    Cache cache;
-
     int64_t timeaxis_start_beforescroll;
     int64_t timeaxis_end_beforescroll;
 
