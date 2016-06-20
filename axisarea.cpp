@@ -9,6 +9,8 @@
 
 YAxisArea::YAxisArea(): yAxes()
 {
+    this->rangeHi = 0.0;
+    this->rangeLo = 1.0;
 }
 
 void YAxisArea::paint(QPainter* painter)
@@ -80,6 +82,8 @@ void YAxisArea::setAxisList(QList<QVariant> newaxislist)
 TimeAxisArea::TimeAxisArea()
 {
     this->timeaxis = nullptr;
+    this->rangeLo = 0.0;
+    this->rangeHi = 1.0;
 }
 
 void TimeAxisArea::paint(QPainter* painter)
