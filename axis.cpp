@@ -2,7 +2,6 @@
 #include "stream.h"
 
 #include <algorithm>
-#include <cmath>
 
 #include <QDate>
 #include <QDateTime>
@@ -61,7 +60,7 @@ bool YAxis::rmStream(Stream* s)
 
 bool YAxis::setDomain(float low, float high)
 {
-    if (low >= high || !std::isfinite(low) || !std::isfinite(high))
+    if (low >= high || !qIsFinite(low) || !qIsFinite(high))
     {
         return false;
     }
@@ -156,7 +155,7 @@ void YAxis::autoscale(int64_t start, int64_t end, bool rangecount)
         }
     }
 
-    if (std::isfinite(minimum) && std::isfinite(maximum))
+    if (qIsFinite(minimum) && qIsFinite(maximum))
     {
         if (rangecount)
         {

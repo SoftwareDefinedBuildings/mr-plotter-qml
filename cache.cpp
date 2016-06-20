@@ -10,10 +10,6 @@
 #include <QSharedPointer>
 
 /* Size is 32 bytes.
- * If we find that using GL_POINTS for the mean causes problems, we could replace the
- * padding with a copy of mean (i.e. mean2) and use GL_LINES for the mean. The mean and
- * mean2 would have to be offset, complicating the GL_LINE_STRIP used for the mean line,
- * but it is not impossible to make this work.
  */
 struct cachedpt
 {
@@ -28,7 +24,7 @@ struct cachedpt
     float count;
 
     float truecount;
-} __attribute__((packed, aligned(16)));
+};
 
 /* The overhead cost, in cached points, of the data stored in a
  * Cache Entry.
@@ -46,6 +42,7 @@ CacheEntry::CacheEntry(Cache* c, const QUuid& u, int64_t startRange, int64_t end
 {
     Q_ASSERT(pwexp < PWE_MAX);
     Q_ASSERT(endRange >= startRange);
+    Q_ASSERT(sizeof(struct cachedpt) == 32);
 
     this->cached = nullptr;
     this->cachedlen = 0;

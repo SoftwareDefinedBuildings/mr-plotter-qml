@@ -1,13 +1,11 @@
 #include "libmrplotter.h"
 
-#include "axis.h"
-#include "axisarea.h"
-#include "mrplotter.h"
-#include "plotarea.h"
+#include <axis.h>
+#include <axisarea.h>
+#include <mrplotter.h>
+#include <plotarea.h>
 
-#include <QtQml>
-
-ImportMrPlotter::ImportMrPlotter()
+void initLibMrPlotter()
 {
     qmlRegisterType<YAxis>("MrPlotter", 0, 1, "YAxis");
     qmlRegisterType<Stream>("MrPlotter", 0, 1, "Stream");
@@ -16,5 +14,3 @@ ImportMrPlotter::ImportMrPlotter()
     qmlRegisterType<PlotArea>("MrPlotter", 0, 1, "PlotArea");
     qmlRegisterType<MrPlotter>("MrPlotter", 0, 1, "MrPlotter");
 }
-
-static ImportMrPlotter bydefault;

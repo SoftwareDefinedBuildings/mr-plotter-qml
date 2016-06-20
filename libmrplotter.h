@@ -1,11 +1,6 @@
-#ifndef IMPORTMRPLOTTER_H
-#define IMPORTMRPLOTTER_H
+#ifndef LIBMRPLOTTER_H
+#define LIBMRPLOTTER_H
 
+void initLibMrPlotter();
 
-class ImportMrPlotter
-{
-public:
-    ImportMrPlotter();
-};
-
-#endif // IMPORTMRPLOTTER_H
+#endif // LIBMRPLOTTER_H

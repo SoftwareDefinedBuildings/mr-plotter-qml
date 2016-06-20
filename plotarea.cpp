@@ -7,6 +7,8 @@
 #include <cmath>
 #include <cstdint>
 
+#include <QtAlgorithms>
+
 #include <QCursor>
 #include <QMouseEvent>
 #include <QQuickFramebufferObject>
@@ -29,15 +31,11 @@
 /* Computes the number x such that 2 ^ x <= POINTWIDTH < 2 ^ (x + 1). */
 inline uint8_t getPWExponent(uint64_t pointwidth)
 {
-    uint8_t pwe = 0;
-
-    pointwidth >>= 1;
-    while (pointwidth != 0)
+    if (pointwidth == 0)
     {
-        pointwidth >>= 1;
-        pwe++;
+        return 0;
     }
-
+    uint8_t pwe = (uint8_t) (63 - qCountLeadingZeroBits(pointwidth));
     return qMin(pwe, (uint8_t) (PWE_MAX - 1));
 }
 

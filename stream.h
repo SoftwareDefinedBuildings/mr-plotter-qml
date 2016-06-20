@@ -16,7 +16,7 @@ struct color
     float red;
     float green;
     float blue;
-} __attribute__((packed));
+};
 
 #define COLOR_TO_ARRAY(color) (&(color).red)
 

@@ -37,9 +37,10 @@ GLuint loadShader(QOpenGLFunctions* funcs, GLenum type, const char* shaderSrc)
        funcs->glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLen);
        if(infoLen > 1)
        {
-          char infoLog[infoLen];
+          char* infoLog = new char[infoLen];
           funcs->glGetShaderInfoLog(shader, infoLen, nullptr, infoLog);
           qFatal("Error compiling shader:\n%s", infoLog);
+          delete[] infoLog;
        }
        funcs->glDeleteShader(shader);
        return 0;
@@ -87,9 +88,10 @@ GLuint compileAndLinkProgram(QOpenGLFunctions* funcs, char* vShader, char* fShad
         funcs->glGetProgramiv(program, GL_INFO_LOG_LENGTH, &infoLen);
         if(infoLen > 1)
         {
-           char infoLog[infoLen];
+           char* infoLog = new char[infoLen];
            funcs->glGetProgramInfoLog(program, infoLen, nullptr, infoLog);
            qFatal("Error linking program:\n%s", infoLog);
+           delete[] infoLog;
         }
         funcs->glDeleteProgram(program);
         return 0;
