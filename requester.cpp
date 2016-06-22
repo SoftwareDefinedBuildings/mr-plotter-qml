@@ -157,6 +157,8 @@ inline void Requester::sendBWRequest(const QUuid &uuid, int64_t start, int64_t e
             callback(toreturn, truelen);
             delete[] toreturn;
         });
+
+        return;
     }
 
     if (start > BTRDB_MAX || end < BTRDB_MIN)
