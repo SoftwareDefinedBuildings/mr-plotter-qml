@@ -147,9 +147,9 @@ public:
      * cache entries are very tiny and many VBOs need to be drawn. The default
      * hint of 0 means to never widen the requests.
      */
-    void requestData(Requester* requester, const QUuid& uuid, int64_t start, int64_t end,
+    void requestData(Requester* requester, uint32_t archiver, const QUuid& uuid, int64_t start, int64_t end,
                      uint8_t pwe,  std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
-                     int64_t request_hint = 0);
+                     uint64_t request_hint = 0);
 
     /* The VBOs that need to be deleted. */
     QVector<GLuint> todelete;

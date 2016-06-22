@@ -9,8 +9,7 @@
 #include <QUuid>
 #include <QVariantMap>
 
-#define PUBL_URI "gabe.ns/s.giles/0/i.archiver/slot/query"
-#define SUBSCR_URI "gabe.ns/s.giles/0/i.archiver/signal/TdoK_UyM36OPAoL8__WN1dFd12HhUaGn-jS2oKj7xGc,queries"
+const QString URI_TEMPLATE = QStringLiteral("%1/%2");
 
 #define BTRDB_MIN ((int64_t) (-(Q_INT64_C(16) >> 56) + Q_INT64_C(1)))
 #define BTRDB_MAX ((int64_t) ((Q_INT64_C(48) << 56) - Q_INT64_C(1)))
@@ -34,16 +33,22 @@ public:
     Requester();
 
     void makeDataRequest(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
-                         ReqCallback callback);
+                         uint32_t archiver, ReqCallback callback);
+
+    uint32_t subscribeBWArchiver(QString uri);
+    void unsubscribeBWArchiver(uint32_t id);
 
 private:
-    void sendRequest(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
-                     ReqCallback callback);
+    void sendBWRequest(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
+                       uint32_t archiver, ReqCallback callback);
 
-    void handleResponse(PMessage response);
+    void handleBWResponse(PMessage response);
 
     uint32_t nextNonce;
+    uint32_t nextArchiverID;
+
     QHash<uint32_t, ReqCallback> outstanding;
+    QHash<uint32_t, QString> archivers;
 
     BW* bw;
 };

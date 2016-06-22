@@ -12,21 +12,35 @@
 
 #define PI 3.14159265358979323846
 
-Requester::Requester(): nextNonce(0), outstanding()
+Requester::Requester(): nextNonce(0), nextArchiverID(0), outstanding()
 {
     this->bw = BW::instance();
-    this->bw->setEntityFromEnviron([this](QString s)
-    {
-        qDebug("Got callback: %s", qPrintable(s));
-        this->bw->subscribe(SUBSCR_URI, [this](PMessage pm)
-        {
-            this->handleResponse(pm);
-        }, [](QString error)
-        {
-            qDebug("On done: %s", qPrintable(error));
-        });
-    });
 }
+
+uint32_t Requester::subscribeBWArchiver(QString uri)
+{
+    uint32_t id = this->nextArchiverID++;
+    this->archivers[id] = uri;
+    QString vkWithoutLastChar = this->bw->getVK();
+    vkWithoutLastChar.chop(1);
+    QString subscr = URI_TEMPLATE.arg(uri).arg("signal/%3,queries").arg(vkWithoutLastChar);
+    qDebug("Subscribing to %s", qPrintable(subscr));
+    this->bw->subscribe(subscr, [this](PMessage pm)
+    {
+        this->handleBWResponse(pm);
+    }, [](QString error)
+    {
+        qDebug("On done: %s", qPrintable(error));
+    });
+    return id;
+}
+
+void Requester::unsubscribeBWArchiver(uint32_t id)
+{
+    /* TODO: Actually unsubscribe from the URI. */
+    this->archivers.remove(id);
+}
+
 
 /* Makes a request for all the statistical points whose MIDPOINTS are in
  * the closed interval [start, end].
@@ -37,7 +51,7 @@ Requester::Requester(): nextNonce(0), outstanding()
  * those points are also included in the response.
  */
 void Requester::makeDataRequest(const QUuid &uuid, int64_t start, int64_t end, uint8_t pwe,
-                                std::function<void (statpt *, int)> callback)
+                                uint32_t archiver, ReqCallback callback)
 {
     int64_t pw = ((int64_t) 1) << pwe;
     int64_t halfpw = pw >> 1;
@@ -68,83 +82,95 @@ void Requester::makeDataRequest(const QUuid &uuid, int64_t start, int64_t end, u
 
     /* Now, we're ready to actually send out the request. */
 
-    this->sendRequest(uuid, truestart, trueend, pwe, callback);
+    this->sendBWRequest(uuid, truestart, trueend, pwe, archiver, callback);
 }
 
 /* Does the work of constructing the message and sending it. */
-inline void Requester::sendRequest(const QUuid &uuid, int64_t start, int64_t end, uint8_t pwe,
-                                   ReqCallback callback)
+inline void Requester::sendBWRequest(const QUuid &uuid, int64_t start, int64_t end, uint8_t pwe,
+                                     uint32_t archiver, ReqCallback callback)
 {
-    start = qBound(BTRDB_MIN, start, BTRDB_MAX);
-    end = qBound(BTRDB_MIN, end, BTRDB_MAX);
-    /* For now, this is just a simulator. */
-    //Q_UNUSED(uuid);
-
-    /*int64_t pw = ((int64_t) 1) << pwe;
-    int64_t pwe_mask = ~(pw - 1);
-
-    start &= pwe_mask;
-    end &= pwe_mask;
-
-    Q_ASSERT(end >= start);
-
-    int numpts = ((end - start) >> pwe) + 1;
-    struct statpt* toreturn = new struct statpt[numpts];
-
-    int numskipped = 0;
-
-    for (int i = 0; i < numpts; i++)
+    if (archiver == (uint32_t) -1)
     {
-        double min = INFINITY;
-        double max = -INFINITY;
-        double mean = 0.0;
+        /* For now, this is just a simulator. */
 
-        int64_t stime = start + (i << pwe);
+        int64_t pw = ((int64_t) 1) << pwe;
+        int64_t pwe_mask = ~(pw - 1);
 
-        uint64_t count = 0;
+        start &= pwe_mask;
+        end &= pwe_mask;
 
-        for (int j = 0; j < pw; j++)
+        Q_ASSERT(end >= start);
+
+        int numpts = ((end - start) >> pwe) + 1;
+        struct statpt* toreturn = new struct statpt[numpts];
+
+        int numskipped = 0;
+
+        for (int i = 0; i < numpts; i++)
         {
-            int64_t time = stime + j - 1415643675000000000LL;
+            double min = INFINITY;
+            double max = -INFINITY;
+            double mean = 0.0;
 
-            /* Decide if we should drop this point.
-            int64_t rem = (time & 0x7F);
-            if (rem != 7 && rem != 8 && rem != 9 && rem != 10 && rem != 11)
+            int64_t stime = start + (i << pwe);
+
+            uint64_t count = 0;
+
+            for (int j = 0; j < pw; j++)
             {
+                int64_t time = stime + j - 1415643675000000000LL;
+
+                /* Decide if we should drop this point. */
+                int64_t rem = (time & 0x7F);
+                if (rem != 7 && rem != 8 && rem != 9 && rem != 10 && rem != 11)
+                {
+                    continue;
+                }
+
+                double value = cos(time * PI / 100) + 0.5 * cos(time * PI / 63) + 0.3 * cos(time * PI / 7);
+                min = fmin(min, value);
+                max = fmax(max, value);
+                mean += value;
+                count++;
+            }
+            mean /= count;
+
+            if (count == 0)
+            {
+                numskipped++;
                 continue;
             }
 
-            double value = cos(time * PI / 100) + 0.5 * cos(time * PI / 63) + 0.3 * cos(time * PI / 7);
-            min = fmin(min, value);
-            max = fmax(max, value);
-            mean += value;
-            count++;
-        }
-        mean /= count;
+            int k = i - numskipped;
 
-        if (count == 0)
+            toreturn[k].time = stime;
+            toreturn[k].min = min;
+            toreturn[k].mean = mean;
+            toreturn[k].max = max;
+            toreturn[k].count = count;
+        }
+
+        int truelen = numpts - numskipped;
+
+        QTimer::singleShot(500, [callback, toreturn, truelen]()
         {
-            numskipped++;
-            continue;
-        }
-
-        int k = i - numskipped;
-
-        toreturn[k].time = stime;
-        toreturn[k].min = min;
-        toreturn[k].mean = mean;
-        toreturn[k].max = max;
-        toreturn[k].count = count;
+            callback(toreturn, truelen);
+            delete[] toreturn;
+        });
     }
 
-    int truelen = numpts - numskipped;
-
-    QTimer::singleShot(500, [callback, toreturn, truelen]()
+    if (start > BTRDB_MAX || end < BTRDB_MIN)
     {
-        callback(toreturn, truelen);
-        delete[] toreturn;
-    });
-    */
+        QTimer::singleShot(500, [callback]()
+        {
+            callback(nullptr, 0);
+        });
+        return;
+    }
+    start = qBound(BTRDB_MIN, start, BTRDB_MAX);
+    end = qBound(BTRDB_MIN, end, BTRDB_MAX);
+
+    QString publ = URI_TEMPLATE.arg(this->archivers[archiver]).arg(QStringLiteral("slot/query"));
 
     QString query = QUERY_TEMPLATE;
     QString uuidstr = uuid.toString();
@@ -158,13 +184,10 @@ inline void Requester::sendRequest(const QUuid &uuid, int64_t start, int64_t end
 
     outstanding.insert(nonce, callback);
 
-    this->bw->publishMsgPack(PUBL_URI, "2.0.9.1", req, [](QString str)
-    {
-        qDebug("Sent request: %s", qPrintable(str));
-    });
+    this->bw->publishMsgPack(publ, "2.0.9.1", req);
 }
 
-void Requester::handleResponse(PMessage message)
+void Requester::handleBWResponse(PMessage message)
 {
     QList<PayloadObject*> pos = message->FilterPOs(BW::fromDF("2.0.9.8"));
     for (auto p = pos.begin(); p != pos.end(); p++)
@@ -200,7 +223,7 @@ void Requester::handleResponse(PMessage message)
             qDebug("Could not get nonce!");
             return;
         }
-        qDebug("Nonce is %u", nonce);
+
         if (response.contains("Error"))
         {
             qDebug("Got an error: %s", qPrintable(response["Error"].toString()));
@@ -258,7 +281,6 @@ void Requester::handleResponse(PMessage message)
             pt->mean = means.at(i).toDouble();
             pt->max = maxes.at(i).toDouble();
             pt->count = counts.at(i).toULongLong();
-            qDebug("%lld, %f, %f, %f, %llu", pt->time, pt->min, pt->mean, pt->max, pt->count);
         }
 
         callback(points, len);

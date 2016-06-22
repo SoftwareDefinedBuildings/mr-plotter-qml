@@ -187,7 +187,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
      * memory than we really need. If we make it too low, then we'll write past the end
      * of the buffer.
      */
-    this->cachedlen = qMin((((int64_t) len) << 1) + 2, ((end - start) >> this->pwe) + 4);
+    this->cachedlen = (int) qMin((((uint64_t) len) << 1) + 2, (((uint64_t) (end - start)) >> this->pwe) + 4);
     this->cached = new struct cachedpt[cachedlen + ddstartatzero + (2 * ddendatzero)];
 
     struct cachedpt* outputs = this->cached + ddstartatzero;
@@ -514,9 +514,9 @@ Cache::~Cache()
  * associated to each chunk of data we get back, but it provides
  * for a cleaner API overall.
  */
-void Cache::requestData(Requester* requester, const QUuid& uuid, int64_t start, int64_t end,
+void Cache::requestData(Requester* requester, uint32_t archiver, const QUuid& uuid, int64_t start, int64_t end,
                         uint8_t pwe, std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
-                        int64_t request_hint)
+                        uint64_t request_hint)
 {
     Q_ASSERT(pwe < PWE_MAX);
     QList<QSharedPointer<CacheEntry>>* result = new QList<QSharedPointer<CacheEntry>>;
@@ -550,7 +550,7 @@ void Cache::requestData(Requester* requester, const QUuid& uuid, int64_t start, 
     QSharedPointer<CacheEntry> prev = nullpointer;
     for (i = entries->lowerBound(start); nextexp <= end; ++i)
     {
-         QSharedPointer<CacheEntry> entry = (i == entries->end() ? nullpointer : *i);
+        QSharedPointer<CacheEntry> entry = (i == entries->end() ? nullpointer : *i);
 
         if (entry == nullpointer)
         {
@@ -566,14 +566,14 @@ void Cache::requestData(Requester* requester, const QUuid& uuid, int64_t start, 
                 goto nogap;
             }
 
-            filluntil = qMin(entry->start - 1, end);
+            filluntil = qMin(entry->start == INT64_MIN ? entry->start : entry->start - 1, end);
         }
 
         {
             /* There's a gap that needs to be filled. First, check if we
              * should "expand" the query, according to the REQUEST HINT.
              */
-            if (filluntil - nextexp < request_hint)
+            if (((uint64_t) (filluntil - nextexp)) < request_hint)
             {
                 /* If this hole is in the "middle" of the query, we
                  * can't expand it because it is bounded by a cache entry
@@ -582,22 +582,50 @@ void Cache::requestData(Requester* requester, const QUuid& uuid, int64_t start, 
                  * But we might be able to expand it if it is at the start
                  * or end of the query.
                  */
+                int64_t newval;
                 if (filluntil == end)
                 {
                     filluntil = nextexp + request_hint;
+                    if (filluntil < nextexp)
+                    {
+                        filluntil = INT64_MAX;
+                    }
                     if (entry != nullpointer)
                     {
-                        filluntil = qMin(filluntil, entry->start - 1);
+                        newval = entry->start;
+                        if (newval != INT64_MIN)
+                        {
+                            newval--;
+                        }
+                        filluntil = qMin(filluntil, newval);
                     }
                 }
                 else if (nextexp == start)
                 {
                     nextexp = filluntil - request_hint;
+                    if (nextexp > filluntil)
+                    {
+                        qDebug("Detected overflow");
+                        nextexp = INT64_MIN;
+                    }
                     if (i != entries->begin())
                     {
-                        nextexp = qMax(nextexp, (*(i - 1))->end + 1);
+                        newval = (*(i - 1))->end;
+                        if (newval != INT64_MAX)
+                        {
+                            newval++;
+                        }
+                        nextexp = qMax(nextexp, newval);
                     }
                 }
+            }
+
+            /* We're about to insert an entry, so check that it doesn't
+             * overlap with  the previous one.
+             */
+            if (i != entries->begin())
+            {
+                Q_ASSERT ((*(i - 1))->end < nextexp);
             }
             QSharedPointer<CacheEntry> gapfill(new CacheEntry(this, uuid, nextexp, filluntil, pwe));
             /* I could call this->addCost here, but it actually drops cache entries immediately,
@@ -616,8 +644,8 @@ void Cache::requestData(Requester* requester, const QUuid& uuid, int64_t start, 
             i = entries->insert(i, gapfill->end, gapfill);
 
             /* Make the request. */
-            requester->makeDataRequest(uuid, gapfill->start, gapfill->end, pwe,
-                                             [this, i, gapfill, prev, entry, callback, result](struct statpt* points, int len)
+            requester->makeDataRequest(uuid, gapfill->start, gapfill->end, pwe, archiver,
+                                       [this, i, gapfill, prev, entry, callback, result](struct statpt* points, int len)
             {
                 /* Add it to the LRU linked list before removing entries
                  * to meet the cache threshold, so that we release this
@@ -667,6 +695,19 @@ void Cache::requestData(Requester* requester, const QUuid& uuid, int64_t start, 
         }
 
         result->append(entry);
+
+        /* Edge case: if entry->end is INT64_MAX, then adding
+         * one to it to get the next nextexp will overflow,
+         * messing up the cache on the next iteration.
+         *
+         * Instead, just break the loop if we reach this case.
+         * There's no work left to do.
+         */
+        if (entry->end == INT64_MAX)
+        {
+            break;
+        }
+
         nextexp = entry->end + 1;
 
         prev = entry;

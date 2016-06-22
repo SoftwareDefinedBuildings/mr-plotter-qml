@@ -505,13 +505,13 @@ void PlotArea::updateDataAsync(Cache& cache, Requester* requester)
     uint64_t nanosperpixel = ((uint64_t) (timeaxis_end - timeaxis_start)) / screenwidth;
     uint8_t pwe = getPWExponent(nanosperpixel);
 
-    int64_t timewidth = timeaxis_end - timeaxis_start;
+    uint64_t timewidth = (uint64_t) (timeaxis_end - timeaxis_start);
 
     for (auto i = this->streams.begin(); i != this->streams.end(); i++)
     {
         Stream* s = *i;
         Q_ASSERT_X(s != nullptr, "updateDataAsync", "invalid value in streamlist");
-        cache.requestData(requester, s->uuid, timeaxis_start, timeaxis_end, pwe,
+        cache.requestData(requester, s->archiver, s->uuid, timeaxis_start, timeaxis_end, pwe,
                                 [this, s, id, timeaxis_start, timeaxis_end](QList<QSharedPointer<CacheEntry>> data)
         {
             if (id == this->fullUpdateID)

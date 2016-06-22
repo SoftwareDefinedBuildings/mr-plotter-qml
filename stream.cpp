@@ -5,17 +5,16 @@
 #include <QString>
 #include <QUuid>
 
-Stream::Stream(QObject* parent): QObject(parent), uuid()
+Stream::Stream(QObject* parent): QObject(parent), uuid(), archiver(0)
+{
+}
+
+Stream::Stream(const QString& u, uint32_t archiverID, QObject* parent): QObject(parent), uuid(u), archiver(archiverID)
 {
     this->init();
 }
 
-Stream::Stream(const QString& u, QObject* parent): QObject(parent), uuid(u)
-{
-    this->init();
-}
-
-Stream::Stream(const QUuid& u, QObject* parent): QObject(parent), uuid(u)
+Stream::Stream(const QUuid& u, uint32_t archiverID, QObject* parent): QObject(parent), uuid(u), archiver(archiverID)
 {
     this->init();
 }

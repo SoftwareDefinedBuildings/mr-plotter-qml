@@ -39,8 +39,8 @@ class Stream : public QObject
 
 public:
     Stream(QObject* parent = nullptr);
-    Stream(const QString& u, QObject* parent = nullptr);
-    Stream(const QUuid& u, QObject* parent = nullptr);
+    Stream(const QString& u, uint32_t archiverID, QObject* parent = nullptr);
+    Stream(const QUuid& u, uint32_t archiverID, QObject* parent = nullptr);
 
     bool toDrawable(struct drawable& d) const;
 
@@ -56,6 +56,10 @@ public:
 
     /* The color that this stream should have. */
     struct color color;
+
+    /* The ID of the archiver from which to receive data. */
+    uint32_t archiver;
+
 
     /* True if this stream should be rendered as if it is selected. */
     bool selected;

@@ -32,7 +32,10 @@ public:
     TimeAxisArea* timeAxisArea() const;
     void setTimeAxisArea(TimeAxisArea* newtimeaxisarea);
 
-    Q_INVOKABLE Stream* newStream(QString uuid);
+    Q_INVOKABLE qulonglong addArchiver(QString uri);
+    Q_INVOKABLE void removeArchiver(qulonglong archiver);
+
+    Q_INVOKABLE Stream* newStream(QString uuid, qulonglong archiverID);
     Q_INVOKABLE void delStream(Stream* s);
 
     Q_INVOKABLE bool setTimeDomain(double domainLoMillis, double domainHiMillis,

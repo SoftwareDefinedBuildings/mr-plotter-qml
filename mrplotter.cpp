@@ -49,9 +49,19 @@ void MrPlotter::setDataDensityPlot(PlotArea* newddplot)
     newddplot->plot = this;
 }
 
-Stream* MrPlotter::newStream(QString uuid)
+qulonglong MrPlotter::addArchiver(QString uri)
 {
-    return new Stream(uuid, this);
+    return (qulonglong) this->requester->subscribeBWArchiver(uri);
+}
+
+void MrPlotter::removeArchiver(qulonglong archiver)
+{
+    return this->requester->unsubscribeBWArchiver((uint32_t) archiver);
+}
+
+Stream* MrPlotter::newStream(QString uuid, qulonglong archiverID)
+{
+    return new Stream(uuid, (uint32_t) archiverID, this);
 }
 
 void MrPlotter::delStream(Stream* s)
