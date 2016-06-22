@@ -16,6 +16,13 @@ MrPlotter::MrPlotter(): timeaxis()
 
     this->ready = true;
     this->pending = false;
+
+    this->requester = new Requester;
+}
+
+MrPlotter::~MrPlotter()
+{
+    delete this->requester;
 }
 
 PlotArea* MrPlotter::mainPlot() const
@@ -94,11 +101,11 @@ void MrPlotter::updateDataAsync()
 {
     if (mainplot != nullptr)
     {
-        mainplot->updateDataAsync(this->cache);
+        mainplot->updateDataAsync(this->cache, this->requester);
     }
     if (ddplot != nullptr)
     {
-        ddplot->updateDataAsync(this->cache);
+        ddplot->updateDataAsync(this->cache, this->requester);
     }
 }
 

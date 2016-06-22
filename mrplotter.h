@@ -18,6 +18,7 @@ class MrPlotter : public QObject
     Q_PROPERTY(PlotArea* dataDensityPlot READ dataDensityPlot WRITE setDataDensityPlot)
 public:
     MrPlotter();
+    ~MrPlotter();
 
     const QString& name() const;
     void setName(QString& newname);
@@ -60,6 +61,7 @@ public slots:
 
 private:
     TimeAxisArea* timeaxisarea;
+    Requester* requester;
 
     PlotArea* mainplot;
     PlotArea* ddplot;

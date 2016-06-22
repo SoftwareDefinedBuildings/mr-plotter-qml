@@ -487,7 +487,6 @@ uint qHash(const QSharedPointer<CacheEntry>& key, uint seed)
 Cache::Cache() : cache(), outstanding(), loading(), lru()
 {
     this->curr_queryid = 0;
-    this->requester = new Requester;
     this->cost = 0;
 }
 
@@ -497,7 +496,6 @@ Cache::~Cache()
     {
         delete[] i->second;
     }
-    delete this->requester;
 }
 
 /* There are two ways we could do this.
@@ -516,8 +514,8 @@ Cache::~Cache()
  * associated to each chunk of data we get back, but it provides
  * for a cleaner API overall.
  */
-void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
-                        std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
+void Cache::requestData(Requester* requester, const QUuid& uuid, int64_t start, int64_t end,
+                        uint8_t pwe, std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
                         int64_t request_hint)
 {
     Q_ASSERT(pwe < PWE_MAX);
@@ -618,7 +616,7 @@ void Cache::requestData(const QUuid& uuid, int64_t start, int64_t end, uint8_t p
             i = entries->insert(i, gapfill->end, gapfill);
 
             /* Make the request. */
-            this->requester->makeDataRequest(uuid, gapfill->start, gapfill->end, pwe,
+            requester->makeDataRequest(uuid, gapfill->start, gapfill->end, pwe,
                                              [this, i, gapfill, prev, entry, callback, result](struct statpt* points, int len)
             {
                 /* Add it to the LRU linked list before removing entries
