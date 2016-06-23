@@ -74,22 +74,49 @@ CacheEntry::~CacheEntry()
 
 #define FLAGS_NONE 0.0f;
 #define FLAGS_GAP 1.0f
+#define FLAGS_GAP_NOINTERP 0.75f;
 #define FLAGS_LONEPT -1.0f;
 
 /* Pulls the data density graph to zero, and creates a gap in the main plot. */
-void pullToZero(struct cachedpt* pt, float reltime, float prevcnt)
+void pullToZero(struct cachedpt* pt, int64_t time, int64_t epoch, float prevcnt, struct statpt* prev, struct statpt* next)
 {
+    float reltime = (float) (time - epoch);
+
+    /* Get the interpolated values. */
+    uint64_t deltaT = (uint64_t) (next->time - prev->time);
+    uint64_t dT = (uint64_t) (time - prev->time);
+    double imin = prev->min + ((next->min - prev->min) / deltaT) * dT;
+    double imean = prev->mean + ((next->mean - prev->mean) / deltaT) * dT;
+    double imax = prev->max + ((next->max - prev->mean) / deltaT) * dT;
+
     pt->reltime = reltime;
-    pt->min = 0.0f; // TODO fill in interpolated values of min, mean, and max in case we need to connect the dots
+    pt->min = (float) imin;
+    pt->prevcount = prevcnt;
+    pt->mean = (float) imean;
+    pt->flags = FLAGS_GAP;
+
+    pt->reltime2 = reltime;
+    pt->max = (float) imax;
+    pt->count = 0.0f;
+    pt->truecount = 0.0f;
+    pt->flags2 = FLAGS_GAP;
+}
+
+void pullToZeroNoInterp(struct cachedpt* pt, int64_t time, int64_t epoch, float prevcnt)
+{
+    float reltime = (float) (time - epoch);
+
+    pt->reltime = reltime;
+    pt->min = 0.0f;
     pt->prevcount = prevcnt;
     pt->mean = 0.0f;
-    pt->flags = FLAGS_GAP;
+    pt->flags = FLAGS_GAP_NOINTERP;
 
     pt->reltime2 = reltime;
     pt->max = 0.0f;
     pt->count = 0.0f;
     pt->truecount = 0.0f;
-    pt->flags2 = FLAGS_GAP;
+    pt->flags2 = FLAGS_GAP_NOINTERP;
 }
 
 /* SPOINTS should contain all statistical points where the MIDPOINT is
@@ -116,8 +143,8 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         this->epoch = (this->start >> 1) + (this->end >> 1);
         this->cachedlen = 2;
         this->cached = new struct cachedpt[this->cachedlen];
-        pullToZero(&this->cached[0], (float) (this->start - this->epoch), 0.0f);
-        pullToZero(&this->cached[1], (float) (this->end + 1 - this->epoch), 0.0f);
+        pullToZeroNoInterp(&this->cached[0], this->start, this->epoch, 0.0f);
+        pullToZeroNoInterp(&this->cached[1], this->end + 1, this->epoch, 0.0f);
         return;
     }
 
@@ -197,7 +224,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
 
     if (ddstartatzero)
     {
-        pullToZero(&this->cached[0], (float) (this->start - this->epoch), 0.0f);
+        pullToZeroNoInterp(&this->cached[0], this->start, this->epoch, 0.0f);
     }
 
     float prevcount = prevfirst ? spoints[0].count : 0.0f;
@@ -214,7 +241,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         exptime = spoints[0].time + pw;
         if (len > 1 && spoints[1].time > exptime)
         {
-            pullToZero(&outputs[0], (float) (exptime - this->epoch), 0.0f);
+            pullToZeroNoInterp(&outputs[0], exptime, this->epoch, 0.0f);
             prevcount = 0.0f;
             j = 1;
         }
@@ -257,7 +284,14 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
 
             Q_ASSERT(j < this->cachedlen);
 
-            pullToZero(&outputs[j], (float) (exptime - this->epoch), prevcount);
+            if (i != numinputs - 1)
+            {
+                pullToZero(&outputs[j], exptime, this->epoch, prevcount, &inputs[i], &inputs[i + 1]);
+            }
+            else
+            {
+                pullToZeroNoInterp(&outputs[j], exptime, this->epoch, prevcount);
+            }
 
             /* If the previous point (at index j - 1) has a gap on either
              * side, it needs to be rendered as vertical line.
@@ -283,16 +317,16 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         /* This is mutually exclusive with ddendatzero. */
         if (spoints[len - 1].time > exptime)
         {
-            pullToZero(&outputs[j], (float) (exptime - this->epoch), prevcount);
-            pullToZero(&outputs[j + 1], (float) (spoints[len - 1].time - this->epoch), 0.0f);
+            pullToZeroNoInterp(&outputs[j], exptime, this->epoch, prevcount);
+            pullToZeroNoInterp(&outputs[j + 1], spoints[len - 1].time, this->epoch, 0.0f);
             j += 2;
         }
     }
 
     if (ddendatzero)
     {
-        pullToZero(&outputs[j], (float) (exptime - this->epoch), prevcount);
-        pullToZero(&outputs[j + 1], (float) (this->end + 1 - this->epoch), 0.0f);
+        pullToZeroNoInterp(&outputs[j], exptime, this->epoch, prevcount);
+        pullToZeroNoInterp(&outputs[j + 1], this->end + 1, this->epoch, 0.0f);
         j += 2;
     }
 
