@@ -13,9 +13,8 @@
 
 #define TIME_ATTR_LOC 0
 #define VALUE_ATTR_LOC 1
-#define RENDERTSTRIP_ATTR_LOC 2
+#define FLAGS_ATTR_LOC 2
 #define COUNT_ATTR_LOC 3
-#define ALTVAL_ATTR_LOC 4
 
 class PlotRenderer : public QQuickFramebufferObject::Renderer,
         protected QOpenGLFunctions

@@ -69,13 +69,12 @@ GLuint compileAndLinkProgram(QOpenGLFunctions* funcs, char* vShader, char* fShad
     {
         funcs->glBindAttribLocation(program, TIME_ATTR_LOC, "time");
         funcs->glBindAttribLocation(program, VALUE_ATTR_LOC, "value");
-        funcs->glBindAttribLocation(program, RENDERTSTRIP_ATTR_LOC, "rendertstrip");
+        funcs->glBindAttribLocation(program, FLAGS_ATTR_LOC, "flags");
     }
     else
     {
         funcs->glBindAttribLocation(program, TIME_ATTR_LOC, "time");
         funcs->glBindAttribLocation(program, COUNT_ATTR_LOC, "count");
-        funcs->glBindAttribLocation(program, ALTVAL_ATTR_LOC, "altval");
     }
 
     funcs->glLinkProgram(program);

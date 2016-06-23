@@ -9,21 +9,23 @@
 #include <QList>
 #include <QSharedPointer>
 
-/* Size is 32 bytes.
+/* Size is 40 bytes.
  */
 struct cachedpt
 {
     float reltime;
     float min;
     float prevcount;
-
     float mean;
+
+    float flags;
 
     float reltime2;
     float max;
     float count;
-
     float truecount;
+
+    float flags2;
 };
 
 /* The overhead cost, in cached points, of the data stored in a
@@ -42,7 +44,6 @@ CacheEntry::CacheEntry(Cache* c, const QUuid& u, int64_t startRange, int64_t end
 {
     Q_ASSERT(pwexp < PWE_MAX);
     Q_ASSERT(endRange >= startRange);
-    Q_ASSERT(sizeof(struct cachedpt) == 32);
 
     this->cached = nullptr;
     this->cachedlen = 0;
@@ -71,22 +72,24 @@ CacheEntry::~CacheEntry()
     }
 }
 
-#define GAPMARKER 0.5f
+#define FLAGS_NONE 0.0f;
+#define FLAGS_GAP 1.0f
+#define FLAGS_LONEPT -1.0f;
 
 /* Pulls the data density graph to zero, and creates a gap in the main plot. */
 void pullToZero(struct cachedpt* pt, float reltime, float prevcnt)
 {
     pt->reltime = reltime;
-    pt->min = prevcnt;
-    pt->prevcount = GAPMARKER; // DD Shader will have to be smart and look at output->min for the "correct" value of count
-
+    pt->min = 0.0f; // TODO fill in interpolated values of min, mean, and max in case we need to connect the dots
+    pt->prevcount = prevcnt;
     pt->mean = 0.0f;
+    pt->flags = FLAGS_GAP;
 
-    pt->reltime2 = pt->reltime;
+    pt->reltime2 = reltime;
     pt->max = 0.0f;
-    pt->count = GAPMARKER; // DD Shader will have to be smart and look at output->max for the "correct" value of count
-
+    pt->count = 0.0f;
     pt->truecount = 0.0f;
+    pt->flags2 = FLAGS_GAP;
 }
 
 /* SPOINTS should contain all statistical points where the MIDPOINT is
@@ -229,14 +232,16 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         output->reltime = (float) (input->time - this->epoch);
         output->min = (float) input->min;
         output->prevcount = prevcount;
-
         output->mean = (float) input->mean;
+
+        output->flags = FLAGS_NONE;
 
         output->reltime2 = output->reltime;
         output->max = (float) input->max;
         output->count = (float) input->count;
-
         output->truecount = output->count;
+
+        output->flags2 = FLAGS_NONE;
 
         prevtime = input->time;
         prevcount = output->count;
@@ -257,13 +262,13 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
             /* If the previous point (at index j - 1) has a gap on either
              * side, it needs to be rendered as vertical line.
              */
-            if ((j > 1 && outputs[j - 2].count == GAPMARKER) || (j == 1 && !prevfirst))
+            if ((j > 1 && outputs[j - 2].flags == FLAGS_GAP) || (j == 1 && !prevfirst))
             {
                 /* This tells the vertex shader the appropriate info. */
                 Q_ASSERT(outputs[j - 1].prevcount == 0.0f);
                 Q_ASSERT(outputs[j - 1].count != 0.0f);
-                outputs[j - 1].prevcount = -GAPMARKER; // WILL be set to -0.5. DD Shader will have to be smart and realize this should really be 0.
-                outputs[j - 1].count *= -1; // Will be negative, but will not be -0. DD Shader will have to be smart and interpret this as a positive number.
+                outputs[j - 1].flags = FLAGS_LONEPT;
+                outputs[j - 1].flags2 = FLAGS_LONEPT;
             }
 
             prevtime = exptime;
@@ -361,12 +366,12 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
         funcs->glUniform1i(tstripUniform, 1);
 
         funcs->glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
-        funcs->glVertexAttribPointer(TIME_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) 0);
-        funcs->glVertexAttribPointer(VALUE_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) sizeof(float));
-        funcs->glVertexAttribPointer(RENDERTSTRIP_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) (2 * sizeof(float)));
+        funcs->glVertexAttribPointer(TIME_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*) 0);
+        funcs->glVertexAttribPointer(VALUE_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*) sizeof(float));
+        funcs->glVertexAttribPointer(FLAGS_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*) (5 * sizeof(float)));
         funcs->glEnableVertexAttribArray(TIME_ATTR_LOC);
         funcs->glEnableVertexAttribArray(VALUE_ATTR_LOC);
-        funcs->glEnableVertexAttribArray(RENDERTSTRIP_ATTR_LOC);
+        funcs->glEnableVertexAttribArray(FLAGS_ATTR_LOC);
         funcs->glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         funcs->glDrawArrays(GL_TRIANGLE_STRIP, 0, this->cachedlen << 1);
@@ -387,10 +392,10 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
         funcs->glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
         funcs->glVertexAttribPointer(TIME_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, sizeof(struct cachedpt), (const void*) 0);
         funcs->glVertexAttribPointer(VALUE_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, sizeof(struct cachedpt), (const void*) (3 * sizeof(float)));
-        funcs->glVertexAttribPointer(RENDERTSTRIP_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, sizeof(struct cachedpt), (const void*) (2 * sizeof(float)));
+        funcs->glVertexAttribPointer(FLAGS_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, sizeof(struct cachedpt), (const void*) (4 * sizeof(float)));
         funcs->glEnableVertexAttribArray(TIME_ATTR_LOC);
         funcs->glEnableVertexAttribArray(VALUE_ATTR_LOC);
-        funcs->glEnableVertexAttribArray(RENDERTSTRIP_ATTR_LOC);
+        funcs->glEnableVertexAttribArray(FLAGS_ATTR_LOC);
         funcs->glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         funcs->glDrawArrays(GL_LINE_STRIP, 0, this->cachedlen);
@@ -440,12 +445,10 @@ void CacheEntry::renderDDPlot(QOpenGLFunctions* funcs, float yStart,
 
         /* Draw the data density plot. */
         funcs->glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
-        funcs->glVertexAttribPointer(TIME_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) 0);
-        funcs->glVertexAttribPointer(COUNT_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) (2 * sizeof(float)));
-        funcs->glVertexAttribPointer(ALTVAL_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void*) sizeof(float));
+        funcs->glVertexAttribPointer(TIME_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*) 0);
+        funcs->glVertexAttribPointer(COUNT_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*) (2 * sizeof(float)));
         funcs->glEnableVertexAttribArray(TIME_ATTR_LOC);
         funcs->glEnableVertexAttribArray(COUNT_ATTR_LOC);
-        funcs->glEnableVertexAttribArray(ALTVAL_ATTR_LOC);
         funcs->glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         funcs->glDrawArrays(GL_LINE_STRIP, 0, this->cachedlen << 1);
@@ -459,7 +462,7 @@ void CacheEntry::getRange(int64_t starttime, int64_t endtime, bool count, float&
     for (int i = 0; i < cachedlen; i++)
     {
         struct cachedpt* pt = &this->cached[i];
-        if (pt->count != GAPMARKER && pt->reltime >= relstart && pt->reltime <= relend)
+        if (pt->flags != FLAGS_GAP && pt->reltime >= relstart && pt->reltime <= relend)
         {
             if (count)
             {
@@ -486,6 +489,7 @@ uint qHash(const QSharedPointer<CacheEntry>& key, uint seed)
 
 Cache::Cache() : cache(), outstanding(), loading(), lru()
 {
+    Q_ASSERT(sizeof(struct cachedpt) == 40);
     this->curr_queryid = 0;
     this->cost = 0;
 }
