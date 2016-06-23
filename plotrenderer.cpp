@@ -107,6 +107,7 @@ GLint PlotRenderer::axisMatLoc;
 GLint PlotRenderer::axisVecLoc;
 GLint PlotRenderer::pointsizeLoc;
 GLint PlotRenderer::tstripLoc;
+GLint PlotRenderer::alwaysJoinLoc;
 GLint PlotRenderer::opacityLoc;
 GLint PlotRenderer::colorLoc;
 
@@ -139,6 +140,7 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
         this->axisVecLoc = this->glGetUniformLocation(this->program, "axisBase");
         this->pointsizeLoc = this->glGetUniformLocation(this->program, "pointsize");
         this->tstripLoc = this->glGetUniformLocation(this->program, "tstrip");
+        this->alwaysJoinLoc = this->glGetUniformLocation(this->program, "alwaysJoin");
         this->opacityLoc = this->glGetUniformLocation(this->program, "opacity");
         this->colorLoc = this->glGetUniformLocation(this->program, "color");
 
@@ -221,6 +223,8 @@ void PlotRenderer::render()
 
     this->glEnable(GL_BLEND);
     this->glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    this->glUniform1i(alwaysJoinLoc, 0);
 
     for (auto i = this->streams.begin(); i != this->streams.end(); ++i)
     {

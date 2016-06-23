@@ -235,13 +235,14 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
 
     j = 0;
 
+    /* Mutually exclusive with ddstartatzero. */
     if (prevfirst)
     {
         /* Edge case: What if there's a gap before any points? */
         exptime = spoints[0].time + pw;
         if (len > 1 && spoints[1].time > exptime)
         {
-            pullToZeroNoInterp(&outputs[0], exptime, this->epoch, 0.0f);
+            pullToZero(&outputs[0], exptime, this->epoch, 0.0f, &spoints[0], &spoints[1]);
             prevcount = 0.0f;
             j = 1;
         }
@@ -317,7 +318,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         /* This is mutually exclusive with ddendatzero. */
         if (spoints[len - 1].time > exptime)
         {
-            pullToZeroNoInterp(&outputs[j], exptime, this->epoch, prevcount);
+            pullToZero(&outputs[j], exptime, this->epoch, prevcount, &spoints[i], &spoints[len - 1]);
             pullToZeroNoInterp(&outputs[j + 1], spoints[len - 1].time, this->epoch, 0.0f);
             j += 2;
         }

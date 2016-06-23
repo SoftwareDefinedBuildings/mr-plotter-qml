@@ -8,20 +8,22 @@ uniform mat3 axisTransform;
 uniform vec2 axisBase;
 uniform float pointsize;
 uniform bool tstrip;
+uniform bool alwaysJoin;
 attribute float time;
 attribute float value;
 attribute float flags;
 varying float render;
 void main()
 {
-    if (flags <= 0.5 || flags >= 1.5)
+    if (alwaysJoin || flags <= 0.5 || flags >= 1.5)
     {
         vec3 transformed = axisTransform * vec3(vec2(time, value) - axisBase, 1.0);
         gl_Position = vec4(transformed.xy, 0.0, 1.0);
-        /* If flags is FLAGS_LONEPT, then I want to skip rendering the triangle
-         * strip, but draw the vertical line.
+        /* If flags is FLAGS_LONEPT and we aren't joining all the points,
+         * then I want to skip rendering the triangle strip (and line strip),
+         * but draw the vertical line (and point).
          */
-        render = (tstrip ^^ (flags >= -1.5 && flags <= -0.5)) ? 1.0 : 0.0;
+        render = (tstrip ^^ (!alwaysJoin && flags >= -1.5 && flags <= -0.5)) ? 1.0 : 0.0;
         gl_PointSize = pointsize;
     }
     else
