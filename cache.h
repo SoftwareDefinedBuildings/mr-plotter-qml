@@ -88,6 +88,10 @@ private:
     /* UUID of the stream of data cached in this entry. */
     QUuid uuid;
 
+    /* The first and last point drawn by this entry. */
+    struct statpt* firstpt;
+    struct statpt* lastpt;
+
     /* The cost in the Cache of this Cache Entry. */
     uint64_t cost;
 

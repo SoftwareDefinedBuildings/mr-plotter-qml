@@ -91,7 +91,7 @@ inline void Requester::sendBWRequest(const QUuid &uuid, int64_t start, int64_t e
 {
     if (archiver == (uint32_t) -1)
     {
-        /* For now, this is just a simulator. */
+        /* This is a simulator. */
 
         int64_t pw = ((int64_t) 1) << pwe;
         int64_t pwe_mask = ~(pw - 1);
@@ -113,6 +113,7 @@ inline void Requester::sendBWRequest(const QUuid &uuid, int64_t start, int64_t e
             double mean = 0.0;
 
             int64_t stime = start + (i << pwe);
+            Q_ASSERT(stime <= end);
 
             uint64_t count = 0;
 

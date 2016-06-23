@@ -224,8 +224,6 @@ void PlotRenderer::render()
     this->glEnable(GL_BLEND);
     this->glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    this->glUniform1i(alwaysJoinLoc, 0);
-
     for (auto i = this->streams.begin(); i != this->streams.end(); ++i)
     {
         struct drawable& s = *i;
@@ -234,6 +232,7 @@ void PlotRenderer::render()
         this->glLineWidth(s.selected ? 3.0 : 1.0);
         this->glUniform1f(pointsizeLoc, s.selected ? 5.0 : 3.0);
         this->glUniform3fv(datadensity ? colorLocDD : colorLoc, 1, COLOR_TO_ARRAY(s.color));
+        this->glUniform1i(alwaysJoinLoc, s.alwaysJoin ? 1 : 0);
         for (auto j = todraw.begin(); j != todraw.end(); ++j)
         {
             QSharedPointer<CacheEntry>& ce = *j;

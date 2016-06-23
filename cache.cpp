@@ -49,6 +49,9 @@ CacheEntry::CacheEntry(Cache* c, const QUuid& u, int64_t startRange, int64_t end
     this->cachedlen = 0;
     this->vbo = 0;
 
+    this->firstpt = nullptr;
+    this->lastpt = nullptr;
+
     this->joinsPrev = false;
     this->joinsNext = false;
     this->prepared = false;
@@ -64,6 +67,15 @@ CacheEntry::~CacheEntry()
     Q_ASSERT(this->cached != nullptr);
 
     delete[] this->cached;
+
+    if (this->firstpt != nullptr)
+    {
+        delete this->firstpt;
+    }
+    if (this->lastpt != nullptr)
+    {
+        delete this->lastpt;
+    }
 
     if (this->vbo != 0)
     {
@@ -235,6 +247,29 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
 
     j = 0;
 
+    /* When this cache entry is drawn in "ALWAYS CONNECT" mode, then
+     * we may want to connect with the previous and next entries.
+     */
+    qDebug("%d %d", this->joinsPrev, this->joinsNext);
+    if (prev != nullptr && prev->lastpt != nullptr)
+    {
+        qDebug("need to connect to previous");
+    }
+    else
+    {
+        this->firstpt = new struct statpt;
+        *this->firstpt = spoints[0];
+    }
+    if (next != nullptr && next->firstpt != nullptr)
+    {
+        qDebug("need to connect to next");
+    }
+    else
+    {
+        this->lastpt = new struct statpt;
+        *this->lastpt = spoints[len - 1];
+    }
+
     /* Mutually exclusive with ddstartatzero. */
     if (prevfirst)
     {
@@ -318,7 +353,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         /* This is mutually exclusive with ddendatzero. */
         if (spoints[len - 1].time > exptime)
         {
-            pullToZero(&outputs[j], exptime, this->epoch, prevcount, &spoints[i], &spoints[len - 1]);
+            pullToZero(&outputs[j], exptime, this->epoch, prevcount, &spoints[i - 1], &spoints[len - 1]);
             pullToZeroNoInterp(&outputs[j + 1], spoints[len - 1].time, this->epoch, 0.0f);
             j += 2;
         }
