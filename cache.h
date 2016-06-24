@@ -130,6 +130,9 @@ private:
 
     /* True if this cache entry has been prepared. */
     bool prepared;
+
+    bool connectsToBefore;
+    bool connectsToAfter;
 };
 
 class Cache

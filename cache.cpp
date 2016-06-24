@@ -55,6 +55,9 @@ CacheEntry::CacheEntry(Cache* c, const QUuid& u, int64_t startRange, int64_t end
     this->joinsPrev = false;
     this->joinsNext = false;
     this->prepared = false;
+
+    this->connectsToBefore = false;
+    this->connectsToAfter = false;
 }
 
 CacheEntry::~CacheEntry()
@@ -86,7 +89,7 @@ CacheEntry::~CacheEntry()
 
 #define FLAGS_NONE 0.0f;
 #define FLAGS_GAP 1.0f
-#define FLAGS_GAP_NOINTERP 0.75f;
+#define FLAGS_ALWAYS_HIDE 0.75f;
 #define FLAGS_LONEPT -1.0f;
 
 /* Pulls the data density graph to zero, and creates a gap in the main plot. */
@@ -122,13 +125,13 @@ void pullToZeroNoInterp(struct cachedpt* pt, int64_t time, int64_t epoch, float 
     pt->min = 0.0f;
     pt->prevcount = prevcnt;
     pt->mean = 0.0f;
-    pt->flags = FLAGS_GAP_NOINTERP;
+    pt->flags = FLAGS_ALWAYS_HIDE;
 
     pt->reltime2 = reltime;
     pt->max = 0.0f;
     pt->count = 0.0f;
     pt->truecount = 0.0f;
-    pt->flags2 = FLAGS_GAP_NOINTERP;
+    pt->flags2 = FLAGS_ALWAYS_HIDE;
 }
 
 /* SPOINTS should contain all statistical points where the MIDPOINT is
@@ -219,6 +222,30 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         ddendatzero = true;
     }
 
+    /* If this is true, then ddstartatzero is true. */
+    if (prev.data() != nullptr)
+    {
+        qDebug("%d %p", prevfirst, prev->lastpt);
+    }
+    this->connectsToBefore = !prevfirst && prev.data() != nullptr && prev->lastpt != nullptr && prev->end + 1 == this->start;
+
+    /* If this is true, then ddendatzero is true. */
+    this->connectsToAfter = !nextlast && next.data() != nullptr && next->firstpt != nullptr && this->end + 1 == next->start;
+
+    qDebug("Connects before: %d\tConnects after: %d", this->connectsToBefore, this->connectsToAfter);
+
+    if (!this->connectsToBefore)
+    {
+        this->firstpt = new struct statpt;
+        *this->firstpt = spoints[qMin(len - 1, (int) prevfirst)];
+    }
+
+    if (!this->connectsToAfter)
+    {
+        this->lastpt = new struct statpt;
+        *this->lastpt = spoints[qMax(0, len - 1 - nextlast)];
+    }
+
     /* We can get two distinct bounds on the number of cached points.
      * In the worst case, we will create a single "gap point" for every point we consider
      * in the spoints array, plus one before and two after. We can also say that, in the
@@ -230,45 +257,49 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
      * of the buffer.
      */
     this->cachedlen = (int) qMin((((uint64_t) len) << 1) + 2, (((uint64_t) (end - start)) >> this->pwe) + 4);
-    this->cached = new struct cachedpt[cachedlen + ddstartatzero + (2 * ddendatzero)];
+    this->cached = new struct cachedpt[cachedlen + this->connectsToBefore + ddstartatzero + this->connectsToAfter + (2 * ddendatzero)];
 
-    struct cachedpt* outputs = this->cached + ddstartatzero;
-
-    if (ddstartatzero)
-    {
-        pullToZeroNoInterp(&this->cached[0], this->start, this->epoch, 0.0f);
-    }
-
-    float prevcount = prevfirst ? spoints[0].count : 0.0f;
-    int64_t prevtime; // Don't need to initialize this.
+    struct cachedpt* outputs = this->cached + ddstartatzero + this->connectsToBefore;
 
     int i, j;
     int64_t exptime;
 
     j = 0;
 
-    /* When this cache entry is drawn in "ALWAYS CONNECT" mode, then
-     * we may want to connect with the previous and next entries.
-     */
-    qDebug("%d %d", this->joinsPrev, this->joinsNext);
-    if (prev != nullptr && prev->lastpt != nullptr)
+    if (ddstartatzero)
     {
-        qDebug("need to connect to previous");
+        if (this->connectsToBefore)
+        {
+            qDebug("Entered");
+            struct cachedpt* output = &this->cached[0];
+            struct statpt* input = prev->lastpt;
+
+            qDebug("Time is %ld", input->time);
+
+            output->reltime = (float) (input->time - this->epoch);
+            output->min = (float) input->min;
+            output->prevcount = 0.0f;
+            output->mean = (float) input->mean;
+
+            output->flags = FLAGS_GAP;
+
+            output->reltime2 = output->reltime;
+            output->max = (float) input->max;
+            output->count = 0.0f;
+            output->truecount = output->count;
+
+            output->flags2 = FLAGS_GAP;
+
+            pullToZero(&this->cached[1], this->start, this->epoch, 0.0f, prev->lastpt, &spoints[0]);
+        }
+        else
+        {
+            pullToZeroNoInterp(&this->cached[0], this->start, this->epoch, 0.0f);
+        }
     }
-    else
-    {
-        this->firstpt = new struct statpt;
-        *this->firstpt = spoints[0];
-    }
-    if (next != nullptr && next->firstpt != nullptr)
-    {
-        qDebug("need to connect to next");
-    }
-    else
-    {
-        this->lastpt = new struct statpt;
-        *this->lastpt = spoints[len - 1];
-    }
+
+    float prevcount = prevfirst ? spoints[0].count : 0.0f;
+    int64_t prevtime; // Don't need to initialize this.
 
     /* Mutually exclusive with ddstartatzero. */
     if (prevfirst)
@@ -326,7 +357,20 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
             }
             else
             {
-                pullToZeroNoInterp(&outputs[j], exptime, this->epoch, prevcount);
+                if (nextlast)
+                {
+                    pullToZero(&outputs[j], exptime, this->epoch, prevcount, input, &spoints[len - 1]);
+                }
+                else if (this->connectsToAfter)
+                {
+                    pullToZero(&outputs[j], exptime, this->epoch, prevcount, input, next->firstpt);
+                }
+                else
+                {
+                    pullToZeroNoInterp(&outputs[j], exptime, this->epoch, prevcount);
+                    qDebug("Last gap at time %ld", exptime);
+                }
+                //pullToZeroNoInterp(&outputs[j], exptime, this->epoch, prevcount);
             }
 
             /* If the previous point (at index j - 1) has a gap on either
@@ -353,6 +397,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         /* This is mutually exclusive with ddendatzero. */
         if (spoints[len - 1].time > exptime)
         {
+            qDebug("Got to nextlast internal");
             pullToZero(&outputs[j], exptime, this->epoch, prevcount, &spoints[i - 1], &spoints[len - 1]);
             pullToZeroNoInterp(&outputs[j + 1], spoints[len - 1].time, this->epoch, 0.0f);
             j += 2;
@@ -361,12 +406,41 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
 
     if (ddendatzero)
     {
-        pullToZeroNoInterp(&outputs[j], exptime, this->epoch, prevcount);
-        pullToZeroNoInterp(&outputs[j + 1], this->end + 1, this->epoch, 0.0f);
-        j += 2;
+        if (this->connectsToAfter)
+        {
+            qDebug("Connecting: %ld %ld", exptime, this->end + 1);
+            pullToZero(&outputs[j], exptime, this->epoch, prevcount, &spoints[len - 1], next->firstpt);
+            pullToZero(&outputs[j + 1], this->end + 1, this->epoch, 0.0f, &spoints[len - 1], next->firstpt);
+
+            struct cachedpt* output = &outputs[j + 2];
+            struct statpt* input = next->firstpt;
+
+            output->reltime = (float) (input->time - this->epoch);
+            output->min = (float) input->min;
+            output->prevcount = 0.0f;
+            output->mean = (float) input->mean;
+
+            output->flags = FLAGS_LONEPT;
+
+            output->reltime2 = output->reltime;
+            output->max = (float) input->max;
+            output->count = 0.0f;
+            output->truecount = output->count;
+
+            output->flags2 = FLAGS_LONEPT;
+
+            j += 3;
+        }
+        else
+        {
+            pullToZeroNoInterp(&outputs[j], exptime, this->epoch, prevcount);
+            pullToZeroNoInterp(&outputs[j + 1], this->end + 1, this->epoch, 0.0f);
+
+            j += 2;
+        }
     }
 
-    this->cachedlen = j + ddstartatzero; // The remaining were extra...
+    this->cachedlen = j + ddstartatzero + this->connectsToBefore; // The remaining were extra...
 }
 
 bool CacheEntry::isPlaceholder()
@@ -515,13 +589,13 @@ void CacheEntry::renderDDPlot(QOpenGLFunctions* funcs, float yStart,
 
         /* Draw the data density plot. */
         funcs->glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
-        funcs->glVertexAttribPointer(TIME_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*) 0);
-        funcs->glVertexAttribPointer(COUNT_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*) (2 * sizeof(float)));
+        funcs->glVertexAttribPointer(TIME_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*) (0 + this->connectsToBefore * sizeof(struct cachedpt)));
+        funcs->glVertexAttribPointer(COUNT_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*) (2 * sizeof(float) + this->connectsToBefore * sizeof(struct cachedpt)));
         funcs->glEnableVertexAttribArray(TIME_ATTR_LOC);
         funcs->glEnableVertexAttribArray(COUNT_ATTR_LOC);
         funcs->glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-        funcs->glDrawArrays(GL_LINE_STRIP, 0, this->cachedlen << 1);
+        funcs->glDrawArrays(GL_LINE_STRIP, 0, (this->cachedlen - this->connectsToBefore - this->connectsToAfter) << 1);
     }
 }
 
