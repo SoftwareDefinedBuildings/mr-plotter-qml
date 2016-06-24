@@ -107,7 +107,7 @@ GLint PlotRenderer::axisMatLoc;
 GLint PlotRenderer::axisVecLoc;
 GLint PlotRenderer::pointsizeLoc;
 GLint PlotRenderer::tstripLoc;
-GLint PlotRenderer::alwaysJoinLoc;
+GLint PlotRenderer::alwaysConnectLoc;
 GLint PlotRenderer::opacityLoc;
 GLint PlotRenderer::colorLoc;
 
@@ -140,7 +140,7 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
         this->axisVecLoc = this->glGetUniformLocation(this->program, "axisBase");
         this->pointsizeLoc = this->glGetUniformLocation(this->program, "pointsize");
         this->tstripLoc = this->glGetUniformLocation(this->program, "tstrip");
-        this->alwaysJoinLoc = this->glGetUniformLocation(this->program, "alwaysJoin");
+        this->alwaysConnectLoc = this->glGetUniformLocation(this->program, "alwaysConnect");
         this->opacityLoc = this->glGetUniformLocation(this->program, "opacity");
         this->colorLoc = this->glGetUniformLocation(this->program, "color");
 
@@ -232,7 +232,7 @@ void PlotRenderer::render()
         this->glLineWidth(s.selected ? 3.0 : 1.0);
         this->glUniform1f(pointsizeLoc, s.selected ? 5.0 : 3.0);
         this->glUniform3fv(datadensity ? colorLocDD : colorLoc, 1, COLOR_TO_ARRAY(s.color));
-        this->glUniform1i(alwaysJoinLoc, s.alwaysJoin ? 1 : 0);
+        this->glUniform1i(alwaysConnectLoc, s.alwaysConnect ? 1 : 0);
         for (auto j = todraw.begin(); j != todraw.end(); ++j)
         {
             QSharedPointer<CacheEntry>& ce = *j;

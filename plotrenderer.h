@@ -36,7 +36,7 @@ private:
     static GLint axisVecLoc;
     static GLint pointsizeLoc;
     static GLint tstripLoc;
-    static GLint alwaysJoinLoc;
+    static GLint alwaysConnectLoc;
     static GLint opacityLoc;
     static GLint colorLoc;
 

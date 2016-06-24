@@ -17,7 +17,7 @@
 #define PWE_MAX 63
 
 /* The maximum number of datapoints that can be cached. */
-/* Currently set to 320 MiB. */
+/* Currently set to 400 MB. */
 #define CACHE_THRESHOLD 10000000
 
 class Cache;

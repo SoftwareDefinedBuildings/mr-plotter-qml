@@ -27,7 +27,7 @@ struct drawable
     float ymax;
     struct color color;
     bool selected;
-    bool alwaysJoin;
+    bool alwaysConnect;
 };
 
 /* Both Stream and Axis need declarations of each other. */
@@ -37,7 +37,7 @@ class Stream : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(bool selected MEMBER selected)
-    Q_PROPERTY(bool alwaysJoin MEMBER alwaysJoin)
+    Q_PROPERTY(bool alwaysConnect MEMBER alwaysConnect)
 
 public:
     Stream(QObject* parent = nullptr);
@@ -66,7 +66,7 @@ public:
     bool selected;
 
     /* True if the points of this stream should always be joined. */
-    bool alwaysJoin;
+    bool alwaysConnect;
 
 private:
     void init();

@@ -30,7 +30,7 @@ bool Stream::toDrawable(struct drawable& d) const
     this->axis->getDomain(d.ymin, d.ymax);
     d.color = this->color;
     d.selected = this->selected;
-    d.alwaysJoin = this->alwaysJoin;
+    d.alwaysConnect = this->alwaysConnect;
     return true;
 }
 
@@ -54,7 +54,7 @@ void Stream::init()
     this->color.blue = 1.0f;
 
     this->selected = false;
-    this->alwaysJoin = false;
+    this->alwaysConnect = false;
 
     this->axis = nullptr;
 }

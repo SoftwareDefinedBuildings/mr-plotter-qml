@@ -520,7 +520,7 @@ void PlotArea::updateDataAsync(Cache& cache, Requester* requester)
                 this->rescaleAxes(timeaxis_start, timeaxis_end);
                 this->update();
             }
-        }, timewidth, s->alwaysJoin);
+        }, timewidth, s->alwaysConnect);
     }
 }
 

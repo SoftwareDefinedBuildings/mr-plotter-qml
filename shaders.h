@@ -8,14 +8,14 @@ uniform mat3 axisTransform;
 uniform vec2 axisBase;
 uniform float pointsize;
 uniform bool tstrip;
-uniform bool alwaysJoin;
+uniform bool alwaysConnect;
 attribute float time;
 attribute float value;
 attribute float flags;
 varying float render;
 void main()
 {
-    if ((alwaysJoin && (flags <= 0.7 || flags >= 0.8)) || flags <= 0.5 || flags >= 1.5)
+    if ((alwaysConnect && (flags <= 0.7 || flags >= 0.8)) || flags <= 0.5 || flags >= 1.5)
     {
         vec3 transformed = axisTransform * vec3(vec2(time, value) - axisBase, 1.0);
         gl_Position = vec4(transformed.xy, 0.0, 1.0);
@@ -23,7 +23,7 @@ void main()
          * then I want to skip rendering the triangle strip (and line strip),
          * but draw the vertical line (and point).
          */
-        render = (tstrip ^^ (!alwaysJoin && flags >= -1.5 && flags <= -0.5)) ? 1.0 : 0.0;
+        render = (tstrip ^^ (!alwaysConnect && flags >= -1.5 && flags <= -0.5)) ? 1.0 : 0.0;
         gl_PointSize = pointsize;
     }
     else
