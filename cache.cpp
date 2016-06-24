@@ -87,10 +87,10 @@ CacheEntry::~CacheEntry()
     }
 }
 
-#define FLAGS_NONE 0.0f;
+#define FLAGS_NONE 0.0f
 #define FLAGS_GAP 1.0f
-#define FLAGS_ALWAYS_HIDE 0.75f;
-#define FLAGS_LONEPT -1.0f;
+#define FLAGS_ALWAYS_HIDE 0.75f
+#define FLAGS_LONEPT -1.0f
 
 /* Pulls the data density graph to zero, and creates a gap in the main plot. */
 void pullToZero(struct cachedpt* pt, int64_t time, int64_t epoch, float prevcnt, struct statpt* prev, struct statpt* next)
@@ -134,6 +134,23 @@ void pullToZeroNoInterp(struct cachedpt* pt, int64_t time, int64_t epoch, float 
     pt->flags2 = FLAGS_ALWAYS_HIDE;
 }
 
+void fillpt(struct cachedpt* output, struct statpt* input, int64_t epoch, float prevcount, float count, float flags)
+{
+    output->reltime = (float) (input->time - epoch);
+    output->min = (float) input->min;
+    output->prevcount = prevcount;
+    output->mean = (float) input->mean;
+
+    output->flags = flags;
+
+    output->reltime2 = output->reltime;
+    output->max = (float) input->max;
+    output->count = count;
+    output->truecount = output->count;
+
+    output->flags2 = flags;
+}
+
 /* SPOINTS should contain all statistical points where the MIDPOINT is
  * in the (closed) interval [start, end] of this cache entry.
  * If there is a point immediately to the left of and adjacent to the
@@ -152,31 +169,64 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
 
     int64_t halfpw = pw >> 1;
 
+    bool prevfirst = (len > 0 && spoints[0].time == ((start - halfpw - 1) & pwmask));
+    bool nextlast = (len > 0 && spoints[len - 1].time == (((end - halfpw) & pwmask) + pw));
+
+    /* These "connect" variables refer to whether this cache entry
+     * should take responsibility for connecting to the previous
+     * cache entry, when drawn with the ALWAYS CONNECT setting.
+     */
+
+    /* If this is true, then ddstartatzero is true. */
+    this->connectsToBefore = !prevfirst && prev.data() != nullptr && prev->lastpt != nullptr && prev->end + 1 == this->start;
+
+    /* If this is true, then ddendatzero is true. */
+    this->connectsToAfter = !nextlast && next.data() != nullptr && next->firstpt != nullptr && this->end + 1 == next->start;
+
     if (len == 0)
     {
         /* Edge case: no data. Just draw 0 data density plot. */
         this->epoch = (this->start >> 1) + (this->end >> 1);
-        this->cachedlen = 2;
-        this->cached = new struct cachedpt[this->cachedlen];
-        pullToZeroNoInterp(&this->cached[0], this->start, this->epoch, 0.0f);
-        pullToZeroNoInterp(&this->cached[1], this->end + 1, this->epoch, 0.0f);
+        if (this->connectsToBefore && this->connectsToAfter)
+        {
+            /* Bridge the gap. */
+            this->cachedlen = 4;
+            this->cached = new struct cachedpt[this->cachedlen];
+
+            fillpt(&this->cached[0], prev->lastpt, this->epoch, 0.0f, 0.0f, FLAGS_GAP);
+            pullToZero(&this->cached[1], this->start, this->epoch, 0.0f, prev->lastpt, next->firstpt);
+            pullToZero(&this->cached[2], this->end + 1, this->epoch, 0.0f, prev->lastpt, next->firstpt);
+            fillpt(&this->cached[3], next->firstpt, this->epoch, 0.0f, 0.0f, FLAGS_GAP);
+        }
+        else
+        {
+            this->cachedlen = 2;
+            this->cached = new struct cachedpt[this->cachedlen];
+
+            pullToZeroNoInterp(&this->cached[0], this->start, this->epoch, 0.0f);
+            pullToZeroNoInterp(&this->cached[1], this->end + 1, this->epoch, 0.0f);
+
+            if (!this->connectsToBefore && this->connectsToAfter)
+            {
+                this->firstpt = new struct statpt;
+                *this->firstpt = *next->firstpt;
+            }
+            if (this->connectsToBefore && !this->connectsToAfter)
+            {
+                this->lastpt = new struct statpt;
+                *this->lastpt = *prev->lastpt;
+            }
+
+            this->connectsToBefore = false;
+            this->connectsToAfter = false;
+        }
         return;
     }
 
     this->joinsPrev = (prev != nullptr && !prev->joinsNext && prev->cachedlen != 0);
     this->joinsNext = (next != nullptr && !next->joinsPrev && next->cachedlen != 0);
 
-    if (len > 0)
-    {
-        this->epoch = (spoints[len - 1].time >> 1) + (spoints[0].time >> 1);
-    }
-    else
-    {
-        this->epoch = 0;
-    }
-
-    bool prevfirst = (len > 0 && spoints[0].time == ((start - halfpw - 1) & pwmask));
-    bool nextlast = (len > 0 && spoints[len - 1].time == (((end - halfpw) & pwmask) + pw));
+    this->epoch = (spoints[len - 1].time >> 1) + (spoints[0].time >> 1);
 
     /* NUMINPUTS is the number of inputs that we look at in the main iteration over
      * the array.
@@ -222,16 +272,6 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         ddendatzero = true;
     }
 
-    /* If this is true, then ddstartatzero is true. */
-    if (prev.data() != nullptr)
-    {
-        qDebug("%d %p", prevfirst, prev->lastpt);
-    }
-    this->connectsToBefore = !prevfirst && prev.data() != nullptr && prev->lastpt != nullptr && prev->end + 1 == this->start;
-
-    /* If this is true, then ddendatzero is true. */
-    this->connectsToAfter = !nextlast && next.data() != nullptr && next->firstpt != nullptr && this->end + 1 == next->start;
-
     qDebug("Connects before: %d\tConnects after: %d", this->connectsToBefore, this->connectsToAfter);
 
     if (!this->connectsToBefore)
@@ -276,19 +316,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
 
             qDebug("Time is %ld", input->time);
 
-            output->reltime = (float) (input->time - this->epoch);
-            output->min = (float) input->min;
-            output->prevcount = 0.0f;
-            output->mean = (float) input->mean;
-
-            output->flags = FLAGS_GAP;
-
-            output->reltime2 = output->reltime;
-            output->max = (float) input->max;
-            output->count = 0.0f;
-            output->truecount = output->count;
-
-            output->flags2 = FLAGS_GAP;
+            fillpt(output, input, this->epoch, 0.0f, 0.0f, FLAGS_GAP);
 
             pullToZero(&this->cached[1], this->start, this->epoch, 0.0f, prev->lastpt, &spoints[0]);
         }
@@ -323,19 +351,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
 
         output = &outputs[j];
 
-        output->reltime = (float) (input->time - this->epoch);
-        output->min = (float) input->min;
-        output->prevcount = prevcount;
-        output->mean = (float) input->mean;
-
-        output->flags = FLAGS_NONE;
-
-        output->reltime2 = output->reltime;
-        output->max = (float) input->max;
-        output->count = (float) input->count;
-        output->truecount = output->count;
-
-        output->flags2 = FLAGS_NONE;
+        fillpt(output, input, this->epoch, prevcount, (float) input->count, FLAGS_NONE);
 
         prevtime = input->time;
         prevcount = output->count;
@@ -415,19 +431,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
             struct cachedpt* output = &outputs[j + 2];
             struct statpt* input = next->firstpt;
 
-            output->reltime = (float) (input->time - this->epoch);
-            output->min = (float) input->min;
-            output->prevcount = 0.0f;
-            output->mean = (float) input->mean;
-
-            output->flags = FLAGS_LONEPT;
-
-            output->reltime2 = output->reltime;
-            output->max = (float) input->max;
-            output->count = 0.0f;
-            output->truecount = output->count;
-
-            output->flags2 = FLAGS_LONEPT;
+            fillpt(output, input, this->epoch, 0.0f, 0.0f, FLAGS_LONEPT);
 
             j += 3;
         }
