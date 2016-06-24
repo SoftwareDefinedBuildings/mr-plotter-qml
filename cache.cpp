@@ -272,8 +272,6 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         ddendatzero = true;
     }
 
-    qDebug("Connects before: %d\tConnects after: %d", this->connectsToBefore, this->connectsToAfter);
-
     if (!this->connectsToBefore)
     {
         this->firstpt = new struct statpt;
@@ -384,9 +382,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
                 else
                 {
                     pullToZeroNoInterp(&outputs[j], exptime, this->epoch, prevcount);
-                    qDebug("Last gap at time %ld", exptime);
                 }
-                //pullToZeroNoInterp(&outputs[j], exptime, this->epoch, prevcount);
             }
 
             /* If the previous point (at index j - 1) has a gap on either
@@ -413,7 +409,6 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         /* This is mutually exclusive with ddendatzero. */
         if (spoints[len - 1].time > exptime)
         {
-            qDebug("Got to nextlast internal");
             pullToZero(&outputs[j], exptime, this->epoch, prevcount, &spoints[i - 1], &spoints[len - 1]);
             pullToZeroNoInterp(&outputs[j + 1], spoints[len - 1].time, this->epoch, 0.0f);
             j += 2;
@@ -424,14 +419,13 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
     {
         if (this->connectsToAfter)
         {
-            qDebug("Connecting: %ld %ld", exptime, this->end + 1);
             pullToZero(&outputs[j], exptime, this->epoch, prevcount, &spoints[len - 1], next->firstpt);
             pullToZero(&outputs[j + 1], this->end + 1, this->epoch, 0.0f, &spoints[len - 1], next->firstpt);
 
             struct cachedpt* output = &outputs[j + 2];
             struct statpt* input = next->firstpt;
 
-            fillpt(output, input, this->epoch, 0.0f, 0.0f, FLAGS_LONEPT);
+            fillpt(output, input, this->epoch, 0.0f, 0.0f, FLAGS_GAP);
 
             j += 3;
         }
