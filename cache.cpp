@@ -308,11 +308,8 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
     {
         if (this->connectsToBefore)
         {
-            qDebug("Entered");
             struct cachedpt* output = &this->cached[0];
             struct statpt* input = prev->lastpt;
-
-            qDebug("Time is %ld", input->time);
 
             fillpt(output, input, this->epoch, 0.0f, 0.0f, FLAGS_GAP);
 
@@ -662,7 +659,7 @@ Cache::~Cache()
  */
 void Cache::requestData(Requester* requester, uint32_t archiver, const QUuid& uuid, int64_t start, int64_t end,
                         uint8_t pwe, std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
-                        uint64_t request_hint)
+                        uint64_t request_hint, bool includemargins)
 {
     Q_ASSERT(pwe < PWE_MAX);
     QList<QSharedPointer<CacheEntry>>* result = new QList<QSharedPointer<CacheEntry>>;
@@ -694,7 +691,13 @@ void Cache::requestData(Requester* requester, uint32_t archiver, const QUuid& uu
 
     QSharedPointer<CacheEntry> nullpointer;
     QSharedPointer<CacheEntry> prev = nullpointer;
-    for (i = entries->lowerBound(start); nextexp <= end; ++i)
+
+    i = entries->lowerBound(start);
+    if (includemargins && i != entries->begin())
+    {
+        result->append(*(i - 1));
+    }
+    for (; nextexp <= end; i++)
     {
         QSharedPointer<CacheEntry> entry = (i == entries->end() ? nullpointer : *i);
 
@@ -751,7 +754,6 @@ void Cache::requestData(Requester* requester, uint32_t archiver, const QUuid& uu
                     nextexp = filluntil - request_hint;
                     if (nextexp > filluntil)
                     {
-                        qDebug("Detected overflow");
                         nextexp = INT64_MIN;
                     }
                     if (i != entries->begin())
@@ -851,12 +853,17 @@ void Cache::requestData(Requester* requester, uint32_t archiver, const QUuid& uu
          */
         if (entry->end == INT64_MAX)
         {
+            i++;
             break;
         }
 
         nextexp = entry->end + 1;
 
         prev = entry;
+    }
+    if (includemargins && i != entries->end()) {
+        Q_ASSERT(result->isEmpty() || result->last() != *i);
+        result->append(*i);
     }
 
     uint64_t numqueriesmade = this->outstanding[queryid].first;

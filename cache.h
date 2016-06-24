@@ -156,7 +156,7 @@ public:
      */
     void requestData(Requester* requester, uint32_t archiver, const QUuid& uuid, int64_t start, int64_t end,
                      uint8_t pwe,  std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
-                     uint64_t request_hint = 0);
+                     uint64_t request_hint = 0, bool includemargins = false);
 
     /* The VBOs that need to be deleted. */
     QVector<GLuint> todelete;
