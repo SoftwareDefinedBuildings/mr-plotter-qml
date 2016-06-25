@@ -45,6 +45,8 @@ public:
     QQuickFramebufferObject::Renderer* createRenderer() const override;
     Q_INVOKABLE void addStream(Stream* s);
 
+    Q_INVOKABLE void setScrollZoomable(bool enabled);
+
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
@@ -88,10 +90,12 @@ private:
 
     double pixelToTime;
 
-    QCursor openhand;
-    QCursor closedhand;
-
     uint64_t fullUpdateID;
+
+    static bool initializedCursors;
+    static QCursor defaultcursor;
+    static QCursor openhand;
+    static QCursor closedhand;
 };
 
 #endif // PLOTAREA_H

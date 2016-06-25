@@ -28,6 +28,11 @@
 #define UINT64_MAX ((uint64_t) 0xFFFFFFFFFFFFFFFF)
 #endif
 
+bool PlotArea::initializedCursors = false;
+QCursor PlotArea::defaultcursor;
+QCursor PlotArea::openhand;
+QCursor PlotArea::closedhand;
+
 /* Computes the number x such that 2 ^ x <= POINTWIDTH < 2 ^ (x + 1). */
 inline uint8_t getPWExponent(uint64_t pointwidth)
 {
@@ -39,10 +44,16 @@ inline uint8_t getPWExponent(uint64_t pointwidth)
     return qMin(pwe, (uint8_t) (PWE_MAX - 1));
 }
 
-PlotArea::PlotArea() : openhand(Qt::OpenHandCursor), closedhand(Qt::ClosedHandCursor)
+PlotArea::PlotArea()
 {
-    this->setAcceptedMouseButtons(Qt::LeftButton);
-    this->setCursor(this->openhand);
+    /* Initialize static cursors. */
+    if (!PlotArea::initializedCursors)
+    {
+        PlotArea::defaultcursor.setShape(Qt::ArrowCursor);
+        PlotArea::openhand.setShape(Qt::OpenHandCursor);
+        PlotArea::closedhand.setShape(Qt::ClosedHandCursor);
+        PlotArea::initializedCursors = true;
+    }
 
     this->fullUpdateID = 0;
     this->showDataDensity = false;
@@ -50,6 +61,8 @@ PlotArea::PlotArea() : openhand(Qt::OpenHandCursor), closedhand(Qt::ClosedHandCu
     this->plot = nullptr;
 
     this->setAntialiasing(true);
+
+    this->setScrollZoomable(true);
 }
 
 QQuickFramebufferObject::Renderer* PlotArea::createRenderer() const
@@ -60,6 +73,20 @@ QQuickFramebufferObject::Renderer* PlotArea::createRenderer() const
 void PlotArea::addStream(Stream* s)
 {
     this->streams.append(s);
+}
+
+void PlotArea::setScrollZoomable(bool enabled)
+{
+    if (enabled)
+    {
+        this->setAcceptedMouseButtons(Qt::LeftButton);
+        this->setCursor(this->openhand);
+    }
+    else
+    {
+        this->setAcceptedMouseButtons(Qt::NoButton);
+        this->setCursor(this->defaultcursor);
+    }
 }
 
 int64_t safeRoundSigned(double x)
