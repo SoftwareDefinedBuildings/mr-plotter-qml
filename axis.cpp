@@ -206,7 +206,7 @@ uint64_t getTimeTickDelta(const uint64_t* intervals, int len, uint64_t span)
     return *tickptr;
 }
 
-QString getTimeTickLabel(int64_t timestamp, QDateTime& datetime, Timescale granularity)
+QString getTimeTickLabel(int64_t timestamp, QDateTime& datetime, Timescale granularity, bool dontPromoteTicks)
 {
     int64_t minute;
 
@@ -216,7 +216,7 @@ QString getTimeTickLabel(int64_t timestamp, QDateTime& datetime, Timescale granu
     switch (granularity)
     {
     case Timescale::NANOSECOND:
-        if (timestamp % MILLISECOND_NS != 0)
+        if (dontPromoteTicks || timestamp % MILLISECOND_NS != 0)
         {
             int64_t nanos = timestamp % SECOND_NS;
             if (nanos < 0)
@@ -226,18 +226,18 @@ QString getTimeTickLabel(int64_t timestamp, QDateTime& datetime, Timescale granu
             return QStringLiteral(".%1").arg(nanos, 9, 10, QChar('0'));
         }
     case Timescale::MILLISECOND:
-        if (datetime.time().msec() != 0)
+        if (dontPromoteTicks || datetime.time().msec() != 0)
         {
             return datetime.toString(".zzz");
         }
     case Timescale::SECOND:
-        if (datetime.time().second() != 0)
+        if (dontPromoteTicks || datetime.time().second() != 0)
         {
             return datetime.toString(QStringLiteral(":ss"));
         }
     case Timescale::MINUTE:
         minute = datetime.time().minute();
-        if (minute != 0)
+        if (dontPromoteTicks || minute != 0)
         {
             int64_t hour = datetime.time().hour() % 12;
             if (hour == 0)
@@ -247,17 +247,17 @@ QString getTimeTickLabel(int64_t timestamp, QDateTime& datetime, Timescale granu
             return QStringLiteral("%1:%2").arg(hour, 2, 10).arg(minute, 2, 10, QChar('0'));
         }
     case Timescale::HOUR:
-        if (datetime.time().hour() != 0)
+        if (dontPromoteTicks || datetime.time().hour() != 0)
         {
             return datetime.toString(QStringLiteral("hh AP"));
         }
     case Timescale::DAY:
-        if (datetime.date().day() != 1)
+        if (dontPromoteTicks || datetime.date().day() != 1)
         {
             return datetime.toString(QStringLiteral("ddd MMM dd"));
         }
     case Timescale::MONTH:
-        if (datetime.date().month() != 1)
+        if (dontPromoteTicks || datetime.date().month() != 1)
         {
             return datetime.toString(QStringLiteral("MMMM"));
         }
@@ -275,6 +275,7 @@ TimeAxis::TimeAxis(): tz(QTimeZone::utc())
     this->domainLo = 1451606400000000000LL;
     this->domainHi = 1483228799999999999LL;
     this->setTimeZone(this->tz);
+    this->promoteTicks = true;
 }
 
 bool TimeAxis::setDomain(int64_t low, int64_t high)
@@ -293,6 +294,11 @@ void TimeAxis::getDomain(int64_t& low, int64_t& high) const
 {
     low = this->domainLo;
     high = this->domainHi;
+}
+
+void TimeAxis::setPromoteTicks(bool enable)
+{
+    this->promoteTicks = enable;
 }
 
 QVector<struct timetick> TimeAxis::getTicks()
@@ -382,7 +388,7 @@ QVector<struct timetick> TimeAxis::getTicks()
         /* This is the lowest granularity, so we need to check for overflow. */
         while (starttime <= this->domainHi && starttime >= prevstart)
         {
-            ticks.append({ starttime, getTimeTickLabel(starttime, date, granularity) });
+            ticks.append({ starttime, getTimeTickLabel(starttime, date, granularity, !this->promoteTicks) });
             date = date.addYears(yeardelta);
             prevstart = starttime;
             starttime = date.toMSecsSinceEpoch() * MILLISECOND_NS;
@@ -413,7 +419,7 @@ QVector<struct timetick> TimeAxis::getTicks()
         prevstart = starttime;
         while (starttime <= this->domainHi && starttime >= prevstart)
         {
-            ticks.append({ starttime, getTimeTickLabel(starttime, date, granularity) });
+            ticks.append({ starttime, getTimeTickLabel(starttime, date, granularity, !this->promoteTicks) });
             date = date.addMonths(monthdelta);
             prevstart = starttime;
             starttime = date.toMSecsSinceEpoch() * (int64_t) MILLISECOND_NS;
@@ -440,7 +446,7 @@ QVector<struct timetick> TimeAxis::getTicks()
         while (starttime <= this->domainHi && starttime >= prevstart) {
             // Add the tick to ticks
             QDateTime date = QDateTime::fromMSecsSinceEpoch(ceildiv(starttime, MILLISECOND_NS), this->tz);
-            ticks.append({ starttime, getTimeTickLabel(starttime, date, granularity) });
+            ticks.append({ starttime, getTimeTickLabel(starttime, date, granularity, !this->promoteTicks) });
             prevstart = starttime;
             starttime += deltatick;
         }

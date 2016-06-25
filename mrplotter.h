@@ -49,6 +49,7 @@ public:
 
     bool setTimeZone(QByteArray timezone);
     Q_INVOKABLE bool setTimeZone(QString timezone);
+    Q_INVOKABLE void setTimeTickPromotion(bool enable);
 
     Q_INVOKABLE void updateDataAsyncThrottled();
     Q_INVOKABLE void updateDataAsync();

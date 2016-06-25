@@ -201,3 +201,8 @@ bool MrPlotter::setTimeZone(QString timezone)
 {
     return this->setTimeZone(timezone.toLatin1());
 }
+
+void MrPlotter::setTimeTickPromotion(bool enable)
+{
+    this->timeaxis.setPromoteTicks(enable);
+}

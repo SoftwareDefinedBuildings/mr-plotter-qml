@@ -189,6 +189,8 @@ public:
 
     void setTimeZone(QTimeZone& newtz);
 
+    void setPromoteTicks(bool enable);
+
     const QStaticText& getLabel() const;
 
     QVector<struct timetick> getTicks();
@@ -200,6 +202,7 @@ private:
     int64_t domainHi;
     QTimeZone tz;
     QStaticText label;
+    bool promoteTicks;
     static QString labelformat;
 };
 
