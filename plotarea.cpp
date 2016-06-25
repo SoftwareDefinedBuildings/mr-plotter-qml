@@ -487,6 +487,20 @@ void PlotArea::rescaleAxes(int64_t timeaxis_start, int64_t timeaxis_end)
     }
 }
 
+inline int64_t safe_add(int64_t x, int64_t y)
+{
+    int64_t sum = x + y;
+    if (y > 0 && sum < x)
+    {
+        sum = INT64_MAX;
+    }
+    else if (y < 0 && sum > x)
+    {
+        sum = INT64_MIN;
+    }
+    return sum;
+}
+
 void PlotArea::updateDataAsync(Cache& cache, Requester* requester)
 {
     uint64_t screenwidth = (uint64_t) (0.5 + this->width());
@@ -511,7 +525,12 @@ void PlotArea::updateDataAsync(Cache& cache, Requester* requester)
     {
         Stream* s = *i;
         Q_ASSERT_X(s != nullptr, "updateDataAsync", "invalid value in streamlist");
-        cache.requestData(requester, s->archiver, s->uuid, timeaxis_start, timeaxis_end, pwe,
+
+        /* Take the stream's offset into account when deciding which part of the data to query. */
+        int64_t srch_start = safe_add(timeaxis_start, -s->timeOffset);
+        int64_t srch_end = safe_add(timeaxis_end, -s->timeOffset);
+
+        cache.requestData(requester, s->archiver, s->uuid, srch_start, srch_end, pwe,
                                 [this, s, id, timeaxis_start, timeaxis_end](QList<QSharedPointer<CacheEntry>> data)
         {
             if (id == this->fullUpdateID)

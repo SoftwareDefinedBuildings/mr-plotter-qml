@@ -465,6 +465,7 @@ bool CacheEntry::isPrepared() const
 
 void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
                             float yEnd, int64_t tStart, int64_t tEnd,
+                            int64_t timeOffset,
                             GLint axisMatUniform, GLint axisVecUniform,
                             GLint tstripUniform, GLint opacityUniform)
 {
@@ -487,7 +488,7 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
         matrix[8] = 1.0f;
 
         /* Fill in the offset vector. */
-        vector[0] = (float) (tStart - epoch - ((1ll << pwe) >> 1));
+        vector[0] = (float) (tStart - epoch - timeOffset - ((1ll << pwe) >> 1));
         vector[1] = yStart;
 
         /* Now, given a vector <time, value>, where time is relative to
@@ -550,6 +551,7 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
 
 void CacheEntry::renderDDPlot(QOpenGLFunctions* funcs, float yStart,
                               float yEnd, int64_t tStart, int64_t tEnd,
+                              int64_t timeOffset,
                               GLint axisMatUniform, GLint axisVecUniform)
 {
     Q_ASSERT(this->prepared);
@@ -571,7 +573,7 @@ void CacheEntry::renderDDPlot(QOpenGLFunctions* funcs, float yStart,
         matrix[8] = 1.0f;
 
         /* Fill in the offset vector. */
-        vector[0] = (float) (tStart - epoch) + (1ll << pwe) / 2.0f;
+        vector[0] = (float) (tStart - epoch - timeOffset) + (1ll << pwe) / 2.0f;
         vector[1] = yStart;
 
         /* Now, given a vector <time, value>, where time is relative to

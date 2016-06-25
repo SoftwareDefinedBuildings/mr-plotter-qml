@@ -19,6 +19,20 @@ Stream::Stream(const QUuid& u, uint32_t archiverID, QObject* parent): QObject(pa
     this->init();
 }
 
+void Stream::init()
+{
+    this->timeOffset = 0;
+
+    this->color.red = 0.0f;
+    this->color.green = 0.0f;
+    this->color.blue = 1.0f;
+
+    this->selected = false;
+    this->alwaysConnect = false;
+
+    this->axis = nullptr;
+}
+
 bool Stream::toDrawable(struct drawable& d) const
 {
     if (this->axis == nullptr)
@@ -27,6 +41,7 @@ bool Stream::toDrawable(struct drawable& d) const
     }
 
     d.data = this->data;
+    d.timeOffset = this->timeOffset;
     this->axis->getDomain(d.ymin, d.ymax);
     d.color = this->color;
     d.selected = this->selected;
@@ -46,15 +61,12 @@ bool Stream::setColor(float red, float green, float blue)
     return true;
 }
 
-void Stream::init()
+void Stream::setTimeOffset(int64_t offset)
 {
-    /* TODO: Auto-assign an intelligent color. */
-    this->color.red = 0.0f;
-    this->color.green = 0.0f;
-    this->color.blue = 1.0f;
+    this->timeOffset = offset;
+}
 
-    this->selected = false;
-    this->alwaysConnect = false;
-
-    this->axis = nullptr;
+void Stream::setTimeOffset(double millis, double nanos)
+{
+    this->setTimeOffset(Q_INT64_C(1000000) * (int64_t) millis + (int64_t) nanos);
 }

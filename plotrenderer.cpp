@@ -237,13 +237,14 @@ void PlotRenderer::render()
         {
             QSharedPointer<CacheEntry>& ce = *j;
             Q_ASSERT(!ce->isPlaceholder());
+
             if (datadensity)
             {
-                ce->renderDDPlot(this, s.ymin, s.ymax, this->timeaxis_start, this->timeaxis_end, axisMatLocDD, axisVecLocDD);
+                ce->renderDDPlot(this, s.ymin, s.ymax, this->timeaxis_start, this->timeaxis_end, s.timeOffset, axisMatLocDD, axisVecLocDD);
             }
             else
             {
-                ce->renderPlot(this, s.ymin, s.ymax, this->timeaxis_start, this->timeaxis_end, axisMatLoc, axisVecLoc, tstripLoc, opacityLoc);
+                ce->renderPlot(this, s.ymin, s.ymax, this->timeaxis_start, this->timeaxis_end, s.timeOffset, axisMatLoc, axisVecLoc, tstripLoc, opacityLoc);
             }
         }
     }

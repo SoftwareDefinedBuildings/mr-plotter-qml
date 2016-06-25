@@ -57,12 +57,14 @@ public:
     /* Renders the contents of this cache entry in the main plot. */
     void renderPlot(QOpenGLFunctions* funcs, float yStart,
                     float yEnd, int64_t tStart, int64_t tEnd,
+                    int64_t timeOffset,
                     GLint axisMatUniform, GLint axisVecUniform,
                     GLint tstripUniform, GLint opacityUniform);
 
     /* Renders the contents of this cache entry in the data density plot. */
     void renderDDPlot(QOpenGLFunctions* funcs, float yStart,
                       float yEnd, int64_t tStart, int64_t tEnd,
+                      int64_t timeOffset,
                       GLint axisMatUniform, GLint axisVecUniform);
 
     void getRange(int64_t starttime, int64_t endtime, bool count, float& minimum, float& maximum);

@@ -23,6 +23,7 @@ struct color
 struct drawable
 {
     QList<QSharedPointer<CacheEntry>> data;
+    int64_t timeOffset;
     float ymin;
     float ymax;
     struct color color;
@@ -48,6 +49,9 @@ public:
 
     Q_INVOKABLE bool setColor(float red, float green, float blue);
 
+    void setTimeOffset(int64_t offset);
+    Q_INVOKABLE void setTimeOffset(double millis, double nanos);
+
     QUuid uuid;
 
     /* The currently visible cache entries. */
@@ -55,6 +59,9 @@ public:
 
     /* The axis to which this stream is assigned. */
     YAxis* axis;
+
+    /* The time offset at which this stream should be drawn. */
+    int64_t timeOffset;
 
     /* The color that this stream should have. */
     struct color color;
