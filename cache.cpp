@@ -697,7 +697,11 @@ void Cache::requestData(Requester* requester, uint32_t archiver, const QUuid& uu
     i = entries->lowerBound(start);
     if (includemargins && i != entries->begin())
     {
-        result->append(*(i - 1));
+        auto ptr = *(i - 1);
+        if (!ptr->isPlaceholder())
+        {
+            result->append(ptr);
+        }
     }
     for (; nextexp <= end; i++)
     {
@@ -864,8 +868,12 @@ void Cache::requestData(Requester* requester, uint32_t archiver, const QUuid& uu
         prev = entry;
     }
     if (includemargins && i != entries->end()) {
-        Q_ASSERT(result->isEmpty() || result->last() != *i);
-        result->append(*i);
+        auto ptr = *i;
+        Q_ASSERT(result->isEmpty() || result->last() != ptr);
+        if (!ptr->isPlaceholder())
+        {
+            result->append(ptr);
+        }
     }
 
     uint64_t numqueriesmade = this->outstanding[queryid].first;
