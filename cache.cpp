@@ -508,7 +508,7 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
         funcs->glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
         funcs->glVertexAttribPointer(TIME_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*) 0);
         funcs->glVertexAttribPointer(VALUE_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*) sizeof(float));
-        funcs->glVertexAttribPointer(FLAGS_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*) (5 * sizeof(float)));
+        funcs->glVertexAttribPointer(FLAGS_ATTR_LOC, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*) (4 * sizeof(float)));
         funcs->glEnableVertexAttribArray(TIME_ATTR_LOC);
         funcs->glEnableVertexAttribArray(VALUE_ATTR_LOC);
         funcs->glEnableVertexAttribArray(FLAGS_ATTR_LOC);
