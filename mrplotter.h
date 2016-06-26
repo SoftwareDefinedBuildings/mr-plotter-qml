@@ -43,6 +43,9 @@ public:
 
     Q_INVOKABLE QVector<qreal> getTimeDomain();
 
+    Q_INVOKABLE bool setScrollableRange(double minMillis, double maxMillis,
+                                        double minNanos = 0.0, double maxNanos = 0.0);
+
     Q_INVOKABLE YAxis* newYAxis();
     Q_INVOKABLE YAxis* newYAxis(float domainLo, float domainHi);
     Q_INVOKABLE void delYAxis(YAxis* ya);
@@ -58,6 +61,9 @@ public:
     TimeAxis timeaxis;
 
     static Cache cache;
+
+    int64_t scrollable_min;
+    int64_t scrollable_max;
 
 signals:
 

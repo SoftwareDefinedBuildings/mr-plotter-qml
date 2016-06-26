@@ -18,15 +18,24 @@
 #include <QTouchEvent>
 #include <QWheelEvent>
 
-#ifndef INT64_MIN
-#define INT64_MIN ((int64_t) 0x8000000000000000)
-#endif
-#ifndef INT64_MAX
-#define INT64_MAX ((int64_t) 0x7FFFFFFFFFFFFFFF)
-#endif
-#ifndef UINT64_MAX
-#define UINT64_MAX ((uint64_t) 0xFFFFFFFFFFFFFFFF)
-#endif
+int64_t safeSub(int64_t x, int64_t y)
+{
+    if (y > 0)
+    {
+        if ((uint64_t) y > (uint64_t) (x - INT64_MIN))
+        {
+            return INT64_MIN;
+        }
+    }
+    else
+    {
+        if ((uint64_t) (-y) > (uint64_t) (INT64_MAX - x))
+        {
+            return INT64_MAX;
+        }
+    }
+    return x - y;
+}
 
 bool PlotArea::initializedCursors = false;
 QCursor PlotArea::defaultcursor;
@@ -91,11 +100,13 @@ void PlotArea::setScrollZoomable(bool enabled)
 
 int64_t safeRoundSigned(double x)
 {
-    if (x > std::nextafter((double) INT64_MAX, 0.0))
+    using namespace std;
+
+    if (x > nextafter((double) INT64_MAX, 0.0))
     {
         return INT64_MAX;
     }
-    else if (x < std::nextafter((double) INT64_MIN , 0.0))
+    else if (x < nextafter((double) INT64_MIN , 0.0))
     {
         return INT64_MIN;
     }
@@ -104,7 +115,9 @@ int64_t safeRoundSigned(double x)
 
 uint64_t safeRoundUnsigned(double x)
 {
-    if (x >= std::nextafter((double) UINT64_MAX, 0.0))
+    using namespace std;
+
+    if (x >= nextafter((double) UINT64_MAX, 0.0))
     {
         return UINT64_MAX;
     }
@@ -130,6 +143,10 @@ void PlotArea::performScroll(int screendelta, double pixelToTime)
 
     int64_t timeaxis_start;
     int64_t timeaxis_end;
+
+    delta = qBound(safeSub(this->timeaxis_end_beforescroll, this->plot->scrollable_max), delta,
+                   safeSub(this->timeaxis_start_beforescroll, this->plot->scrollable_min));
+
     /* Safely subract the delta from timeaxis_{start, end}_beforescroll. */
     if (delta > 0)
     {
@@ -175,25 +192,6 @@ void PlotArea::mousePressEvent(QMouseEvent* event)
 
     this->pixelToTime = ((uint64_t) (timeaxis_end - timeaxis_start)) / (double) this->width();
     this->scrollstart = event->x();
-}
-
-int64_t safeSub(int64_t x, int64_t y)
-{
-    if (y > 0)
-    {
-        if ((uint64_t) y > (uint64_t) (x - INT64_MIN))
-        {
-            return INT64_MIN;
-        }
-    }
-    else
-    {
-        if ((uint64_t) (-y) > (uint64_t) (INT64_MAX - x))
-        {
-            return INT64_MAX;
-        }
-    }
-    return x - y;
 }
 
 void PlotArea::mouseMoveEvent(QMouseEvent* event)
@@ -402,9 +400,10 @@ void PlotArea::touchEvent(QTouchEvent* event)
             if (timeaxis_start < this->timeaxis_start_beforescroll || timeaxis_start < (int64_t) (INT64_MIN + absdeltastart))
             {
                 /* Handle overflow. */
-                timeaxis_start = INT64_MAX;
+                timeaxis_start = INT64_MAX - 1;
             }
         }
+        timeaxis_start = qMax(timeaxis_start, this->plot->scrollable_min);
         uint64_t totalwidth = safeRoundUnsigned(((uint64_t) (timeaxis_end_beforescroll - timeaxis_start_beforescroll)) * (oldgap / newgap));
         timeaxis_end = timeaxis_start + totalwidth;
         if (timeaxis_end < timeaxis_start || timeaxis_end < (int64_t) (INT64_MIN + totalwidth))
@@ -412,6 +411,7 @@ void PlotArea::touchEvent(QTouchEvent* event)
             /* Handle overflow. */
             timeaxis_end = INT64_MAX;
         }
+        timeaxis_end = qMin(timeaxis_end, this->plot->scrollable_max);
 
         this->plot->timeaxis.setDomain(timeaxis_start, timeaxis_end);
 
@@ -458,6 +458,7 @@ void PlotArea::wheelEvent(QWheelEvent* event)
         /* Handle overflow. */
         timeaxis_start = INT64_MIN;
     }
+    timeaxis_start = qMax(timeaxis_start, this->plot->scrollable_min);
     uint64_t totalwidth = safeRoundUnsigned(newwidth);
     timeaxis_end = totalwidth + timeaxis_start;
     if (timeaxis_end < timeaxis_start || timeaxis_end < (int64_t) (INT64_MIN + totalwidth))
@@ -465,6 +466,7 @@ void PlotArea::wheelEvent(QWheelEvent* event)
         /* Handle overflow. */
         timeaxis_end = INT64_MAX;
     }
+    timeaxis_end = qMin(timeaxis_end, this->plot->scrollable_max);
 
     Q_ASSERT(timeaxis_start < timeaxis_end);
 
@@ -514,20 +516,6 @@ void PlotArea::rescaleAxes(int64_t timeaxis_start, int64_t timeaxis_end)
     }
 }
 
-inline int64_t safe_add(int64_t x, int64_t y)
-{
-    int64_t sum = x + y;
-    if (y > 0 && sum < x)
-    {
-        sum = INT64_MAX;
-    }
-    else if (y < 0 && sum > x)
-    {
-        sum = INT64_MIN;
-    }
-    return sum;
-}
-
 void PlotArea::updateDataAsync(Cache& cache, Requester* requester)
 {
     uint64_t screenwidth = (uint64_t) (0.5 + this->width());
@@ -554,8 +542,8 @@ void PlotArea::updateDataAsync(Cache& cache, Requester* requester)
         Q_ASSERT_X(s != nullptr, "updateDataAsync", "invalid value in streamlist");
 
         /* Take the stream's offset into account when deciding which part of the data to query. */
-        int64_t srch_start = safe_add(timeaxis_start, -s->timeOffset);
-        int64_t srch_end = safe_add(timeaxis_end, -s->timeOffset);
+        int64_t srch_start = safeSub(timeaxis_start, s->timeOffset);
+        int64_t srch_end = safeSub(timeaxis_end, s->timeOffset);
 
         cache.requestData(requester, s->archiver, s->uuid, srch_start, srch_end, pwe,
                                 [this, s, id, timeaxis_start, timeaxis_end](QList<QSharedPointer<CacheEntry>> data)

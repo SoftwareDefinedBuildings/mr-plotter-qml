@@ -14,6 +14,9 @@ MrPlotter::MrPlotter(): timeaxis()
 
     this->timeaxisarea = nullptr;
 
+    this->scrollable_min = INT64_MIN;
+    this->scrollable_max = INT64_MAX;
+
     this->ready = true;
     this->pending = false;
 
@@ -67,6 +70,19 @@ Stream* MrPlotter::newStream(QString uuid, qulonglong archiverID)
 void MrPlotter::delStream(Stream* s)
 {
     s->deleteLater();
+}
+
+bool MrPlotter::setScrollableRange(double minMillis, double maxMillis, double minNanos, double maxNanos)
+{
+    int64_t mint = Q_INT64_C(1000000) * (int64_t) minMillis + (int64_t) minNanos;
+    int64_t maxt = Q_INT64_C(1000000) * (int64_t) maxMillis + (int64_t) maxNanos;
+    if (mint >= maxt)
+    {
+        return false;
+    }
+    this->scrollable_min = mint;
+    this->scrollable_max = maxt;
+    return true;
 }
 
 YAxis* MrPlotter::newYAxis()
