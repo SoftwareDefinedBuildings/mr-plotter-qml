@@ -7,12 +7,13 @@
 #include <cmath>
 #include <functional>
 
+#include <QStringList>
 #include <QTimer>
 #include <QUuid>
 
 #define PI 3.14159265358979323846
 
-Requester::Requester(): nextNonce(0), nextArchiverID(0), outstanding()
+Requester::Requester(): nextNonce(0), nextArchiverID(0), outstandingDataReqs(), outstandingBracketLeft(), outstandingBracketRight()
 {
     this->bw = BW::instance();
 }
@@ -27,7 +28,7 @@ uint32_t Requester::subscribeBWArchiver(QString uri)
     qDebug("Subscribing to %s", qPrintable(subscr));
     this->bw->subscribe(subscr, [this](PMessage pm)
     {
-        this->handleBWResponse(pm);
+        this->handleResponse(pm);
     }, [](QString error)
     {
         qDebug("On done: %s", qPrintable(error));
@@ -82,11 +83,26 @@ void Requester::makeDataRequest(const QUuid &uuid, int64_t start, int64_t end, u
 
     /* Now, we're ready to actually send out the request. */
 
-    this->sendBWRequest(uuid, truestart, trueend, pwe, archiver, callback);
+    this->sendDataRequest(uuid, truestart, trueend, pwe, archiver, callback);
+}
+
+uint32_t Requester::publishQuery(QString query, uint32_t archiver)
+{
+    QVariantMap req;
+    QString uri = URI_TEMPLATE.arg(this->archivers[archiver]).arg(QStringLiteral("slot/query"));
+
+    uint32_t nonce = this->nextNonce++;
+
+    req.insert("Nonce", nonce);
+    req.insert("Query", query);
+
+    this->bw->publishMsgPack(uri, "2.0.9.1", req);
+
+    return nonce;
 }
 
 /* Does the work of constructing the message and sending it. */
-inline void Requester::sendBWRequest(const QUuid &uuid, int64_t start, int64_t end, uint8_t pwe,
+inline void Requester::sendDataRequest(const QUuid &uuid, int64_t start, int64_t end, uint8_t pwe,
                                      uint32_t archiver, ReqCallback callback)
 {
     if (archiver == (uint32_t) -1)
@@ -173,126 +189,251 @@ inline void Requester::sendBWRequest(const QUuid &uuid, int64_t start, int64_t e
     start = qBound(BTRDB_MIN, start, BTRDB_MAX);
     end = qBound(BTRDB_MIN, end, BTRDB_MAX);
 
-    QString publ = URI_TEMPLATE.arg(this->archivers[archiver]).arg(QStringLiteral("slot/query"));
-
     QString query = QUERY_TEMPLATE;
     QString uuidstr = uuid.toString();
     query = query.arg(pwe).arg(start).arg(end).arg(uuidstr.mid(1, uuidstr.size() - 2));
-    QVariantMap req;
 
-    uint32_t nonce = this->nextNonce++;
+    uint32_t nonce = this->publishQuery(query, archiver);
 
-    req.insert("Nonce", nonce);
-    req.insert("Query", query);
+    outstandingDataReqs.insert(nonce, callback);
 
-    outstanding.insert(nonce, callback);
-
-    this->bw->publishMsgPack(publ, "2.0.9.1", req);
 }
 
-void Requester::handleBWResponse(PMessage message)
+void Requester::sendBracketRequest(const QList<QUuid> uuids, uint32_t archiver, BracketCallback callback)
+{
+    QStringList uuidstrs;
+    for (auto i = uuids.begin(); i != uuids.end(); i++)
+    {
+        QString uuidstr = i->toString();
+        uuidstr = uuidstr.mid(1, uuidstr.length() - 2);
+        uuidstrs.append(uuidstr);
+    }
+    QString uuidliststr = uuidstrs.join(QStringLiteral("\" or uuid = \""));
+    QString query1 = QStringLiteral("select data before %1 where uuid = \"%2\"").arg(BTRDB_MAX).arg(uuidliststr);
+    QString query2 = QStringLiteral("select data after %1 where uuid = \"%2\"").arg(BTRDB_MIN).arg(uuidliststr);
+
+    uint32_t nonce1 = this->publishQuery(query1, archiver);
+    uint32_t nonce2 = this->publishQuery(query2, archiver);
+
+    struct brqstate* brqs = new struct brqstate;
+    brqs->callback = callback;
+    brqs->leftbound = INT64_MAX;
+    brqs->rightbound = INT64_MIN;
+    brqs->gotleft = false;
+    brqs->gotright = false;
+
+    this->outstandingBracketRight.insert(nonce1, brqs);
+    this->outstandingBracketLeft.insert(nonce2, brqs);
+}
+
+QVariantMap parseBWResponse(PayloadObject& p, bool* hasnonce, uint32_t* nonceptr, bool* error)
+{
+    bool ok;
+    QVariantMap response = MsgPack::unpack(p.contentArray()).toMap();
+    uint32_t nonce = response["Nonce"].toInt(&ok);
+
+    if (!ok)
+    {
+        qDebug("Could not get nonce!");
+        *hasnonce = false;
+        return QVariantMap();
+    }
+
+    *hasnonce = true;
+    *nonceptr = nonce;
+
+    if (response.contains("Error"))
+    {
+        qDebug("Got an error: %s", qPrintable(response["Error"].toString()));
+        *error = true;
+        return QVariantMap();
+    }
+    if (!response.contains("Data"))
+    {
+        qDebug("Response is missing expected field \"Data\"");
+        *error = true;
+        return QVariantMap();
+    }
+    if (!response.contains("Stats"))
+    {
+        qDebug("Response is missing required field \"Stats\"");
+        *error = true;
+        return QVariantMap();
+    }
+    *error = false;
+    return response;
+}
+
+int64_t getExtrTime(QVariantMap resp, bool getmax)
+{
+    int64_t extrtime = getmax ? INT64_MIN : INT64_MAX;
+    QVariantList ptList = resp["Data"].toList();
+    for (auto pt = ptList.begin(); pt != ptList.end(); pt++)
+    {
+        QVariantMap point = pt->toMap();
+        bool ok;
+        int64_t time = point["Times"].toList()[0].toLongLong(&ok);
+        if (!ok)
+        {
+            continue;
+        }
+        if (getmax)
+        {
+            extrtime = qMax(extrtime, time);
+        }
+        else
+        {
+            extrtime = qMin(extrtime, time);
+        }
+    }
+    return extrtime;
+}
+
+void Requester::handleResponse(PMessage message)
 {
     QList<PayloadObject*> pos = message->FilterPOs(BW::fromDF("2.0.9.8"));
     for (auto p = pos.begin(); p != pos.end(); p++)
     {
-        bool ok;
-        QVariantMap response = MsgPack::unpack((*p)->contentArray()).toMap();
-        uint32_t nonce = response["Nonce"].toInt(&ok);
+        uint32_t nonce;
+        bool hasnonce;
+        bool error;
 
-        if (!this->outstanding.contains(nonce))
+        QVariantMap response = parseBWResponse(**p, &hasnonce, &nonce, &error);
+
+        if (!hasnonce)
         {
-            qDebug("Invalid nonce %u", nonce);
-            return;
+            continue;
         }
 
-        ReqCallback callback = this->outstanding[nonce];
-        int numremoved = this->outstanding.remove(nonce);
-        Q_ASSERT(numremoved == 1);
-
-        QVariantList statsList;
-        QVariantMap stats;
-
-        QVariantList times;
-        QVariantList mins;
-        QVariantList means;
-        QVariantList maxes;
-        QVariantList counts;
-
-        struct statpt* points;
-        int len;
-
-        if (!ok)
+        /* Dispatch on the type of query. */
+        int numremoved;
+        if (this->outstandingDataReqs.contains(nonce))
         {
-            qDebug("Could not get nonce!");
-            return;
+            this->handleDataResponse(this->outstandingDataReqs[nonce], response, error);
+            numremoved = this->outstandingDataReqs.remove(nonce);
+            Q_ASSERT(numremoved == 1);
         }
-
-        if (response.contains("Error"))
+        else if (this->outstandingBracketLeft.contains(nonce))
         {
-            qDebug("Got an error: %s", qPrintable(response["Error"].toString()));
-            goto nodata;
+            this->handleBracketResponse(this->outstandingBracketLeft[nonce], response, error, false);
+            numremoved = this->outstandingBracketLeft.remove(nonce);
+            Q_ASSERT(numremoved == 1);
         }
-        if (!response.contains("Data"))
+        else if (this->outstandingBracketRight.contains(nonce))
         {
-            qDebug("Response is missing expected field \"Data\"");
+            this->handleBracketResponse(this->outstandingBracketRight[nonce], response, error, true);
+            numremoved = this->outstandingBracketRight.remove(nonce);
+            Q_ASSERT(numremoved == 1);
         }
-        if (!response.contains("Stats"))
+        else
         {
-            qDebug("Response is missing required field \"Stats\"");
-            goto nodata;
+            qDebug("Got unmatched response with nonce %u", nonce);
         }
+    }
+}
 
-        statsList = response["Stats"].toList();
-        if (statsList.length() == 0)
+void Requester::handleDataResponse(ReqCallback callback, QVariantMap response, bool error)
+{
+    QVariantList statsList;
+    QVariantMap stats;
+
+    QVariantList times;
+    QVariantList mins;
+    QVariantList means;
+    QVariantList maxes;
+    QVariantList counts;
+
+    struct statpt* points;
+    int len;
+
+    if (error)
+    {
+        goto nodata;
+    }
+
+    statsList = response["Stats"].toList();
+    if (statsList.length() == 0)
+    {
+        /* No data to return. */
+        goto nodata;
+    }
+    else if (statsList.length() != 1)
+    {
+        qDebug("Extra entries in stats list");
+        goto nodata;
+    }
+
+    stats = statsList[0].toMap();
+    if (!stats.contains("Times") || !stats.contains("Min") || !stats.contains("Mean") || !stats.contains("Max") || !stats.contains("Count"))
+    {
+        qDebug("stats entry is missing expected fields");
+        goto nodata;
+    }
+
+    times = stats["Times"].toList();
+    mins = stats["Min"].toList();
+    means = stats["Mean"].toList();
+    maxes = stats["Max"].toList();
+    counts = stats["Count"].toList();
+
+    if (times.size() != mins.size() || mins.size() != means.size() || means.size() != maxes.size() || maxes.size() != counts.size())
+    {
+        qDebug("Not all attributes have same number of points");
+        goto nodata;
+    }
+
+    len = times.size();
+    points = new struct statpt[len];
+
+    for (int i = 0; i < len; i++)
+    {
+        struct statpt* pt = &points[i];
+        pt->time = times.at(i).toLongLong();
+        pt->min = mins.at(i).toDouble();
+        pt->mean = means.at(i).toDouble();
+        pt->max = maxes.at(i).toDouble();
+        pt->count = counts.at(i).toULongLong();
+    }
+
+    callback(points, len);
+    delete[] points;
+
+    return;
+
+nodata:
+    /* Return no data. */
+    callback(nullptr, 0);
+}
+
+void Requester::handleBracketResponse(struct brqstate* brqs, QVariantMap response, bool error, bool right)
+{
+    if (right)
+    {
+        Q_ASSERT(!brqs->gotright);
+        brqs->gotright = true;
+    }
+    else
+    {
+        Q_ASSERT(!brqs->gotleft);
+        brqs->gotleft = true;
+    }
+
+    if (!error)
+    {
+        int64_t extrtime = getExtrTime(response, right);
+        if (right)
         {
-            /* No data to return. */
-            goto nodata;
+            brqs->rightbound = extrtime;
         }
-        else if (statsList.length() != 1)
+        else
         {
-            qDebug("Extra entries in stats list");
-            goto nodata;
+            brqs->leftbound = extrtime;
         }
+    }
 
-        stats = statsList[0].toMap();
-        if (!stats.contains("Times") || !stats.contains("Min") || !stats.contains("Mean") || !stats.contains("Max") || !stats.contains("Count"))
-        {
-            qDebug("stats entry is missing expected fields");
-            goto nodata;
-        }
-
-        times = stats["Times"].toList();
-        mins = stats["Min"].toList();
-        means = stats["Mean"].toList();
-        maxes = stats["Max"].toList();
-        counts = stats["Count"].toList();
-
-        if (times.size() != mins.size() || mins.size() != means.size() || means.size() != maxes.size() || maxes.size() != counts.size())
-        {
-            qDebug("Not all attributes have same number of points");
-            goto nodata;
-        }
-
-        len = times.size();
-        points = new struct statpt[len];
-
-        for (int i = 0; i < len; i++)
-        {
-            struct statpt* pt = &points[i];
-            pt->time = times.at(i).toLongLong();
-            pt->min = mins.at(i).toDouble();
-            pt->mean = means.at(i).toDouble();
-            pt->max = maxes.at(i).toDouble();
-            pt->count = counts.at(i).toULongLong();
-        }
-
-        callback(points, len);
-        delete[] points;
-
-        continue;
-
-    nodata:
-        /* Return no data. */
-        callback(nullptr, 0);
+    if (brqs->gotleft && brqs->gotright)
+    {
+        brqs->callback(brqs->leftbound, brqs->rightbound);
+        delete brqs;
     }
 }
