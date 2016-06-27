@@ -86,6 +86,11 @@ void Requester::makeDataRequest(const QUuid &uuid, int64_t start, int64_t end, u
     this->sendDataRequest(uuid, truestart, trueend, pwe, archiver, callback);
 }
 
+void Requester::makeBracketRequest(const QList<QUuid> uuids, uint32_t archiver, BracketCallback callback)
+{
+    this->sendBracketRequest(uuids, archiver, callback);
+}
+
 uint32_t Requester::publishQuery(QString query, uint32_t archiver)
 {
     QVariantMap req;
@@ -199,8 +204,16 @@ inline void Requester::sendDataRequest(const QUuid &uuid, int64_t start, int64_t
 
 }
 
-void Requester::sendBracketRequest(const QList<QUuid> uuids, uint32_t archiver, BracketCallback callback)
+void Requester::sendBracketRequest(const QList<QUuid>& uuids, uint32_t archiver, BracketCallback callback)
 {
+    if (archiver == (uint32_t) -1)
+    {
+        QTimer::singleShot(500, [callback]()
+        {
+            callback(1415643674979469055, 1415643674979469318);
+        });
+        return;
+    }
     QStringList uuidstrs;
     for (auto i = uuids.begin(); i != uuids.end(); i++)
     {

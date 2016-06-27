@@ -40,6 +40,7 @@ public:
 
     Q_INVOKABLE bool setTimeDomain(double domainLoMillis, double domainHiMillis,
                                    double domainLoNanos = 0.0, double domainHiNanos = 0.0);
+    Q_INVOKABLE void autozoom(QVariantList streams);
 
     Q_INVOKABLE QVector<qreal> getTimeDomain();
 

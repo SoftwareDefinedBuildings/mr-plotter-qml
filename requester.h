@@ -44,6 +44,7 @@ public:
 
     void makeDataRequest(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
                          uint32_t archiver, ReqCallback callback);
+    void makeBracketRequest(const QList<QUuid> uuids, uint32_t archiver, BracketCallback callback);
 
     uint32_t subscribeBWArchiver(QString uri);
     void unsubscribeBWArchiver(uint32_t id);
@@ -54,7 +55,7 @@ private:
     void sendDataRequest(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
                        uint32_t archiver, ReqCallback callback);
 
-    void sendBracketRequest(const QList<QUuid> uuids, uint32_t archiver, BracketCallback callback);
+    void sendBracketRequest(const QList<QUuid>& uuids, uint32_t archiver, BracketCallback callback);
 
     void handleResponse(PMessage message);
     void handleDataResponse(ReqCallback callback, QVariantMap response, bool error);

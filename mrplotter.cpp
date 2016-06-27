@@ -2,6 +2,8 @@
 #include "mrplotter.h"
 #include "plotarea.h"
 
+#include <cinttypes>
+
 #include <QTimer>
 #include <QTimeZone>
 
@@ -171,6 +173,62 @@ bool MrPlotter::setTimeDomain(double domainLoMillis, double domainHiMillis,
     int64_t domainLo = 1000000 * (int64_t) domainLoMillis + (int64_t) domainLoNanos;
     int64_t domainHi = 1000000 * (int64_t) domainHiMillis + (int64_t) domainHiNanos;
     return this->timeaxis.setDomain(domainLo, domainHi);
+}
+
+struct autozoomdata
+{
+    int64_t lowerbound;
+    int64_t upperbound;
+    int reqsleft;
+};
+
+void MrPlotter::autozoom(QVariantList streams)
+{
+    QHash<uint32_t, QList<QUuid>> byarchiver;
+
+    /* Organize the streams based on archiver ID. */
+    for (auto i = streams.begin(); i != streams.end(); i++)
+    {
+        Stream* s = i->value<Stream*>();
+        Q_ASSERT_X(s != nullptr, "autozoom", "invalid member in stream list");
+        if (s != nullptr)
+        {
+            byarchiver[s->archiver].append(s->uuid);
+        }
+    }
+
+    QList<uint32_t> archivers = byarchiver.keys();
+    if (archivers.size() == 0)
+    {
+        return;
+    }
+
+    struct autozoomdata* bounds = new struct autozoomdata;
+    bounds->lowerbound = INT64_MAX;
+    bounds->upperbound = INT64_MIN;
+    bounds->reqsleft = archivers.size();
+
+    for (auto j = archivers.begin(); j != archivers.end(); j++)
+    {
+        this->requester->makeBracketRequest(byarchiver[*j], *j,
+                [this, bounds](int64_t lowerbound, int64_t upperbound)
+        {
+            bounds->lowerbound = qMin(bounds->lowerbound, lowerbound);
+            bounds->upperbound = qMax(bounds->upperbound, upperbound);
+            if (--bounds->reqsleft == 0)
+            {
+                if (bounds->lowerbound < bounds->upperbound)
+                {
+                    this->timeaxis.setDomain(bounds->lowerbound, bounds->upperbound);
+                }
+                else
+                {
+                    qDebug("Autoscale bounds are "PRId64" to "PRId64": ignoring", bounds->lowerbound, bounds->upperbound);
+                }
+                delete bounds;
+            }
+        });
+    }
 }
 
 QVector<qreal> MrPlotter::getTimeDomain()
