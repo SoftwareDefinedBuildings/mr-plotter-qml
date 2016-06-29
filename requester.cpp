@@ -222,8 +222,8 @@ void Requester::sendBracketRequest(const QList<QUuid>& uuids, uint32_t archiver,
         uuidstrs.append(uuidstr);
     }
     QString uuidliststr = uuidstrs.join(QStringLiteral("\" or uuid = \""));
-    QString query1 = QStringLiteral("select data before %1 where uuid = \"%2\"").arg(BTRDB_MAX).arg(uuidliststr);
-    QString query2 = QStringLiteral("select data after %1 where uuid = \"%2\"").arg(BTRDB_MIN).arg(uuidliststr);
+    QString query1 = QStringLiteral("select data before %1ns as ns where uuid = \"%2\"").arg(BTRDB_MAX).arg(uuidliststr);
+    QString query2 = QStringLiteral("select data after %1ns as ns where uuid = \"%2\"").arg(BTRDB_MIN).arg(uuidliststr);
 
     uint32_t nonce1 = this->publishQuery(query1, archiver);
     uint32_t nonce2 = this->publishQuery(query2, archiver);
@@ -424,16 +424,19 @@ void Requester::handleBracketResponse(struct brqstate* brqs, QVariantMap respons
     {
         Q_ASSERT(!brqs->gotright);
         brqs->gotright = true;
+        qDebug("Got right");
     }
     else
     {
         Q_ASSERT(!brqs->gotleft);
         brqs->gotleft = true;
+        qDebug("Got left");
     }
 
     if (!error)
     {
         int64_t extrtime = getExtrTime(response, right);
+        qDebug("Extrtime is %ld", extrtime);
         if (right)
         {
             brqs->rightbound = extrtime;
@@ -446,6 +449,7 @@ void Requester::handleBracketResponse(struct brqstate* brqs, QVariantMap respons
 
     if (brqs->gotleft && brqs->gotright)
     {
+        qDebug("Firing");
         brqs->callback(brqs->leftbound, brqs->rightbound);
         delete brqs;
     }
