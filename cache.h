@@ -8,6 +8,7 @@
 #include <QHash>
 #include <QLinkedList>
 #include <QMap>
+#include <QTimer>
 #include <QUuid>
 #include <QVector>
 
@@ -185,6 +186,30 @@ private:
 
     /* A representation of the total amount of data in the cache. */
     uint64_t cost;
+};
+
+/* How often to check for updates, in milliseconds. */
+#define AUTOUPDATE_PERIOD 5000
+
+typedef std::function<void()> AutoupdateCallback;
+
+/* An extension of the Cache that is responsible for pulling in new data for streams
+ * as it is uploaded.
+ */
+class Autoupdater
+{
+    friend class Cache;
+
+public:
+    Autoupdater();
+    uint64_t addAutoupdateCallback(QUuid& stream, AutoupdateCallback callback);
+    void removeAutoupdateCallback(QUuid& stream, uint64_t callbackID);
+
+private:
+    QTimer timer;
+    QHash<QUuid, QSet<uint64_t>> callbackSchedule;
+    QHash<uint64_t, AutoupdateCallback> callbacks;
+    uint64_t nextCallbackID;
 };
 
 #endif // CACHE_H

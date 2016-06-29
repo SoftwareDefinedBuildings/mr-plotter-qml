@@ -961,3 +961,30 @@ bool Cache::discard(QSharedPointer<CacheEntry> todrop, QPair<uint64_t, QMap<int6
 
     return false;
 }
+
+Autoupdater::Autoupdater(): timer(nullptr), nextCallbackID(0)
+{
+    timer.start(AUTOUPDATE_PERIOD);
+}
+
+uint64_t Autoupdater::addAutoupdateCallback(QUuid& stream, AutoupdateCallback callback)
+{
+    uint64_t id = nextCallbackID++;
+    this->callbackSchedule[stream].insert(id);
+    this->callbacks.insert(id, callback);
+    return id;
+}
+
+void Autoupdater::removeAutoupdateCallback(QUuid& stream, uint64_t callbackID)
+{
+    Q_ASSERT(this->callbackSchedule.contains(stream));
+    QSet<uint64_t>& cbids = this->callbackSchedule[stream];
+    int numremoved = cbids.remove(callbackID);
+    Q_ASSERT(numremoved == 1);
+    if (cbids.size() == 0)
+    {
+        this->callbackSchedule.remove(stream);
+    }
+    numremoved = this->callbacks.remove(id);
+    Q_ASSERT(numremoved == 1);
+}
