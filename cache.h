@@ -160,12 +160,18 @@ public:
                      uint8_t pwe,  std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
                      uint64_t request_hint = 0, bool includemargins = false);
 
+    /* Discards all cached data for the stream with the specified UUID at all
+     * timestamps at or after STARTINGAT.
+     */
+    void discardData(const QUuid& uuid, int64_t startingat);
+
     /* The VBOs that need to be deleted. */
     QVector<GLuint> todelete;
 
 private:
     void use(QSharedPointer<CacheEntry> ce, bool firstuse);
     void addCost(const QUuid& uuid, uint64_t amt);
+    bool discard(QSharedPointer<CacheEntry> todrop, QPair<uint64_t, QMap<int64_t, QSharedPointer<CacheEntry>>*>& pair);
 
     uint64_t curr_queryid;
     /* The QMap here maps a timestamp to the cache entry that _ends_ at that timestamp. */

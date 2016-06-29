@@ -888,6 +888,35 @@ void Cache::requestData(Requester* requester, uint32_t archiver, const QUuid& uu
     this->addCost(uuid, numnewentries * CACHE_ENTRY_OVERHEAD);
 }
 
+void Cache::discardData(const QUuid& uuid, int64_t startingat)
+{
+    QPair<uint64_t, QMap<int64_t, QSharedPointer<CacheEntry>>*>& pair = this->cache[uuid];
+    QMap<int64_t, QSharedPointer<CacheEntry>>* pwemap = pair.second;
+    if (pwemap == nullptr)
+    {
+        return;
+    }
+    for (uint8_t i = 0; i < PWE_MAX; i++)
+    {
+        QMap<int64_t, QSharedPointer<CacheEntry>>& data = pwemap[i];
+        if (data.size() == 0)
+        {
+            continue;
+        }
+
+        for (auto j = data.lowerBound(startingat); j != data.end(); j++)
+        {
+            bool allgone = this->discard(*j, pair);
+            if (allgone)
+            {
+                /* Nothing left for this stream. */
+                return;
+            }
+            j = data.erase(j);
+        }
+    }
+}
+
 void Cache::use(QSharedPointer<CacheEntry> ce, bool firstuse)
 {
     if (!firstuse)
@@ -911,16 +940,24 @@ void Cache::addCost(const QUuid& uuid, uint64_t amt)
 
         this->cache[todrop->uuid].second[todrop->pwe].erase(todrop->cachepos);
 
-        uint64_t dropvalue = CACHE_ENTRY_OVERHEAD + todrop->cost;
         QPair<uint64_t, QMap<int64_t, QSharedPointer<CacheEntry>>*>& pair = this->cache[todrop->uuid];
-        uint64_t remaining = pair.first - dropvalue;
-        pair.first = remaining;
-        this->cost -= dropvalue;
-
-        if (remaining == 0)
-        {
-            delete[] pair.second;
-            this->cache.remove(todrop->uuid);
-        }
+        this->discard(todrop, pair);
     }
+}
+
+bool Cache::discard(QSharedPointer<CacheEntry> todrop, QPair<uint64_t, QMap<int64_t, QSharedPointer<CacheEntry>>*>& pair)
+{
+    uint64_t dropvalue = CACHE_ENTRY_OVERHEAD + todrop->cost;
+    uint64_t remaining = pair.first - dropvalue;
+    pair.first = remaining;
+    this->cost -= dropvalue;
+
+    if (remaining == 0)
+    {
+        delete[] pair.second;
+        this->cache.remove(todrop->uuid);
+        return true;
+    }
+
+    return false;
 }

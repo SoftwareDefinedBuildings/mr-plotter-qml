@@ -27,6 +27,7 @@ struct statpt
 
 typedef std::function<void(struct statpt*, int len)> ReqCallback;
 typedef std::function<void(int64_t, int64_t)> BracketCallback;
+typedef std::function<void(QHash<QUuid, int64_t>)> LastPtCallback;
 
 struct brqstate
 {
@@ -45,6 +46,7 @@ public:
     void makeDataRequest(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
                          uint32_t archiver, ReqCallback callback);
     void makeBracketRequest(const QList<QUuid> uuids, uint32_t archiver, BracketCallback callback);
+    void makeLastPtRequest(const QList <QUuid> uuids,  uint32_t archiver, LastPtCallback callback);
 
     uint32_t subscribeBWArchiver(QString uri);
     void unsubscribeBWArchiver(uint32_t id);
@@ -60,6 +62,7 @@ private:
     void handleResponse(PMessage message);
     void handleDataResponse(ReqCallback callback, QVariantMap response, bool error);
     void handleBracketResponse(struct brqstate* brqs, QVariantMap response, bool error, bool right);
+    void handleLastPtResponse(LastPtCallback callback, QVariantMap response, bool error);
 
     uint32_t nextNonce;
     uint32_t nextArchiverID;
@@ -67,6 +70,7 @@ private:
     QHash<uint32_t, ReqCallback> outstandingDataReqs;
     QHash<uint32_t, struct brqstate*> outstandingBracketLeft;
     QHash<uint32_t, struct brqstate*> outstandingBracketRight;
+    QHash<uint32_t, LastPtCallback> outstandingLastPt;
     QHash<uint32_t, QString> archivers;
 
     BW* bw;

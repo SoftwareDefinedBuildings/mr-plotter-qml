@@ -11,6 +11,8 @@
 #include <QTimer>
 #include <QUuid>
 
+#include <QtDebug>
+
 #define PI 3.14159265358979323846
 
 Requester::Requester(): nextNonce(0), nextArchiverID(0), outstandingDataReqs(), outstandingBracketLeft(), outstandingBracketRight()
@@ -239,6 +241,35 @@ void Requester::sendBracketRequest(const QList<QUuid>& uuids, uint32_t archiver,
     this->outstandingBracketLeft.insert(nonce2, brqs);
 }
 
+void Requester::makeLastPtRequest(const QList<QUuid> uuids, uint32_t archiver, LastPtCallback callback)
+{
+    if (archiver == (uint32_t) -1)
+    {
+        QHash<QUuid, int64_t> toreturn;
+        for (auto i = uuids.begin(); i != uuids.end(); i++)
+        {
+            toreturn.insert(*i, 1415643674979469318);
+        }
+        QTimer::singleShot(500, [toreturn, callback]()
+        {
+            callback(toreturn);
+        });
+    }
+
+    QStringList uuidstrs;
+    for (auto i = uuids.begin(); i != uuids.end(); i++)
+    {
+        QString uuidstr = i->toString();
+        uuidstr = uuidstr.mid(1, uuidstr.length() - 2);
+        uuidstrs.append(uuidstr);
+    }
+    QString uuidliststr = uuidstrs.join(QStringLiteral("\" or uuid = \""));
+    QString query = QStringLiteral("select data before %1 where uuid = \"%2\"").arg(BTRDB_MAX).arg(uuidliststr);
+
+    uint32_t nonce = this->publishQuery(query, archiver);
+    this->outstandingLastPt.insert(nonce, callback);
+}
+
 QVariantMap parseBWResponse(PayloadObject& p, bool* hasnonce, uint32_t* nonceptr, bool* error)
 {
     bool ok;
@@ -336,6 +367,12 @@ void Requester::handleResponse(PMessage message)
         {
             this->handleBracketResponse(this->outstandingBracketRight[nonce], response, error, true);
             numremoved = this->outstandingBracketRight.remove(nonce);
+            Q_ASSERT(numremoved == 1);
+        }
+        else if (this->outstandingLastPt.contains(nonce))
+        {
+            this->handleLastPtResponse(this->outstandingLastPt[nonce], response, error);
+            numremoved = this->outstandingLastPt.remove(nonce);
             Q_ASSERT(numremoved == 1);
         }
         else
@@ -449,4 +486,31 @@ void Requester::handleBracketResponse(struct brqstate* brqs, QVariantMap respons
         brqs->callback(brqs->leftbound, brqs->rightbound);
         delete brqs;
     }
+}
+
+void Requester::handleLastPtResponse(LastPtCallback callback, QVariantMap response, bool error)
+{
+    QHash<QUuid, int64_t> toreturn;
+
+    if (!error)
+    {
+        QVariantList ptList = response["Data"].toList();
+        for (auto i = ptList.begin(); i != ptList.end(); i++)
+        {
+            bool ok;
+            QVariantMap pt = i->toMap();
+            QVariant timeVariant = pt["Times"].toList()[0];
+            int64_t time = timeVariant.toLongLong(&ok);
+            if (!ok)
+            {
+                qDebug() << "Skipping invalid time " << timeVariant;
+            }
+            QString uuidstr = pt["UUID"].toString();
+            QUuid uuid(uuidstr);
+
+            toreturn.insert(uuid, time);
+        }
+    }
+
+    callback(toreturn);
 }
