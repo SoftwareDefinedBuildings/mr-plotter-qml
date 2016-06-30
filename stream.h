@@ -40,6 +40,10 @@ class Stream : public QObject
     Q_PROPERTY(bool selected MEMBER selected)
     Q_PROPERTY(bool alwaysConnect MEMBER alwaysConnect)
 
+    Q_PROPERTY(QList<qreal> color READ getColor WRITE setColor)
+    Q_PROPERTY(QList<qreal> timeOffset READ getTimeOffset WRITE setTimeOffset)
+    Q_PROPERTY(qulonglong archiver MEMBER archiver)
+
 public:
     Stream(QObject* parent = nullptr);
     Stream(const QString& u, uint32_t archiverID, QObject* parent = nullptr);
@@ -48,9 +52,12 @@ public:
     bool toDrawable(struct drawable& d) const;
 
     Q_INVOKABLE bool setColor(float red, float green, float blue);
+    Q_INVOKABLE bool setColor(QList<qreal> color);
+    Q_INVOKABLE QList<qreal> getColor();
 
     void setTimeOffset(int64_t offset);
-    Q_INVOKABLE void setTimeOffset(double millis, double nanos);
+    Q_INVOKABLE void setTimeOffset(QList<qreal> offset);
+    Q_INVOKABLE QList<qreal> getTimeOffset();
 
     QUuid uuid;
 

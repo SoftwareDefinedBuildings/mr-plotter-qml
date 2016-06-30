@@ -122,7 +122,7 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
     {
         return;
     }
-    timeaxis->getDomain(this->timeaxis_start, this->timeaxis_end);
+    timeaxis->getDomain(&this->timeaxis_start, &this->timeaxis_end);
 
     this->initializeOpenGLFunctions();
 
@@ -167,7 +167,7 @@ void PlotRenderer::synchronize(QQuickFramebufferObject* plotareafbo)
     {
         return;
     }
-    timeaxis->getDomain(this->timeaxis_start, this->timeaxis_end);
+    timeaxis->getDomain(&this->timeaxis_start, &this->timeaxis_end);
 
     /* Delete any VBOs pending deletion. */
     QVector<GLuint>& todelete = plotarea->plot->cache.todelete;

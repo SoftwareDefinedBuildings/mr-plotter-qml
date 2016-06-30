@@ -1,26 +1,32 @@
 #include "axisarea.h"
 
 #include <cmath>
+#include <QQuickPaintedItem>
 #include <QPainter>
+#include <QQuickItem>
 
 #define AXISTHICKNESS 1
 #define TICKTHICKNESS 1
 #define TICKLENGTH 5
 
-YAxisArea::YAxisArea(): yAxes()
+YAxisArea::YAxisArea(QQuickItem* parent): QQuickPaintedItem(parent), yAxes()
 {
     this->rangeHi = 0.0;
     this->rangeLo = 1.0;
+    this->setWidth(1.0);
 }
 
 void YAxisArea::paint(QPainter* painter)
 {
+    this->setWidth(100 * this->yAxes.size());
+
     int xval = ((int) (0.5 + this->width())) - AXISTHICKNESS - 1;
     QTextOption to(Qt::AlignRight | Qt::AlignVCenter);
     to.setWrapMode(QTextOption::NoWrap);
     QTextOption labelo(Qt::AlignCenter);
 
     double range = this->rangeHi - this->rangeLo;
+    double labelY = this->rangeHi - range / 2.0;
 
     for (auto j = this->yAxes.begin(); j != this->yAxes.end(); j++)
     {
@@ -39,10 +45,9 @@ void YAxisArea::paint(QPainter* painter)
         }
 
         double labelX = xval - 60 - TICKLENGTH;
-        double labelY = this->height() / 2;
         painter->translate(labelX, labelY);
         painter->rotate(-90);
-        painter->drawText(QRectF(-50, -(this->height() / 2), 100, this->height()), axis->name, labelo);
+        painter->drawText(QRectF(-50, -this->height(), 100, 2 * this->height()), axis->name, labelo);
         painter->rotate(90);
         painter->translate(-labelX, -labelY);
         xval -= 100;

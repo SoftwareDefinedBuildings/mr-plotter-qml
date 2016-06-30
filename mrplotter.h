@@ -14,6 +14,10 @@ class MrPlotter : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(TimeAxisArea* timeaxisarea READ timeAxisArea WRITE setTimeAxisArea)
+    Q_PROPERTY(QList<qreal> timeDomain READ getTimeDomain WRITE setTimeDomain)
+    Q_PROPERTY(QList<qreal> scrollableDomain READ getScrollableDomain WRITE setScrollableDomain)
+    Q_PROPERTY(QString timeZone READ getTimeZoneName WRITE setTimeZone)
+    Q_PROPERTY(bool timeTickPromotion READ getTimeTickPromotion WRITE setTimeTickPromotion)
     Q_PROPERTY(PlotArea* mainPlot READ mainPlot WRITE setMainPlot)
     Q_PROPERTY(PlotArea* dataDensityPlot READ dataDensityPlot WRITE setDataDensityPlot)
 public:
@@ -37,22 +41,26 @@ public:
     Q_INVOKABLE Stream* newStream(QString uuid, qulonglong archiverID);
     Q_INVOKABLE void delStream(Stream* s);
 
-    Q_INVOKABLE bool setTimeDomain(double domainLoMillis, double domainHiMillis,
-                                   double domainLoNanos = 0.0, double domainHiNanos = 0.0);
+    Q_INVOKABLE bool setTimeDomain(QList<qreal> domain);
+    Q_INVOKABLE QList<qreal> getTimeDomain();
+
     Q_INVOKABLE void autozoom(QVariantList streams);
 
-    Q_INVOKABLE QVector<qreal> getTimeDomain();
-
-    Q_INVOKABLE bool setScrollableRange(double minMillis, double maxMillis,
-                                        double minNanos = 0.0, double maxNanos = 0.0);
+    Q_INVOKABLE bool setScrollableDomain(QList<qreal> domain);
+    Q_INVOKABLE QList<qreal> getScrollableDomain();
 
     Q_INVOKABLE YAxis* newYAxis();
     Q_INVOKABLE YAxis* newYAxis(float domainLo, float domainHi);
     Q_INVOKABLE void delYAxis(YAxis* ya);
 
     bool setTimeZone(QByteArray timezone);
+    QByteArray getTimeZone();
+
     Q_INVOKABLE bool setTimeZone(QString timezone);
+    Q_INVOKABLE QString getTimeZoneName();
+
     Q_INVOKABLE void setTimeTickPromotion(bool enable);
+    Q_INVOKABLE bool getTimeTickPromotion();
 
     Q_INVOKABLE void updateDataAsyncThrottled();
     Q_INVOKABLE void updateDataAsync();

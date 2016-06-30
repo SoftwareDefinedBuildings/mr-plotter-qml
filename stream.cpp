@@ -1,5 +1,6 @@
 #include "axis.h"
 #include "stream.h"
+#include "utils.h"
 
 #include <QByteArray>
 #include <QString>
@@ -9,12 +10,14 @@ Stream::Stream(QObject* parent): QObject(parent), uuid(), archiver(0)
 {
 }
 
-Stream::Stream(const QString& u, uint32_t archiverID, QObject* parent): QObject(parent), uuid(u), archiver(archiverID)
+Stream::Stream(const QString& u, uint32_t archiverID, QObject* parent):
+    QObject(parent),uuid(u), archiver(archiverID)
 {
     this->init();
 }
 
-Stream::Stream(const QUuid& u, uint32_t archiverID, QObject* parent): QObject(parent), uuid(u), archiver(archiverID)
+Stream::Stream(const QUuid& u, uint32_t archiverID, QObject* parent):
+    QObject(parent), uuid(u), archiver(archiverID)
 {
     this->init();
 }
@@ -42,7 +45,7 @@ bool Stream::toDrawable(struct drawable& d) const
 
     d.data = this->data;
     d.timeOffset = this->timeOffset;
-    this->axis->getDomain(d.ymin, d.ymax);
+    this->axis->getDomain(&d.ymin, &d.ymax);
     d.color = this->color;
     d.selected = this->selected;
     d.alwaysConnect = this->alwaysConnect;
@@ -51,7 +54,8 @@ bool Stream::toDrawable(struct drawable& d) const
 
 bool Stream::setColor(float red, float green, float blue)
 {
-    if (red < 0.0f || red > 1.0f || green < 0.0f || green > 1.0f || blue < 0.0f || blue > 1.0f)
+    if (red < 0.0f || red > 1.0f || green < 0.0f || green > 1.0f ||
+            blue < 0.0f || blue > 1.0f)
     {
         return false;
     }
@@ -61,12 +65,39 @@ bool Stream::setColor(float red, float green, float blue)
     return true;
 }
 
+bool Stream::setColor(QList<qreal> color)
+{
+    return this->setColor((float) color.value(0), (float) color.value(1),
+                          (float) color.value(2));
+}
+
+QList<qreal> Stream::getColor()
+{
+    QList<qreal> color;
+    color.append((qreal) this->color.red);
+    color.append((qreal) this->color.green);
+    color.append((qreal) this->color.blue);
+    return color;
+}
+
 void Stream::setTimeOffset(int64_t offset)
 {
     this->timeOffset = offset;
 }
 
-void Stream::setTimeOffset(double millis, double nanos)
+void Stream::setTimeOffset(QList<qreal> offset)
 {
-    this->setTimeOffset(Q_INT64_C(1000000) * (int64_t) millis + (int64_t) nanos);
+    this->setTimeOffset(joinTime((int64_t) offset.value(0), (int64_t) offset.value(1)));
+}
+
+QList<qreal> Stream::getTimeOffset()
+{
+    int64_t millis;
+    int64_t nanos;
+
+    splitTime(this->timeOffset, &millis, &nanos);
+    QList<qreal> offset;
+    offset.append((qreal) millis);
+    offset.append((qreal) nanos);
+    return offset;
 }

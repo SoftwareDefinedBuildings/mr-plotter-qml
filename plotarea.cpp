@@ -186,7 +186,7 @@ void PlotArea::mousePressEvent(QMouseEvent* event)
     this->setCursor(this->closedhand);
 
     int64_t timeaxis_start, timeaxis_end;
-    this->plot->timeaxis.getDomain(timeaxis_start, timeaxis_end);
+    this->plot->timeaxis.getDomain(&timeaxis_start, &timeaxis_end);
 
     this->timeaxis_start_beforescroll = timeaxis_start;
     this->timeaxis_end_beforescroll = timeaxis_end;
@@ -217,7 +217,7 @@ void PlotArea::mouseReleaseEvent(QMouseEvent* event)
         return;
     }
 
-    this->plot->timeaxis.getDomain(timeaxis_start, timeaxis_end);
+    this->plot->timeaxis.getDomain(&timeaxis_start, &timeaxis_end);
 
     this->setCursor(this->openhand);
     this->plot->updateView();
@@ -233,7 +233,7 @@ void PlotArea::touchEvent(QTouchEvent* event)
         return;
     }
 
-    this->plot->timeaxis.getDomain(timeaxis_start, timeaxis_end);
+    this->plot->timeaxis.getDomain(&timeaxis_start, &timeaxis_end);
 
     const QList<QTouchEvent::TouchPoint>& tpoints = event->touchPoints();
 
@@ -429,7 +429,7 @@ void PlotArea::wheelEvent(QWheelEvent* event)
         return;
     }
 
-    this->plot->timeaxis.getDomain(timeaxis_start, timeaxis_end);
+    this->plot->timeaxis.getDomain(&timeaxis_start, &timeaxis_end);
 
     uint64_t intwidth = (uint64_t) (timeaxis_end - timeaxis_start);
 
@@ -527,7 +527,7 @@ void PlotArea::updateDataAsync(Cache& cache)
     }
 
     int64_t timeaxis_start, timeaxis_end;
-    this->plot->timeaxis.getDomain(timeaxis_start, timeaxis_end);
+    this->plot->timeaxis.getDomain(&timeaxis_start, &timeaxis_end);
 
     this->rescaleAxes(timeaxis_start, timeaxis_end);
 

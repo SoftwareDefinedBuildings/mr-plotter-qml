@@ -1,5 +1,6 @@
 #include "axis.h"
 #include "stream.h"
+#include "utils.h"
 
 #include <algorithm>
 
@@ -20,17 +21,13 @@ YAxis::YAxis(QObject* parent): YAxis(-1.0f, 1.0f, parent)
 {
 }
 
-YAxis::YAxis(float domainLow, float domainHigh, QObject* parent): QObject(parent), id(YAxis::nextID++)
+YAxis::YAxis(float domainLow, float domainHigh, QObject* parent):
+    QObject(parent), id(YAxis::nextID++)
 {
     this->domainLo = domainLow;
     this->domainHi = domainHigh;
     this->dynamicAutoscale = false;
     this->minticks = DEFAULT_MINTICKS;
-}
-
-void YAxis::setMinTicks(int numMinTicks)
-{
-    this->minticks = numMinTicks;
 }
 
 bool YAxis::addStream(Stream* s)
@@ -58,6 +55,41 @@ bool YAxis::rmStream(Stream* s)
     return true;
 }
 
+QList<QVariant> YAxis::getStreamList() const
+{
+    QList<QVariant> streamlist;
+
+    for (auto i = this->streams.begin(); i != this->streams.end(); i++)
+    {
+        streamlist.append(QVariant::fromValue(*i));
+    }
+
+    return streamlist;
+}
+
+void YAxis::setStreamList(QList<QVariant> newstreamlist)
+{
+    for (auto j = this->streams.begin(); j != this->streams.end(); j++)
+    {
+        (*j)->axis = nullptr;
+    }
+
+    QList<Stream*> newStreams;
+
+    for (auto i = newstreamlist.begin(); i != newstreamlist.end(); i++)
+    {
+        Stream* s = i->value<Stream*>();
+        Q_ASSERT_X(s != nullptr, "setStreamList", "invalid member in stream list");
+        if (s != nullptr)
+        {
+            s->axis = this;
+            newStreams.append(s);
+        }
+    }
+
+    this->streams = qMove(newStreams);
+}
+
 bool YAxis::setDomain(float low, float high)
 {
     if (low >= high || !qIsFinite(low) || !qIsFinite(high))
@@ -70,10 +102,26 @@ bool YAxis::setDomain(float low, float high)
     return true;
 }
 
-void YAxis::getDomain(float& low, float& high) const
+void YAxis::getDomain(float* low, float* high) const
 {
-    low = this->domainLo;
-    high = this->domainHi;
+    *low = this->domainLo;
+    *high = this->domainHi;
+}
+
+bool YAxis::setDomainArr(QList<qreal> domain)
+{
+    return this->setDomain(domain.value(0), domain.value(1));
+}
+
+QList<qreal> YAxis::getDomainArr()
+{
+    float low;
+    float high;
+    this->getDomain(&low, &high);
+    QList<qreal> domainArr;
+    domainArr.append(low);
+    domainArr.append(high);
+    return domainArr;
 }
 
 QVector<struct tick> YAxis::getTicks()
@@ -171,10 +219,11 @@ void YAxis::autoscale(int64_t start, int64_t end, bool rangecount)
     }
 }
 
-void YAxis::autoscale(bool rangecount, double startMillis, double endMillis, double startNanos, double endNanos)
+void YAxis::autoscale(bool rangecount, QList<qreal> domain)
 {
-    int64_t start = 1000000 * (int64_t) startMillis + (int64_t) startNanos;
-    int64_t end = 1000000 * (int64_t) endMillis + (int64_t) endNanos;
+    int64_t start;
+    int64_t end;
+    fromJSList(domain, &start, &end);
     this->autoscale(start, end, rangecount);
 }
 
@@ -290,15 +339,20 @@ bool TimeAxis::setDomain(int64_t low, int64_t high)
     return true;
 }
 
-void TimeAxis::getDomain(int64_t& low, int64_t& high) const
+void TimeAxis::getDomain(int64_t* low, int64_t* high) const
 {
-    low = this->domainLo;
-    high = this->domainHi;
+    *low = this->domainLo;
+    *high = this->domainHi;
 }
 
 void TimeAxis::setPromoteTicks(bool enable)
 {
     this->promoteTicks = enable;
+}
+
+bool TimeAxis::getPromoteTicks()
+{
+    return this->promoteTicks;
 }
 
 QVector<struct timetick> TimeAxis::getTicks()
@@ -466,6 +520,11 @@ void TimeAxis::setTimeZone(QTimeZone& newtz)
     newtz.swap(this->tz);
     QString newlabel = TimeAxis::labelformat.arg(this->tz.displayName(QTimeZone::GenericTime));
     this->label.setText(newlabel);
+}
+
+QTimeZone& TimeAxis::getTimeZone()
+{
+    return this->tz;
 }
 
 const QStaticText& TimeAxis::getLabel() const

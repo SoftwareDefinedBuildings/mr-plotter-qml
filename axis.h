@@ -33,14 +33,13 @@ class YAxis : public QObject
     Q_OBJECT
     Q_PROPERTY(bool dynamicAutoscale MEMBER dynamicAutoscale)
     Q_PROPERTY(QString name MEMBER name)
+    Q_PROPERTY(int minTicks MEMBER minticks)
+    Q_PROPERTY(QList<qreal> domain READ getDomainArr WRITE setDomainArr)
+    Q_PROPERTY(QList<QVariant> streamList READ getStreamList WRITE setStreamList)
 
 public:
     YAxis(QObject* parent = nullptr);
     YAxis(float domainLow, float domainHigh, QObject* parent = nullptr);
-
-    /* Sets the minimum number of ticks that may appear on this axis. The
-     * true number of ticks will not exceed twice the minimum number. */
-    Q_INVOKABLE void setMinTicks(int numMinTicks);
 
     /* Returns true if the stream was already added to an axis, and was
      * removed from that axis to satisfy this request.
@@ -56,6 +55,9 @@ public:
      */
     Q_INVOKABLE bool rmStream(Stream* s);
 
+    Q_INVOKABLE QList<QVariant> getStreamList() const;
+    Q_INVOKABLE void setStreamList(QList<QVariant> newstreamlist);
+
     /* Sets the domain of this axis to be the interval [low, high].
      * Returns true on success and false on failure.
      */
@@ -64,7 +66,10 @@ public:
     /* Sets the provided references LOW and HIGH to the domain of this
      * axis.
      */
-    void getDomain(float& low, float& high) const;
+    void getDomain(float* low, float* high) const;
+
+    Q_INVOKABLE bool setDomainArr(QList<qreal> domain);
+    Q_INVOKABLE QList<qreal> getDomainArr();
 
     QVector<struct tick> getTicks();
 
@@ -75,26 +80,30 @@ public:
     void autoscale(int64_t start, int64_t end, bool rangecount);
 
     /* Autoscale function invokable from Javascript. */
-    Q_INVOKABLE void autoscale(bool rangecount, double startMillis, double endMillis, double startNanos, double endNanos);
+    Q_INVOKABLE void autoscale(bool rangecount, QList<qreal> domain);
 
     /* Maps a floating point number in the domain of this axis to a
      * floating point number between 0.0 and 1.0.
      */
-    float map(float x);
+    Q_INVOKABLE float map(float x);
 
     /* Maps a floating point number between 0.0 and 1.0 to a floating
      * point number in the domain of this axis.
      */
-    float unmap(float y);
+    Q_INVOKABLE float unmap(float y);
 
     const uint64_t id;
+
+    /* Sets the minimum number of ticks that may appear on this axis. The
+     * true number of ticks will not exceed twice the minimum number. */
+    int minticks;
+
     QString name;
+
     bool dynamicAutoscale;
 
 private:
     static uint64_t nextID;
-
-    int minticks;
 
     float domainLo;
     float domainHi;
@@ -185,11 +194,13 @@ public:
     /* Sets the provided references LOW and HIGH to the domain of this
      * axis.
      */
-    void getDomain(int64_t& low, int64_t& high) const;
+    void getDomain(int64_t* low, int64_t* high) const;
 
     void setTimeZone(QTimeZone& newtz);
+    QTimeZone& getTimeZone();
 
     void setPromoteTicks(bool enable);
+    bool getPromoteTicks();
 
     const QStaticText& getLabel() const;
 

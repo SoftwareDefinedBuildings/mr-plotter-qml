@@ -1,11 +1,13 @@
 #include "cache.h"
 #include "mrplotter.h"
 #include "plotarea.h"
+#include "utils.h"
 
 #include <cinttypes>
 
 #include <QTimer>
 #include <QTimeZone>
+
 
 Cache MrPlotter::cache;
 
@@ -65,19 +67,6 @@ Stream* MrPlotter::newStream(QString uuid, qulonglong archiverID)
 void MrPlotter::delStream(Stream* s)
 {
     s->deleteLater();
-}
-
-bool MrPlotter::setScrollableRange(double minMillis, double maxMillis, double minNanos, double maxNanos)
-{
-    int64_t mint = Q_INT64_C(1000000) * (int64_t) minMillis + (int64_t) minNanos;
-    int64_t maxt = Q_INT64_C(1000000) * (int64_t) maxMillis + (int64_t) maxNanos;
-    if (mint >= maxt)
-    {
-        return false;
-    }
-    this->scrollable_min = mint;
-    this->scrollable_max = maxt;
-    return true;
 }
 
 YAxis* MrPlotter::newYAxis()
@@ -159,15 +148,6 @@ void MrPlotter::setTimeAxisArea(TimeAxisArea* newtimeaxisarea)
     newtimeaxisarea->setTimeAxis(this->timeaxis);
 }
 
-
-bool MrPlotter::setTimeDomain(double domainLoMillis, double domainHiMillis,
-                              double domainLoNanos, double domainHiNanos)
-{
-    int64_t domainLo = 1000000 * (int64_t) domainLoMillis + (int64_t) domainLoNanos;
-    int64_t domainHi = 1000000 * (int64_t) domainHiMillis + (int64_t) domainHiNanos;
-    return this->timeaxis.setDomain(domainLo, domainHi);
-}
-
 struct autozoomdata
 {
     int64_t lowerbound;
@@ -216,7 +196,8 @@ void MrPlotter::autozoom(QVariantList streams)
                 }
                 else
                 {
-                    qDebug("Autoscale bounds are %" PRId64 " to %" PRId64 ": ignoring", bounds->lowerbound, bounds->upperbound);
+                    qDebug("Autoscale bounds are %" PRId64 " to %" PRId64 ": ignoring",
+                           bounds->lowerbound, bounds->upperbound);
                 }
                 delete bounds;
 
@@ -226,33 +207,42 @@ void MrPlotter::autozoom(QVariantList streams)
     }
 }
 
-QVector<qreal> MrPlotter::getTimeDomain()
+QList<qreal> MrPlotter::getTimeDomain()
 {
     int64_t low;
     int64_t high;
-    this->timeaxis.getDomain(low, high);
-    int64_t lowMillis = low / 1000000;
-    int64_t lowNanos = low % 1000000;
-    if (lowNanos < 0)
-    {
-        lowMillis -= 1;
-        lowNanos += 1000000;
-    }
-    int64_t highMillis = high / 1000000;
-    int64_t highNanos = high % 1000000;
-    if (highNanos < 0)
-    {
-        highMillis -= 1;
-        highNanos += 1000000;
-    }
+    this->timeaxis.getDomain(&low, &high);
+    return toJSList(low, high);
+}
 
-    QVector<qreal> toreturn(4);
-    toreturn[0] = (qreal) lowMillis;
-    toreturn[1] = (qreal) highMillis;
-    toreturn[2] = (qreal) lowNanos;
-    toreturn[3] = (qreal) highNanos;
+bool MrPlotter::setScrollableDomain(QList<qreal> domain)
+{
+    int64_t mint;
+    int64_t maxt;
+    fromJSList(domain, &mint, &maxt);
+    if (mint >= maxt)
+    {
+        return false;
+    }
+    this->scrollable_min = mint;
+    this->scrollable_max = maxt;
+    return true;
+}
 
-    return toreturn;
+QList<qreal> MrPlotter::getScrollableDomain()
+{
+    return toJSList(scrollable_min, scrollable_max);
+}
+
+bool MrPlotter::setTimeDomain(QList<qreal> domain)
+{
+    int64_t domainLo;
+    int64_t domainHi;
+    fromJSList(domain, &domainLo, &domainHi);
+    bool rv = this->timeaxis.setDomain(domainLo, domainHi);
+    this->updateDataAsyncThrottled();
+    this->updateView();
+    return rv;
 }
 
 bool MrPlotter::setTimeZone(QByteArray timezone)
@@ -266,12 +256,30 @@ bool MrPlotter::setTimeZone(QByteArray timezone)
     return false;
 }
 
+QByteArray MrPlotter::getTimeZone()
+{
+    return this->timeaxis.getTimeZone().id();
+}
+
 bool MrPlotter::setTimeZone(QString timezone)
 {
-    return this->setTimeZone(timezone.toLatin1());
+    bool rv = this->setTimeZone(timezone.toLatin1());
+    this->updateView();
+    return rv;
+}
+
+QString MrPlotter::getTimeZoneName()
+{
+    return QString(this->getTimeZone());
 }
 
 void MrPlotter::setTimeTickPromotion(bool enable)
 {
     this->timeaxis.setPromoteTicks(enable);
+    this->updateView();
+}
+
+bool MrPlotter::getTimeTickPromotion()
+{
+    return this->timeaxis.getPromoteTicks();
 }
