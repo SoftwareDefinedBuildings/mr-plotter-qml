@@ -11,7 +11,11 @@
 
 const QString URI_TEMPLATE = QStringLiteral("%1/%2");
 
-#define BTRDB_MIN ((int64_t) (-(Q_INT64_C(16) >> 56) + Q_INT64_C(1)))
+/* The actual value of BTRDB_MIN is ((int64_t) (-(Q_INT64_C(16) << 56) + Q_INT64_C(1))),
+ * but Giles only support positive timestamps.
+ */
+
+#define BTRDB_MIN ((int64_t) 1)
 #define BTRDB_MAX ((int64_t) ((Q_INT64_C(48) << 56) - Q_INT64_C(1)))
 
 #define QUERY_TEMPLATE QStringLiteral("select statistical(%1) data in (%2ns, %3ns) as ns where uuid = \"%4\";")

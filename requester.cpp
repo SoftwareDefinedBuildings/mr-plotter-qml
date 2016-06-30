@@ -101,7 +101,7 @@ uint32_t Requester::publishQuery(QString query, uint32_t archiver)
     req.insert("Nonce", nonce);
     req.insert("Query", query);
 
-    this->bw->publishMsgPack(uri, "2.0.9.1", req);
+    this->bw->publishMsgPack(uri, "2.0.8.1", req);
 
     return nonce;
 }
@@ -304,7 +304,7 @@ int64_t getExtrTime(QVariantMap resp, bool getmax)
 
 void Requester::handleResponse(PMessage message)
 {
-    QList<PayloadObject*> pos = message->FilterPOs(BW::fromDF("2.0.9.8"));
+    QList<PayloadObject*> pos = message->FilterPOs(BW::fromDF("2.0.8.4"));
     for (auto p = pos.begin(); p != pos.end(); p++)
     {
         uint32_t nonce;

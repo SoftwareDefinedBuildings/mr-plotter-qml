@@ -92,6 +92,8 @@ private:
 
     uint64_t fullUpdateID;
 
+    bool canscroll;
+
     static bool initializedCursors;
     static QCursor defaultcursor;
     static QCursor openhand;

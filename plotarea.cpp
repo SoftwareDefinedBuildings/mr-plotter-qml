@@ -86,6 +86,7 @@ void PlotArea::addStream(Stream* s)
 
 void PlotArea::setScrollZoomable(bool enabled)
 {
+    this->canscroll = enabled;
     if (enabled)
     {
         this->setAcceptedMouseButtons(Qt::LeftButton);
@@ -177,7 +178,7 @@ setdomain:
 
 void PlotArea::mousePressEvent(QMouseEvent* event)
 {
-    if (this->plot == nullptr)
+    if (this->plot == nullptr || !this->canscroll)
     {
         return;
     }
@@ -196,7 +197,7 @@ void PlotArea::mousePressEvent(QMouseEvent* event)
 
 void PlotArea::mouseMoveEvent(QMouseEvent* event)
 {
-    if (this->plot == nullptr)
+    if (this->plot == nullptr || !this->canscroll)
     {
         return;
     }
@@ -211,7 +212,7 @@ void PlotArea::mouseReleaseEvent(QMouseEvent* event)
     Q_UNUSED(event);
     int64_t timeaxis_start, timeaxis_end;
 
-    if (this->plot == nullptr)
+    if (this->plot == nullptr || !this->canscroll)
     {
         return;
     }
@@ -227,7 +228,7 @@ void PlotArea::touchEvent(QTouchEvent* event)
 {
     int64_t timeaxis_start, timeaxis_end;
 
-    if (this->plot == nullptr)
+    if (this->plot == nullptr || !this->canscroll)
     {
         return;
     }
@@ -423,7 +424,7 @@ void PlotArea::wheelEvent(QWheelEvent* event)
 {
     int64_t timeaxis_start, timeaxis_end;
 
-    if (this->plot == nullptr)
+    if (this->plot == nullptr || !this->canscroll)
     {
         return;
     }
