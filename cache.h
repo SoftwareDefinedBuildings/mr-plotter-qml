@@ -156,12 +156,13 @@ public:
      * cache entries are very tiny and many VBOs need to be drawn. The default
      * hint of 0 means to never widen the requests.
      */
-    void requestData(Requester* requester, uint32_t archiver, const QUuid& uuid, int64_t start, int64_t end,
+    void requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int64_t end,
                      uint8_t pwe,  std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
                      uint64_t request_hint = 0, bool includemargins = false);
 
     /* The VBOs that need to be deleted. */
     QVector<GLuint> todelete;
+    Requester* requester;
 
 private:
     void use(QSharedPointer<CacheEntry> ce, bool firstuse);
@@ -172,7 +173,6 @@ private:
     QHash<QUuid, QPair<uint64_t, QMap<int64_t, QSharedPointer<CacheEntry>>*>> cache; /* Maps UUID to the total cost associated with that UUID and the data for that stream. */
     QHash<uint64_t, QPair<uint64_t, std::function<void()>>> outstanding; /* Maps query id to the number of outstanding requests. */
     QHash<QSharedPointer<CacheEntry>, uint64_t> loading; /* Maps cache entry to the list of queries waiting for it. */
-    Requester* requester;
 
     /* A linked list used to clear cache entries in LRU order. */
     QLinkedList<QSharedPointer<CacheEntry>> lru;

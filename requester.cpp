@@ -424,19 +424,16 @@ void Requester::handleBracketResponse(struct brqstate* brqs, QVariantMap respons
     {
         Q_ASSERT(!brqs->gotright);
         brqs->gotright = true;
-        qDebug("Got right");
     }
     else
     {
         Q_ASSERT(!brqs->gotleft);
         brqs->gotleft = true;
-        qDebug("Got left");
     }
 
     if (!error)
     {
         int64_t extrtime = getExtrTime(response, right);
-        qDebug("Extrtime is %ld", extrtime);
         if (right)
         {
             brqs->rightbound = extrtime;
@@ -449,7 +446,6 @@ void Requester::handleBracketResponse(struct brqstate* brqs, QVariantMap respons
 
     if (brqs->gotleft && brqs->gotright)
     {
-        qDebug("Firing");
         brqs->callback(brqs->leftbound, brqs->rightbound);
         delete brqs;
     }

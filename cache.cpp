@@ -633,6 +633,7 @@ Cache::Cache() : cache(), outstanding(), loading(), lru()
     Q_ASSERT(sizeof(struct cachedpt) == 40);
     this->curr_queryid = 0;
     this->cost = 0;
+    this->requester = new Requester;
 }
 
 Cache::~Cache()
@@ -641,6 +642,7 @@ Cache::~Cache()
     {
         delete[] i->second;
     }
+    delete this->requester;
 }
 
 /* There are two ways we could do this.
@@ -659,7 +661,7 @@ Cache::~Cache()
  * associated to each chunk of data we get back, but it provides
  * for a cleaner API overall.
  */
-void Cache::requestData(Requester* requester, uint32_t archiver, const QUuid& uuid, int64_t start, int64_t end,
+void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int64_t end,
                         uint8_t pwe, std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
                         uint64_t request_hint, bool includemargins)
 {
@@ -798,8 +800,8 @@ void Cache::requestData(Requester* requester, uint32_t archiver, const QUuid& uu
             i = entries->insert(i, gapfill->end, gapfill);
 
             /* Make the request. */
-            requester->makeDataRequest(uuid, gapfill->start, gapfill->end, pwe, archiver,
-                                       [this, i, gapfill, prev, entry, callback, result](struct statpt* points, int len)
+            this->requester->makeDataRequest(uuid, gapfill->start, gapfill->end, pwe, archiver,
+                                             [this, i, gapfill, prev, entry, callback, result](struct statpt* points, int len)
             {
                 /* Add it to the LRU linked list before removing entries
                  * to meet the cache threshold, so that we release this

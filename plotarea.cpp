@@ -516,7 +516,7 @@ void PlotArea::rescaleAxes(int64_t timeaxis_start, int64_t timeaxis_end)
     }
 }
 
-void PlotArea::updateDataAsync(Cache& cache, Requester* requester)
+void PlotArea::updateDataAsync(Cache& cache)
 {
     uint64_t screenwidth = (uint64_t) (0.5 + this->width());
 
@@ -545,8 +545,8 @@ void PlotArea::updateDataAsync(Cache& cache, Requester* requester)
         int64_t srch_start = safeSub(timeaxis_start, s->timeOffset);
         int64_t srch_end = safeSub(timeaxis_end, s->timeOffset);
 
-        cache.requestData(requester, s->archiver, s->uuid, srch_start, srch_end, pwe,
-                                [this, s, id, timeaxis_start, timeaxis_end](QList<QSharedPointer<CacheEntry>> data)
+        cache.requestData(s->archiver, s->uuid, srch_start, srch_end, pwe,
+                          [this, s, id, timeaxis_start, timeaxis_end](QList<QSharedPointer<CacheEntry>> data)
         {
             if (id == this->fullUpdateID)
             {

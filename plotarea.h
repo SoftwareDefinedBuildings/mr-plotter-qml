@@ -61,7 +61,7 @@ public:
     Q_INVOKABLE QList<QVariant> getStreamList() const;
     Q_INVOKABLE void setStreamList(QList<QVariant> newstreamlist);
 
-    void updateDataAsync(Cache& cache, Requester* requester);
+    void updateDataAsync(Cache& cache);
 
     MrPlotter* plot;
 

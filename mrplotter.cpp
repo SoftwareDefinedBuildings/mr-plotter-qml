@@ -21,13 +21,6 @@ MrPlotter::MrPlotter(): timeaxis()
 
     this->ready = true;
     this->pending = false;
-
-    this->requester = new Requester;
-}
-
-MrPlotter::~MrPlotter()
-{
-    delete this->requester;
 }
 
 PlotArea* MrPlotter::mainPlot() const
@@ -56,12 +49,12 @@ void MrPlotter::setDataDensityPlot(PlotArea* newddplot)
 
 qulonglong MrPlotter::addArchiver(QString uri)
 {
-    return (qulonglong) this->requester->subscribeBWArchiver(uri);
+    return (qulonglong) MrPlotter::cache.requester->subscribeBWArchiver(uri);
 }
 
 void MrPlotter::removeArchiver(qulonglong archiver)
 {
-    return this->requester->unsubscribeBWArchiver((uint32_t) archiver);
+    return MrPlotter::cache.requester->unsubscribeBWArchiver((uint32_t) archiver);
 }
 
 Stream* MrPlotter::newStream(QString uuid, qulonglong archiverID)
@@ -129,11 +122,11 @@ void MrPlotter::updateDataAsync()
 {
     if (mainplot != nullptr)
     {
-        mainplot->updateDataAsync(this->cache, this->requester);
+        mainplot->updateDataAsync(this->cache);
     }
     if (ddplot != nullptr)
     {
-        ddplot->updateDataAsync(this->cache, this->requester);
+        ddplot->updateDataAsync(this->cache);
     }
 }
 
@@ -210,7 +203,7 @@ void MrPlotter::autozoom(QVariantList streams)
 
     for (auto j = archivers.begin(); j != archivers.end(); j++)
     {
-        this->requester->makeBracketRequest(byarchiver[*j], *j,
+        cache.requester->makeBracketRequest(byarchiver[*j], *j,
                 [this, bounds](int64_t lowerbound, int64_t upperbound)
         {
             bounds->lowerbound = qMin(bounds->lowerbound, lowerbound);

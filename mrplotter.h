@@ -18,7 +18,6 @@ class MrPlotter : public QObject
     Q_PROPERTY(PlotArea* dataDensityPlot READ dataDensityPlot WRITE setDataDensityPlot)
 public:
     MrPlotter();
-    ~MrPlotter();
 
     const QString& name() const;
     void setName(QString& newname);
@@ -32,8 +31,8 @@ public:
     TimeAxisArea* timeAxisArea() const;
     void setTimeAxisArea(TimeAxisArea* newtimeaxisarea);
 
-    Q_INVOKABLE qulonglong addArchiver(QString uri);
-    Q_INVOKABLE void removeArchiver(qulonglong archiver);
+    Q_INVOKABLE static qulonglong addArchiver(QString uri);
+    Q_INVOKABLE static void removeArchiver(qulonglong archiver);
 
     Q_INVOKABLE Stream* newStream(QString uuid, qulonglong archiverID);
     Q_INVOKABLE void delStream(Stream* s);
@@ -72,7 +71,6 @@ public slots:
 
 private:
     TimeAxisArea* timeaxisarea;
-    Requester* requester;
 
     PlotArea* mainplot;
     PlotArea* ddplot;
