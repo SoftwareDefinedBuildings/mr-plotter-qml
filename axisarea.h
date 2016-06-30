@@ -9,7 +9,7 @@
 class YAxisArea : public QQuickPaintedItem
 {
     Q_OBJECT
-    Q_PROPERTY(QList<QVariant> axislist READ getAxisList WRITE setAxisList)
+    Q_PROPERTY(QList<QVariant> axisList READ getAxisList WRITE setAxisList)
     Q_PROPERTY(double rangeStart MEMBER rangeLo)
     Q_PROPERTY(double rangeEnd MEMBER rangeHi)
 

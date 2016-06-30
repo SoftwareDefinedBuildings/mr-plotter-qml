@@ -35,8 +35,9 @@ class MrPlotter;
 class PlotArea : public QQuickFramebufferObject
 {
     Q_OBJECT
-    Q_PROPERTY(YAxisArea* yaxisarea READ yAxisArea WRITE setYAxisArea)
-    Q_PROPERTY(QList<QVariant> streamlist READ getStreamList WRITE setStreamList)
+    Q_PROPERTY(YAxisArea* yAxisArea READ getYAxisArea WRITE setYAxisArea)
+    Q_PROPERTY(QList<QVariant> streamList READ getStreamList WRITE setStreamList)
+    Q_PROPERTY(bool scrollZoomable READ getScrollZoomable WRITE setScrollZoomable)
 
     friend class PlotRenderer;
 
@@ -46,6 +47,7 @@ public:
     Q_INVOKABLE void addStream(Stream* s);
 
     Q_INVOKABLE void setScrollZoomable(bool enabled);
+    Q_INVOKABLE bool getScrollZoomable();
 
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
@@ -55,7 +57,7 @@ public:
 
     const TimeAxis* getTimeAxis() const;
 
-    YAxisArea* yAxisArea() const;
+    YAxisArea* getYAxisArea() const;
     void setYAxisArea(YAxisArea* newyaxisarea);
 
     Q_INVOKABLE QList<QVariant> getStreamList() const;

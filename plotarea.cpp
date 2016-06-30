@@ -99,6 +99,11 @@ void PlotArea::setScrollZoomable(bool enabled)
     }
 }
 
+bool PlotArea::getScrollZoomable()
+{
+    return this->canscroll;
+}
+
 int64_t safeRoundSigned(double x)
 {
     using namespace std;
@@ -568,7 +573,7 @@ const TimeAxis* PlotArea::getTimeAxis() const
     return &this->plot->timeaxis;
 }
 
-YAxisArea* PlotArea::yAxisArea() const
+YAxisArea* PlotArea::getYAxisArea() const
 {
     return this->yaxisarea;
 }
