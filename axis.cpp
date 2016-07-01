@@ -1,4 +1,6 @@
 #include "axis.h"
+#include "axisarea.h"
+#include "plotarea.h"
 #include "stream.h"
 #include "utils.h"
 
@@ -22,7 +24,7 @@ YAxis::YAxis(QObject* parent): YAxis(-1.0f, 1.0f, parent)
 }
 
 YAxis::YAxis(float domainLow, float domainHigh, QObject* parent):
-    QObject(parent), id(YAxis::nextID++)
+    QObject(parent), id(YAxis::nextID++), axisarea(nullptr)
 {
     this->domainLo = domainLow;
     this->domainHi = domainHigh;
@@ -97,8 +99,9 @@ bool YAxis::setDomain(float low, float high)
         return false;
     }
 
-    this->domainLo = low;
-    this->domainHi = high;
+    this->setProperty("domainLo", low);
+    this->setProperty("domainHi", high);
+
     return true;
 }
 
@@ -113,7 +116,7 @@ bool YAxis::setDomainArr(QList<qreal> domain)
     return this->setDomain(domain.value(0), domain.value(1));
 }
 
-QList<qreal> YAxis::getDomainArr()
+QList<qreal> YAxis::getDomainArr() const
 {
     float low;
     float high;
@@ -122,6 +125,42 @@ QList<qreal> YAxis::getDomainArr()
     domainArr.append(low);
     domainArr.append(high);
     return domainArr;
+}
+
+qreal YAxis::getDomainLo() const
+{
+    return (qreal) this->domainLo;
+}
+
+void YAxis::setDomainLo(qreal domainLo)
+{
+    this->domainLo = domainLo;
+    if (this->axisarea != nullptr)
+    {
+        this->axisarea->update();
+        if (this->axisarea->plotarea != nullptr)
+        {
+            this->axisarea->plotarea->update();
+        }
+    }
+}
+
+qreal YAxis::getDomainHi() const
+{
+    return (qreal) this->domainHi;
+}
+
+void YAxis::setDomainHi(qreal domainHi)
+{
+    this->domainHi = domainHi;
+    if (this->axisarea != nullptr)
+    {
+        this->axisarea->update();
+        if (this->axisarea->plotarea != nullptr)
+        {
+            this->axisarea->plotarea->update();
+        }
+    }
 }
 
 QVector<struct tick> YAxis::getTicks()
@@ -214,8 +253,8 @@ void YAxis::autoscale(int64_t start, int64_t end, bool rangecount)
             minimum -= 1.0f;
             maximum += 1.0f;
         }
-        this->domainLo = minimum;
-        this->domainHi = maximum;
+
+        this->setDomain(minimum, maximum);
     }
 }
 

@@ -196,7 +196,7 @@ void MrPlotter::autozoom(QVariantList streams)
                 }
                 else
                 {
-                    qDebug("Autoscale bounds are %" PRId64 " to %" PRId64 ": ignoring",
+                    qDebug("Autozoom bounds are %" PRId64 " to %" PRId64 ": ignoring",
                            bounds->lowerbound, bounds->upperbound);
                 }
                 delete bounds;

@@ -516,10 +516,6 @@ void PlotArea::rescaleAxes(int64_t timeaxis_start, int64_t timeaxis_end)
             axes << ya;
         }
     }
-    if (axes.size() != 0 && this->yaxisarea != nullptr)
-    {
-        this->yaxisarea->update();
-    }
 }
 
 void PlotArea::updateDataAsync(Cache& cache)
@@ -581,6 +577,7 @@ YAxisArea* PlotArea::getYAxisArea() const
 void PlotArea::setYAxisArea(YAxisArea* newyaxisarea)
 {
     this->yaxisarea = newyaxisarea;
+    this->yaxisarea->plotarea = this;
 }
 
 QList<QVariant> PlotArea::getStreamList() const

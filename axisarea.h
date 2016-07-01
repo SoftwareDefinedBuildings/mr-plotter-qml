@@ -6,6 +6,8 @@
 #include <QQuickPaintedItem>
 #include <QSGNode>
 
+class PlotArea;
+
 class YAxisArea : public QQuickPaintedItem
 {
     Q_OBJECT
@@ -16,7 +18,7 @@ class YAxisArea : public QQuickPaintedItem
 public:
     YAxisArea(QQuickItem* parent = nullptr);
     void paint(QPainter* painter);
-    Q_INVOKABLE void addYAxis(YAxis* newyaxis);
+    Q_INVOKABLE bool addYAxis(YAxis* newyaxis);
 
     /* Each QVariant has an underlying type of YAxis*. I need to do this
      * in order to make this list directly accessible from Javascript.
@@ -24,6 +26,7 @@ public:
     Q_INVOKABLE QList<QVariant> getAxisList() const;
     Q_INVOKABLE void setAxisList(QList<QVariant> newaxislist);
 
+    PlotArea* plotarea;
     QList<YAxis*> yAxes;
 
 private:

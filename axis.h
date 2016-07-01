@@ -21,6 +21,7 @@
 
 /* Both Stream and Axis need declarations of each other. */
 class Stream;
+class YAxisArea;
 
 struct tick
 {
@@ -36,6 +37,8 @@ class YAxis : public QObject
     Q_PROPERTY(int minTicks MEMBER minticks)
     Q_PROPERTY(QList<qreal> domain READ getDomainArr WRITE setDomainArr)
     Q_PROPERTY(QList<QVariant> streamList READ getStreamList WRITE setStreamList)
+    Q_PROPERTY(qreal domainLo READ getDomainLo WRITE setDomainLo)
+    Q_PROPERTY(qreal domainHi READ getDomainHi WRITE setDomainHi)
 
 public:
     YAxis(QObject* parent = nullptr);
@@ -69,7 +72,13 @@ public:
     void getDomain(float* low, float* high) const;
 
     Q_INVOKABLE bool setDomainArr(QList<qreal> domain);
-    Q_INVOKABLE QList<qreal> getDomainArr();
+    Q_INVOKABLE QList<qreal> getDomainArr() const;
+
+    Q_INVOKABLE qreal getDomainLo() const;
+    Q_INVOKABLE void setDomainLo(qreal domainLo);
+
+    Q_INVOKABLE qreal getDomainHi() const;
+    Q_INVOKABLE void setDomainHi(qreal domainHi);
 
     QVector<struct tick> getTicks();
 
@@ -99,6 +108,7 @@ public:
     int minticks;
 
     QString name;
+    YAxisArea* axisarea;
 
     bool dynamicAutoscale;
 

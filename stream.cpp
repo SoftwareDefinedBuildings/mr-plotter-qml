@@ -1,4 +1,6 @@
 #include "axis.h"
+#include "axisarea.h"
+#include "plotarea.h"
 #include "stream.h"
 #include "utils.h"
 
@@ -62,6 +64,11 @@ bool Stream::setColor(float red, float green, float blue)
     this->color.red = red;
     this->color.green = green;
     this->color.blue = blue;
+
+    if (this->axis != nullptr && this->axis->axisarea != nullptr && this->axis->axisarea->plotarea != nullptr)
+    {
+        this->axis->axisarea->plotarea->update();
+    }
     return true;
 }
 

@@ -9,7 +9,8 @@
 #define TICKTHICKNESS 1
 #define TICKLENGTH 5
 
-YAxisArea::YAxisArea(QQuickItem* parent): QQuickPaintedItem(parent), yAxes()
+YAxisArea::YAxisArea(QQuickItem* parent):
+    QQuickPaintedItem(parent), plotarea(nullptr), yAxes()
 {
     this->rangeHi = 0.0;
     this->rangeLo = 1.0;
@@ -54,9 +55,17 @@ void YAxisArea::paint(QPainter* painter)
     }
 }
 
-void YAxisArea::addYAxis(YAxis* newyaxis)
+bool YAxisArea::addYAxis(YAxis* newyaxis)
 {
+    if (newyaxis->axisarea == this)
+    {
+        return false;
+    }
+
+    newyaxis->axisarea = this;
     this->yAxes.push_back(newyaxis);
+    this->update();
+    return true;
 }
 
 QList<QVariant> YAxisArea::getAxisList() const
@@ -72,16 +81,26 @@ QList<QVariant> YAxisArea::getAxisList() const
 
 void YAxisArea::setAxisList(QList<QVariant> newaxislist)
 {
+    for (auto j = this->yAxes.begin(); j != this->yAxes.end(); j++)
+    {
+        (*j)->axisarea = nullptr;
+    }
     QList<YAxis*> newYAxes;
 
     for (auto i = newaxislist.begin(); i != newaxislist.end(); i++)
     {
         YAxis* a = i->value<YAxis*>();
         Q_ASSERT_X(a != nullptr, "setAxisList", "invalid element in new axis list");
-        newYAxes.append(a);
+        if (a != nullptr)
+        {
+            a->axisarea = this;
+            newYAxes.append(a);
+        }
     }
 
     this->yAxes = qMove(newYAxes);
+
+    this->update();
 }
 
 TimeAxisArea::TimeAxisArea()
