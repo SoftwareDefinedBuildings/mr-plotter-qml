@@ -8,6 +8,7 @@
 #include <functional>
 
 #include <QStringList>
+#include <QTime>
 #include <QTimer>
 #include <QUuid>
 
@@ -16,12 +17,22 @@
 Requester::Requester(): nextNonce(0), nextArchiverID(0), outstandingDataReqs(), outstandingBracketLeft(), outstandingBracketRight()
 {
     this->bw = BW::instance();
+    qsrand((uint) QTime::currentTime().msec());
 }
 
 uint32_t Requester::subscribeBWArchiver(QString uri)
 {
+    if (uri.compare(QStringLiteral("local")) == 0)
+    {
+        return (uint32_t) -1;
+    }
+    if (this->archiverids.contains(uri))
+    {
+        return this->archiverids[uri];
+    }
     uint32_t id = this->nextArchiverID++;
     this->archivers[id] = uri;
+    this->archiverids[uri] = id;
     QString vkWithoutLastChar = this->bw->getVK();
     vkWithoutLastChar.chop(1);
     QString subscr = URI_TEMPLATE.arg(uri).arg("signal/%3,queries").arg(vkWithoutLastChar);
@@ -39,7 +50,18 @@ uint32_t Requester::subscribeBWArchiver(QString uri)
 void Requester::unsubscribeBWArchiver(uint32_t id)
 {
     /* TODO: Actually unsubscribe from the URI. */
+    QString uri = this->archivers[id];
+    this->archiverids.remove(uri);
     this->archivers.remove(id);
+}
+
+QString Requester::getURI(uint32_t archiverID)
+{
+    if (archiverID == (uint32_t) -1)
+    {
+        return QStringLiteral("local");
+    }
+    return this->archivers[archiverID];
 }
 
 
@@ -96,10 +118,12 @@ uint32_t Requester::publishQuery(QString query, uint32_t archiver)
     QVariantMap req;
     QString uri = URI_TEMPLATE.arg(this->archivers[archiver]).arg(QStringLiteral("slot/query"));
 
-    uint32_t nonce = this->nextNonce++;
+    uint32_t nonce = this->nextNonce++ ^ (uint32_t) qrand();
 
     req.insert("Nonce", nonce);
     req.insert("Query", query);
+
+    qDebug() << "Published to" << uri << "with nonce" << nonce;
 
     this->bw->publishMsgPack(uri, "2.0.8.1", req);
 

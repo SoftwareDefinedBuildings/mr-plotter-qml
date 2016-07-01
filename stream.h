@@ -5,6 +5,7 @@
 #include "cache.h"
 
 #include <QByteArray>
+#include <QColor>
 #include <QList>
 #include <QObject>
 #include <QSharedPointer>
@@ -34,15 +35,18 @@ struct drawable
 /* Both Stream and Axis need declarations of each other. */
 class YAxis;
 
+class PlotArea;
+
 class Stream : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(bool selected MEMBER selected)
     Q_PROPERTY(bool alwaysConnect MEMBER alwaysConnect)
 
-    Q_PROPERTY(QList<qreal> color READ getColor WRITE setColor)
+    Q_PROPERTY(QColor color READ getColor WRITE setColor)
     Q_PROPERTY(QList<qreal> timeOffset READ getTimeOffset WRITE setTimeOffset)
-    Q_PROPERTY(qulonglong archiver MEMBER archiver)
+    Q_PROPERTY(QString archiver READ getArchiver WRITE setArchiver)
+    Q_PROPERTY(QString uuid READ getUUID WRITE setUUID)
 
 public:
     Stream(QObject* parent = nullptr);
@@ -52,12 +56,18 @@ public:
     bool toDrawable(struct drawable& d) const;
 
     Q_INVOKABLE bool setColor(float red, float green, float blue);
-    Q_INVOKABLE bool setColor(QList<qreal> color);
-    Q_INVOKABLE QList<qreal> getColor();
+    Q_INVOKABLE bool setColor(QColor color);
+    Q_INVOKABLE QColor getColor();
 
     void setTimeOffset(int64_t offset);
     Q_INVOKABLE void setTimeOffset(QList<qreal> offset);
     Q_INVOKABLE QList<qreal> getTimeOffset();
+
+    Q_INVOKABLE void setArchiver(QString uri);
+    Q_INVOKABLE QString getArchiver();
+
+    Q_INVOKABLE void setUUID(QString uuidstr);
+    Q_INVOKABLE QString getUUID();
 
     QUuid uuid;
 
@@ -66,6 +76,9 @@ public:
 
     /* The axis to which this stream is assigned. */
     YAxis* axis;
+
+    /* The Plot Area on which this stream is rendered. */
+    PlotArea* plotarea;
 
     /* The time offset at which this stream should be drawn. */
     int64_t timeOffset;

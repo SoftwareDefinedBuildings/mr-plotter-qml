@@ -138,9 +138,13 @@ void YAxis::setDomainLo(qreal domainLo)
     if (this->axisarea != nullptr)
     {
         this->axisarea->update();
-        if (this->axisarea->plotarea != nullptr)
+    }
+    for (auto i = this->streams.begin(); i != this->streams.end(); i++)
+    {
+        Stream* s = *i;
+        if (s->plotarea != nullptr)
         {
-            this->axisarea->plotarea->update();
+            s->plotarea->update();
         }
     }
 }

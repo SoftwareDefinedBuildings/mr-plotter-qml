@@ -4,16 +4,19 @@
 #include "stream.h"
 #include "utils.h"
 
+#include <QtGlobal>
 #include <QByteArray>
+#include <QColor>
 #include <QString>
 #include <QUuid>
 
 Stream::Stream(QObject* parent): QObject(parent), uuid(), archiver(0)
 {
+    this->init();
 }
 
 Stream::Stream(const QString& u, uint32_t archiverID, QObject* parent):
-    QObject(parent),uuid(u), archiver(archiverID)
+    QObject(parent), uuid(u), archiver(archiverID)
 {
     this->init();
 }
@@ -36,6 +39,7 @@ void Stream::init()
     this->alwaysConnect = false;
 
     this->axis = nullptr;
+    this->plotarea = nullptr;
 }
 
 bool Stream::toDrawable(struct drawable& d) const
@@ -72,19 +76,15 @@ bool Stream::setColor(float red, float green, float blue)
     return true;
 }
 
-bool Stream::setColor(QList<qreal> color)
+bool Stream::setColor(QColor color)
 {
-    return this->setColor((float) color.value(0), (float) color.value(1),
-                          (float) color.value(2));
+    return this->setColor((float) color.redF(), (float) color.greenF(),
+                          (float) color.blueF());
 }
 
-QList<qreal> Stream::getColor()
+QColor Stream::getColor()
 {
-    QList<qreal> color;
-    color.append((qreal) this->color.red);
-    color.append((qreal) this->color.green);
-    color.append((qreal) this->color.blue);
-    return color;
+    return QColor(qRound(this->color.red * 255), qRound(this->color.green * 255), qRound(this->color.blue * 255), 0.0f);
 }
 
 void Stream::setTimeOffset(int64_t offset)
@@ -107,4 +107,25 @@ QList<qreal> Stream::getTimeOffset()
     offset.append((qreal) millis);
     offset.append((qreal) nanos);
     return offset;
+}
+
+void Stream::setArchiver(QString uri)
+{
+    this->archiver = MrPlotter::cache.requester->subscribeBWArchiver(uri);
+}
+
+QString Stream::getArchiver()
+{
+    return MrPlotter::cache.requester->getURI(this->archiver);
+}
+
+void Stream::setUUID(QString uuidstr)
+{
+    this->uuid = QUuid(uuidstr);
+}
+
+QString Stream::getUUID()
+{
+    QString uuidstr = this->uuid.toString();
+    return uuidstr.mid(1, uuidstr.size() - 2);
 }

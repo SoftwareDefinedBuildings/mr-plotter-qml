@@ -594,6 +594,11 @@ QList<QVariant> PlotArea::getStreamList() const
 
 void PlotArea::setStreamList(QList<QVariant> newstreamlist)
 {
+    for (auto j = this->streams.begin(); j != this->streams.end(); j++)
+    {
+        (*j)->plotarea = nullptr;
+    }
+
     QList<Stream*> newStreams;
 
     for (auto i = newstreamlist.begin(); i != newstreamlist.end(); i++)
@@ -602,6 +607,7 @@ void PlotArea::setStreamList(QList<QVariant> newstreamlist)
         Q_ASSERT_X(s != nullptr, "setStreamList", "invalid member in stream list");
         if (s != nullptr)
         {
+            s->plotarea = this;
             newStreams.append(s);
         }
     }

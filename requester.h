@@ -52,6 +52,7 @@ public:
 
     uint32_t subscribeBWArchiver(QString uri);
     void unsubscribeBWArchiver(uint32_t id);
+    QString getURI(uint32_t archiverID);
 
 private:
     uint32_t publishQuery(QString query, uint32_t archiver);
@@ -72,6 +73,7 @@ private:
     QHash<uint32_t, struct brqstate*> outstandingBracketLeft;
     QHash<uint32_t, struct brqstate*> outstandingBracketRight;
     QHash<uint32_t, QString> archivers;
+    QHash<QString, uint32_t> archiverids;
 
     BW* bw;
 };
