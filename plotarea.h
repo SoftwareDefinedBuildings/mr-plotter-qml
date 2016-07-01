@@ -43,6 +43,8 @@ class PlotArea : public QQuickFramebufferObject
 
 public:
     PlotArea();
+    ~PlotArea();
+
     QQuickFramebufferObject::Renderer* createRenderer() const override;
     Q_INVOKABLE void addStream(Stream* s);
 
@@ -94,9 +96,13 @@ private:
 
     uint64_t fullUpdateID;
 
+    uint64_t id;
+
     bool canscroll;
 
     static bool initializedCursors;
+    static uint64_t nextID;
+    static QHash<uint64_t, PlotArea*> instances;
     static QCursor defaultcursor;
     static QCursor openhand;
     static QCursor closedhand;

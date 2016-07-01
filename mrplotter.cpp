@@ -10,6 +10,8 @@
 
 
 Cache MrPlotter::cache;
+uint64_t MrPlotter::nextID = 0;
+QHash<uint64_t, MrPlotter*> MrPlotter::instances;
 
 MrPlotter::MrPlotter(): timeaxis()
 {
@@ -23,6 +25,19 @@ MrPlotter::MrPlotter(): timeaxis()
 
     this->ready = true;
     this->pending = false;
+
+    while (this->instances.contains(this->nextID))
+    {
+        this->nextID++;
+    }
+
+    this->id = this->nextID++;
+    this->instances.insert(this->id, this);
+}
+
+MrPlotter::~MrPlotter()
+{
+    this->instances.remove(this->id);
 }
 
 PlotArea* MrPlotter::mainPlot() const
@@ -86,13 +101,23 @@ void MrPlotter::delYAxis(YAxis* ya)
 
 void MrPlotter::updateDataAsyncThrottled()
 {
+    uint64_t myid = this->id;
     if (this->ready)
     {
         Q_ASSERT(!this->pending);
         this->updateDataAsync();
         this->ready = false;
-        QTimer::singleShot(THROTTLE_MSEC, [this]()
+        QTimer::singleShot(THROTTLE_MSEC, [myid, this]()
         {
+            if (MrPlotter::instances[myid] != this)
+            {
+                /* If we reach this case, then this plotter has
+                 * been deleted by the time that this callback is
+                 * firing.
+                 */
+                return;
+            }
+
             this->ready = true;
             if (this->pending)
             {
@@ -181,11 +206,21 @@ void MrPlotter::autozoom(QVariantList streams)
     bounds->upperbound = INT64_MIN;
     bounds->reqsleft = archivers.size();
 
+    uint64_t myid = this->id;
+
     for (auto j = archivers.begin(); j != archivers.end(); j++)
     {
         cache.requester->makeBracketRequest(byarchiver[*j], *j,
-                [this, bounds](int64_t lowerbound, int64_t upperbound)
+                [myid, this, bounds](int64_t lowerbound, int64_t upperbound)
         {
+            if (MrPlotter::instances[myid] != this)
+            {
+                /* If we reach this point, then the plot has been
+                 * deleted before this callback fires, and any use
+                 * of "this" is invalid.
+                 */
+                return;
+            }
             bounds->lowerbound = qMin(bounds->lowerbound, lowerbound);
             bounds->upperbound = qMax(bounds->upperbound, upperbound);
             if (--bounds->reqsleft == 0)

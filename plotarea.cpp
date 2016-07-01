@@ -38,6 +38,8 @@ int64_t safeSub(int64_t x, int64_t y)
 }
 
 bool PlotArea::initializedCursors = false;
+uint64_t PlotArea::nextID = 0;
+QHash<uint64_t, PlotArea*> PlotArea::instances;
 QCursor PlotArea::defaultcursor;
 QCursor PlotArea::openhand;
 QCursor PlotArea::closedhand;
@@ -69,9 +71,21 @@ PlotArea::PlotArea()
     this->yaxisarea = nullptr;
     this->plot = nullptr;
 
-    this->setAntialiasing(true);
+    while (this->instances.contains(this->nextID))
+    {
+        this->nextID++;
+    }
+    this->id = this->nextID++;
 
+    this->instances.insert(this->id, this);
+
+    this->setAntialiasing(true);
     this->setScrollZoomable(true);
+}
+
+PlotArea::~PlotArea()
+{
+    this->instances.remove(this->id);
 }
 
 QQuickFramebufferObject::Renderer* PlotArea::createRenderer() const
@@ -538,6 +552,8 @@ void PlotArea::updateDataAsync(Cache& cache)
 
     uint64_t timewidth = (uint64_t) (timeaxis_end - timeaxis_start);
 
+    uint64_t myid = this->id;
+
     for (auto i = this->streams.begin(); i != this->streams.end(); i++)
     {
         Stream* s = *i;
@@ -548,8 +564,16 @@ void PlotArea::updateDataAsync(Cache& cache)
         int64_t srch_end = safeSub(timeaxis_end, s->timeOffset);
 
         cache.requestData(s->archiver, s->uuid, srch_start, srch_end, pwe,
-                          [this, s, id, timeaxis_start, timeaxis_end](QList<QSharedPointer<CacheEntry>> data)
+                          [myid, this, s, id, timeaxis_start, timeaxis_end](QList<QSharedPointer<CacheEntry>> data)
         {
+            if (PlotArea::instances[myid] != this)
+            {
+                /* If we reach this part of the code, it means that this
+                 * PlotArea was deleted in between making the request and
+                 * receiving the response.
+                 */
+                return;
+            }
             if (id == this->fullUpdateID)
             {
                 s->data = data;

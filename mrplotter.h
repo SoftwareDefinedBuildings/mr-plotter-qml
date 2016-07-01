@@ -22,6 +22,7 @@ class MrPlotter : public QObject
     Q_PROPERTY(PlotArea* dataDensityPlot READ dataDensityPlot WRITE setDataDensityPlot)
 public:
     MrPlotter();
+    ~MrPlotter();
 
     const QString& name() const;
     void setName(QString& newname);
@@ -68,10 +69,10 @@ public:
 
     TimeAxis timeaxis;
 
-    static Cache cache;
-
     int64_t scrollable_min;
     int64_t scrollable_max;
+
+    static Cache cache;
 
 signals:
 
@@ -83,12 +84,17 @@ private:
     PlotArea* mainplot;
     PlotArea* ddplot;
 
+    uint64_t id;
+
     /* For throttling full updates. READY indicates whether a call can be
      * made, and PENDING indicates whether there is a call waiting to be
      * made.
      */
     bool ready;
     bool pending;
+
+    static uint64_t nextID;
+    static QHash<uint64_t, MrPlotter*> instances;
 };
 
 #endif // MRPLOTTER_H
