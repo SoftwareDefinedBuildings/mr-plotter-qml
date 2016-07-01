@@ -219,6 +219,10 @@ void MrPlotter::autozoom(QVariantList streams)
                  * deleted before this callback fires, and any use
                  * of "this" is invalid.
                  */
+                if (--bounds->reqsleft == 0)
+                {
+                    delete bounds;
+                }
                 return;
             }
             bounds->lowerbound = qMin(bounds->lowerbound, lowerbound);

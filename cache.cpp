@@ -675,6 +675,11 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
     {
         scache.cachedpts = 0;
         scache.cachedbounds = false;
+        scache.entries = nullptr;
+    }
+
+    if (scache.entries == nullptr)
+    {
         scache.entries = new QMap<int64_t, QSharedPointer<CacheEntry>>[PWE_MAX];
     }
 
@@ -900,13 +905,45 @@ void Cache::requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
                             std::function<void (int64_t, int64_t)> callback)
 {
     /* TODO: First, check if the brackets are in the cache. */
-    this->requester->makeBracketRequest(uuids, archiver, [this, callback](QHash<QUuid, struct brackets> brkts)
+    QList<QUuid> torequest;
+    int64_t initlowerbound = INT64_MAX;
+    int64_t initupperbound = INT64_MIN;
+    for (auto j = uuids.begin(); j != uuids.end(); j++)
     {
-        /* TODO: Store them in the cache, if necessary. */
-        int64_t lowerbound = INT64_MAX;
-        int64_t upperbound = INT64_MIN;
+        const QUuid& u = *j;
+        if (this->cache.contains(u) && this->cache[u].cachedbounds)
+        {
+            initlowerbound = qMin(initlowerbound, this->cache[u].lowerbound);
+            initupperbound = qMax(initupperbound, this->cache[u].upperbound);
+        }
+        else
+        {
+            torequest.append(u);
+        }
+    }
+    if (torequest.size() == 0)
+    {
+        /* Full cache hit. */
+        callback(initlowerbound, initupperbound);
+        return;
+    }
+    this->requester->makeBracketRequest(torequest, archiver, [this, initlowerbound, initupperbound, callback](QHash<QUuid, struct brackets> brkts)
+    {
+        int64_t lowerbound = initlowerbound;
+        int64_t upperbound = initupperbound;
         for (auto i = brkts.begin(); i != brkts.end(); i++)
         {
+            const QUuid& uuid = i.key();
+            bool mustinit = !this->cache.contains(uuid);
+            struct streamcache& scache = this->cache[uuid];
+            if (mustinit)
+            {
+                scache.cachedpts = 0;
+                scache.entries = nullptr;
+            }
+            scache.lowerbound = i->lowerbound;
+            scache.upperbound = i->upperbound;
+            scache.cachedbounds = true;
             lowerbound = qMin(lowerbound, i->lowerbound);
             upperbound = qMax(upperbound, i->upperbound);
         }

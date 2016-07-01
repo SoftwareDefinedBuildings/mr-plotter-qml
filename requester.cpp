@@ -459,6 +459,8 @@ void Requester::handleBracketResponse(struct brqstate* brqs, QVariantMap respons
         brqs->gotleft = true;
     }
 
+    qDebug() << "Handling response";
+
     if (!error)
     {
         QVariantList ptList = response["Data"].toList();
@@ -472,6 +474,8 @@ void Requester::handleBracketResponse(struct brqstate* brqs, QVariantMap respons
                 continue;
             }
             QUuid uuid(point["Uuid"].toString());
+
+            qDebug() << "Got response for" << uuid.toString();
 
             if (brqs->gotleft && brqs->gotright)
             {
