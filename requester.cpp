@@ -123,8 +123,6 @@ uint32_t Requester::publishQuery(QString query, uint32_t archiver)
     req.insert("Nonce", nonce);
     req.insert("Query", query);
 
-    qDebug() << "Published to" << uri << "with nonce" << nonce;
-
     this->bw->publishMsgPack(uri, "2.0.8.1", req);
 
     return nonce;
