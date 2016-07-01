@@ -137,6 +137,14 @@ private:
     bool connectsToAfter;
 };
 
+struct streamcache {
+    uint64_t cachedpts;
+    bool cachedbounds;
+    int64_t lowerbound;
+    int64_t upperbound;
+    QMap<int64_t, QSharedPointer<CacheEntry>>* entries;
+};
+
 class Cache
 {
 public:
@@ -170,7 +178,7 @@ private:
 
     uint64_t curr_queryid;
     /* The QMap here maps a timestamp to the cache entry that _ends_ at that timestamp. */
-    QHash<QUuid, QPair<uint64_t, QMap<int64_t, QSharedPointer<CacheEntry>>*>> cache; /* Maps UUID to the total cost associated with that UUID and the data for that stream. */
+    QHash<QUuid, struct streamcache> cache; /* Maps UUID to the total cost associated with that UUID and the data for that stream. */
     QHash<uint64_t, QPair<uint64_t, std::function<void()>>> outstanding; /* Maps query id to the number of outstanding requests. */
     QHash<QSharedPointer<CacheEntry>, uint64_t> loading; /* Maps cache entry to the list of queries waiting for it. */
 

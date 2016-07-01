@@ -640,7 +640,7 @@ Cache::~Cache()
 {
     for (auto i = this->cache.begin(); i != this->cache.end(); i++)
     {
-        delete[] i->second;
+        delete[] i->entries;
     }
     delete this->requester;
 }
@@ -668,11 +668,17 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
     Q_ASSERT(pwe < PWE_MAX);
     QList<QSharedPointer<CacheEntry>>* result = new QList<QSharedPointer<CacheEntry>>;
 
-    QMap<int64_t, QSharedPointer<CacheEntry>>*& pwemap = this->cache[uuid].second;
-    if (pwemap == nullptr)
+    bool initscache = !this->cache.contains(uuid);
+
+    struct streamcache& scache = this->cache[uuid];
+    if (initscache)
     {
-        pwemap = new QMap<int64_t, QSharedPointer<CacheEntry>>[PWE_MAX];
+        scache.cachedpts = 0;
+        scache.cachedbounds = false;
+        scache.entries = new QMap<int64_t, QSharedPointer<CacheEntry>>[PWE_MAX];
     }
+
+    QMap<int64_t, QSharedPointer<CacheEntry>>* pwemap = scache.entries;
 
     QMap<int64_t, QSharedPointer<CacheEntry>>* entries = &pwemap[pwe];
     QMap<int64_t, QSharedPointer<CacheEntry>>::iterator i;
@@ -902,7 +908,7 @@ void Cache::use(QSharedPointer<CacheEntry> ce, bool firstuse)
 
 void Cache::addCost(const QUuid& uuid, uint64_t amt)
 {
-    this->cache[uuid].first += amt;
+    this->cache[uuid].cachedpts += amt;
     this->cost += amt;
 
     while (this->cost >= CACHE_THRESHOLD && !this->lru.empty())
@@ -911,17 +917,19 @@ void Cache::addCost(const QUuid& uuid, uint64_t amt)
 
         Q_ASSERT(!todrop->isPlaceholder());
 
-        this->cache[todrop->uuid].second[todrop->pwe].erase(todrop->cachepos);
+        Q_ASSERT(this->cache.contains(todrop->uuid));
+
+        this->cache[todrop->uuid].entries[todrop->pwe].erase(todrop->cachepos);
 
         uint64_t dropvalue = CACHE_ENTRY_OVERHEAD + todrop->cost;
-        QPair<uint64_t, QMap<int64_t, QSharedPointer<CacheEntry>>*>& pair = this->cache[todrop->uuid];
-        uint64_t remaining = pair.first - dropvalue;
-        pair.first = remaining;
+        struct streamcache& scache = this->cache[todrop->uuid];
+        uint64_t remaining = scache.cachedpts - dropvalue;
+        scache.cachedpts = remaining;
         this->cost -= dropvalue;
 
         if (remaining == 0)
         {
-            delete[] pair.second;
+            delete[] scache.entries;
             this->cache.remove(todrop->uuid);
         }
     }
