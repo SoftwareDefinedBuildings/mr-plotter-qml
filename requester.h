@@ -29,14 +29,19 @@ struct statpt
     uint64_t count;
 };
 
+struct brackets
+{
+    int64_t lowerbound;
+    int64_t upperbound;
+};
+
 typedef std::function<void(struct statpt*, int len)> ReqCallback;
-typedef std::function<void(int64_t, int64_t)> BracketCallback;
+typedef std::function<void(QHash<QUuid, struct brackets>)> BracketCallback;
 
 struct brqstate
 {
     BracketCallback callback;
-    int64_t leftbound;
-    int64_t rightbound;
+    QHash<QUuid, struct brackets> brackets;
     bool gotleft;
     bool gotright;
 };

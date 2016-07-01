@@ -896,6 +896,24 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
     this->addCost(uuid, numnewentries * CACHE_ENTRY_OVERHEAD);
 }
 
+void Cache::requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
+                            std::function<void (int64_t, int64_t)> callback)
+{
+    /* TODO: First, check if the brackets are in the cache. */
+    this->requester->makeBracketRequest(uuids, archiver, [this, callback](QHash<QUuid, struct brackets> brkts)
+    {
+        /* TODO: Store them in the cache, if necessary. */
+        int64_t lowerbound = INT64_MAX;
+        int64_t upperbound = INT64_MIN;
+        for (auto i = brkts.begin(); i != brkts.end(); i++)
+        {
+            lowerbound = qMin(lowerbound, i->lowerbound);
+            upperbound = qMax(upperbound, i->upperbound);
+        }
+        callback(lowerbound, upperbound);
+    });
+}
+
 void Cache::use(QSharedPointer<CacheEntry> ce, bool firstuse)
 {
     if (!firstuse)

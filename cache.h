@@ -165,9 +165,11 @@ public:
      * hint of 0 means to never widen the requests.
      */
     void requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int64_t end,
-                     uint8_t pwe,  std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
+                     uint8_t pwe, std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
                      uint64_t request_hint = 0, bool includemargins = false);
 
+    void requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
+                         std::function<void(int64_t, int64_t)> callback);
     /* The VBOs that need to be deleted. */
     QVector<GLuint> todelete;
     Requester* requester;

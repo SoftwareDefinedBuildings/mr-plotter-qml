@@ -228,11 +228,19 @@ inline void Requester::sendDataRequest(const QUuid &uuid, int64_t start, int64_t
 
 void Requester::sendBracketRequest(const QList<QUuid>& uuids, uint32_t archiver, BracketCallback callback)
 {
+    QHash<QUuid, struct brackets> result;
+    for (auto i = uuids.begin(); i != uuids.end(); i++)
+    {
+        struct brackets& brkts = result[*i];
+        brkts.lowerbound = 1415643674979469055;
+        brkts.upperbound = 1415643674979469318;
+    }
     if (archiver == (uint32_t) -1)
     {
-        QTimer::singleShot(500, [callback]()
+        QTimer::singleShot(500, [callback, result]()
         {
-            callback(1415643674979469055, 1415643674979469318);
+
+            callback(result);
         });
         return;
     }
@@ -252,8 +260,6 @@ void Requester::sendBracketRequest(const QList<QUuid>& uuids, uint32_t archiver,
 
     struct brqstate* brqs = new struct brqstate;
     brqs->callback = callback;
-    brqs->leftbound = INT64_MAX;
-    brqs->rightbound = INT64_MIN;
     brqs->gotleft = false;
     brqs->gotright = false;
 
@@ -455,20 +461,36 @@ void Requester::handleBracketResponse(struct brqstate* brqs, QVariantMap respons
 
     if (!error)
     {
-        int64_t extrtime = getExtrTime(response, right);
-        if (right)
+        QVariantList ptList = response["Data"].toList();
+        for (auto pt = ptList.begin(); pt != ptList.end(); pt++)
         {
-            brqs->rightbound = extrtime;
-        }
-        else
-        {
-            brqs->leftbound = extrtime;
+            QVariantMap point = pt->toMap();
+            bool ok;
+            int64_t time = point["Times"].toList()[0].toLongLong(&ok);
+            if (!ok)
+            {
+                continue;
+            }
+            QUuid uuid(point["Uuid"].toString());
+
+            if (brqs->gotleft && brqs->gotright)
+            {
+                Q_ASSERT(brqs->brackets.contains(uuid));
+            }
+            if (right)
+            {
+                brqs->brackets[uuid].upperbound = time;
+            }
+            else
+            {
+                brqs->brackets[uuid].lowerbound = time;
+            }
         }
     }
 
     if (brqs->gotleft && brqs->gotright)
     {
-        brqs->callback(brqs->leftbound, brqs->rightbound);
+        brqs->callback(brqs->brackets);
         delete brqs;
     }
 }

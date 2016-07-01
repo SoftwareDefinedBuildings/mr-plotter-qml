@@ -210,7 +210,7 @@ void MrPlotter::autozoom(QVariantList streams)
 
     for (auto j = archivers.begin(); j != archivers.end(); j++)
     {
-        cache.requester->makeBracketRequest(byarchiver[*j], *j,
+        cache.requestBrackets(*j, byarchiver[*j],
                 [myid, this, bounds](int64_t lowerbound, int64_t upperbound)
         {
             if (MrPlotter::instances[myid] != this)
