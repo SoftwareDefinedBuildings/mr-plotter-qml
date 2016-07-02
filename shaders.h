@@ -15,7 +15,7 @@ attribute float flags;
 varying float render;
 void main()
 {
-    if ((alwaysConnect && (flags <= 0.7 || flags >= 0.8)) || flags <= 0.5 || flags >= 1.5)
+    if ((alwaysConnect && (flags <= 0.6 || flags >= 0.9)) || flags <= 0.5 || flags >= 1.5)
     {
         vec3 transformed = axisTransform * vec3(vec2(time, value) - axisBase, 1.0);
         gl_Position = vec4(transformed.xy, 0.0, 1.0);
