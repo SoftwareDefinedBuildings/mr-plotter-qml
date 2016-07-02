@@ -435,6 +435,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         }
     }
 
+    Q_ASSERT(j + ddstartatzero + this->connectsToBefore <= this->cachedlen + this->connectsToBefore + ddstartatzero + this->connectsToAfter + (2 * ddendatzero));
     this->cachedlen = j + ddstartatzero + this->connectsToBefore; // The remaining were extra...
 }
 
@@ -488,7 +489,7 @@ void CacheEntry::renderPlot(QOpenGLFunctions* funcs, float yStart,
         matrix[8] = 1.0f;
 
         /* Fill in the offset vector. */
-        vector[0] = (float) (tStart - epoch - timeOffset - ((1ll << pwe) >> 1));
+        vector[0] = (float) (tStart - epoch - timeOffset - ((Q_INT64_C(1) << pwe) >> 1));
         vector[1] = yStart;
 
         /* Now, given a vector <time, value>, where time is relative to
@@ -573,7 +574,7 @@ void CacheEntry::renderDDPlot(QOpenGLFunctions* funcs, float yStart,
         matrix[8] = 1.0f;
 
         /* Fill in the offset vector. */
-        vector[0] = (float) (tStart - epoch - timeOffset) + (1ll << pwe) / 2.0f;
+        vector[0] = (float) (tStart - epoch - timeOffset) + (Q_INT64_C(1) << pwe) / 2.0f;
         vector[1] = yStart;
 
         /* Now, given a vector <time, value>, where time is relative to
