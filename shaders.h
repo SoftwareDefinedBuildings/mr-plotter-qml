@@ -45,7 +45,7 @@ uniform float opacity;
 varying float render;
 void main()
 {
-    if (render == 1.0)
+    if (render >= 1.0)
     {
         gl_FragColor = vec4(color, opacity);
     }
