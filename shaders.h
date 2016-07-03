@@ -15,6 +15,13 @@ attribute float flags;
 varying float render;
 void main()
 {
+    /* Transform the point to screen coordinates. */
+    vec3 transformed = axisTransform * vec3(vec2(time, value) - axisBase, 1.0);
+    gl_Position = vec4(transformed.xy, 0.0, 1.0);
+    
+    /* Set the size, in case this shader is being used to draw points. */
+    gl_PointSize = pointsize;
+    
     /* If flags is set to 1.0, it means that this point represents a gap, so we need to set the
      * render flag to 0.0.
      * If alwaysConnect is true, then the setting is to connect the points anyway, so we want to
@@ -24,14 +31,11 @@ void main()
      */
     if ((alwaysConnect && (flags <= 0.625 || flags >= 0.875)) || flags <= 0.5 || flags >= 1.5)
     {
-        vec3 transformed = axisTransform * vec3(vec2(time, value) - axisBase, 1.0);
-        gl_Position = vec4(transformed.xy, 0.0, 1.0);
         /* If flags is FLAGS_LONEPT and we aren't joining all the points,
          * then I want to skip rendering the triangle strip (and line strip),
          * but draw the vertical line (and point).
          */
         render = (tstrip ^^ (!alwaysConnect && flags >= -1.5 && flags <= -0.5)) ? 1.0 : 0.0;
-        gl_PointSize = pointsize;
     }
     else
     {
