@@ -604,7 +604,7 @@ void CacheEntry::getRange(int64_t starttime, int64_t endtime, bool count, float&
     for (int i = 0; i < cachedlen; i++)
     {
         struct cachedpt* pt = &this->cached[i];
-        if (pt->flags != FLAGS_GAP && pt->reltime >= relstart && pt->reltime <= relend)
+        if (pt->flags != FLAGS_GAP && pt->flags != FLAGS_ALWAYS_HIDE && pt->reltime >= relstart && pt->reltime <= relend)
         {
             if (count)
             {
