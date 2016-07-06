@@ -231,9 +231,9 @@ QVector<struct tick> YAxis::getTicks()
     return ticks;
 }
 
-void YAxis::autoscale(int64_t start, int64_t end, bool rangecount)
+void YAxis::autoscale(int64_t start, int64_t end)
 {
-    float minimum = rangecount ? 0.0f : INFINITY;
+    float minimum = INFINITY;
     float maximum = -INFINITY;
     for (auto i = this->streams.begin(); i != this->streams.end(); i++)
     {
@@ -242,17 +242,20 @@ void YAxis::autoscale(int64_t start, int64_t end, bool rangecount)
         for (auto j = entries.begin(); j != entries.end(); j++)
         {
             QSharedPointer<CacheEntry> entry = *j;
-            entry->getRange(start, end, rangecount, minimum, maximum);
+            entry->getRange(start, end, s->dataDensity, minimum, maximum);
+            if (s->dataDensity && minimum > 0.0f)
+            {
+                /* If we're plotting a data density stream, then we need to
+                 * make sure that the range includes 0.
+                 */
+                minimum = 0.0f;
+            }
         }
     }
 
     if (qIsFinite(minimum) && qIsFinite(maximum))
     {
-        if (rangecount)
-        {
-            maximum *= 1.2f;
-        }
-        else if (minimum == maximum)
+        if (minimum == maximum)
         {
             minimum -= 1.0f;
             maximum += 1.0f;
@@ -262,12 +265,12 @@ void YAxis::autoscale(int64_t start, int64_t end, bool rangecount)
     }
 }
 
-void YAxis::autoscale(bool rangecount, QList<qreal> domain)
+void YAxis::autoscale(QList<qreal> domain)
 {
     int64_t start;
     int64_t end;
     fromJSList(domain, &start, &end);
-    this->autoscale(start, end, rangecount);
+    this->autoscale(start, end);
 }
 
 float YAxis::map(float x)

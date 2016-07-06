@@ -86,10 +86,10 @@ public:
      * time range. If RANGECOUNT is true, the autoscale is done using the
      * counts of the statistical points, rather than their values;
      */
-    void autoscale(int64_t start, int64_t end, bool rangecount);
+    void autoscale(int64_t start, int64_t end);
 
     /* Autoscale function invokable from Javascript. */
-    Q_INVOKABLE void autoscale(bool rangecount, QList<qreal> domain);
+    Q_INVOKABLE void autoscale(QList<qreal> domain);
 
     /* Maps a floating point number in the domain of this axis to a
      * floating point number between 0.0 and 1.0.

@@ -69,8 +69,6 @@ public:
 
     MrPlotter* plot;
 
-    bool showDataDensity;
-
 protected:
     void geometryChanged(const QRectF& newGeometry, const QRectF& oldGeometry) override;
 

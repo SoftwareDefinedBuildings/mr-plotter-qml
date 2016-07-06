@@ -18,14 +18,17 @@ class MrPlotter : public QObject
     Q_PROPERTY(QList<qreal> scrollableDomain READ getScrollableDomain WRITE setScrollableDomain)
     Q_PROPERTY(QString timeZone READ getTimeZoneName WRITE setTimeZone)
     Q_PROPERTY(bool timeTickPromotion READ getTimeTickPromotion WRITE setTimeTickPromotion)
-    Q_PROPERTY(PlotArea* mainPlot READ mainPlot WRITE setMainPlot)
-    Q_PROPERTY(PlotArea* dataDensityPlot READ dataDensityPlot WRITE setDataDensityPlot)
+    Q_PROPERTY(QList<QVariant> plotList READ getPlotList WRITE setPlotList)
+
 public:
     MrPlotter();
     ~MrPlotter();
 
     const QString& name() const;
     void setName(QString& newname);
+
+    Q_INVOKABLE QList<QVariant> getPlotList() const;
+    Q_INVOKABLE void setPlotList(QList<QVariant> newplotlist);
 
     PlotArea* mainPlot() const;
     void setMainPlot(PlotArea* newmainplot);
@@ -81,8 +84,7 @@ public slots:
 private:
     TimeAxisArea* timeaxisarea;
 
-    PlotArea* mainplot;
-    PlotArea* ddplot;
+    QList<PlotArea*> plots;
 
     uint64_t id;
 

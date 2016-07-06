@@ -35,6 +35,7 @@ void Stream::init()
     this->color.green = 0.0f;
     this->color.blue = 1.0f;
 
+    this->dataDensity = false;
     this->selected = false;
     this->alwaysConnect = false;
 
@@ -53,6 +54,7 @@ bool Stream::toDrawable(struct drawable& d) const
     d.timeOffset = this->timeOffset;
     this->axis->getDomain(&d.ymin, &d.ymax);
     d.color = this->color;
+    d.dataDensity = this->dataDensity;
     d.selected = this->selected;
     d.alwaysConnect = this->alwaysConnect;
     return true;

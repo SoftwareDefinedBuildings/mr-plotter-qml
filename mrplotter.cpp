@@ -13,11 +13,8 @@ Cache MrPlotter::cache;
 uint64_t MrPlotter::nextID = 0;
 QHash<uint64_t, MrPlotter*> MrPlotter::instances;
 
-MrPlotter::MrPlotter(): timeaxis()
+MrPlotter::MrPlotter(): plots(), timeaxis()
 {
-    this->mainplot = nullptr;
-    this->ddplot = nullptr;
-
     this->timeaxisarea = nullptr;
 
     this->scrollable_min = INT64_MIN;
@@ -40,28 +37,37 @@ MrPlotter::~MrPlotter()
     this->instances.remove(this->id);
 }
 
-PlotArea* MrPlotter::mainPlot() const
+QList<QVariant> MrPlotter::getPlotList() const
 {
-    return this->mainplot;
+    QList<QVariant> toreturn;
+    for (auto i = this->plots.begin(); i != this->plots.end(); i++)
+    {
+        toreturn.append(QVariant::fromValue(*i));
+    }
+    return toreturn;
 }
 
-void MrPlotter::setMainPlot(PlotArea* newmainplot)
+void MrPlotter::setPlotList(QList<QVariant> newplotlist)
 {
-    newmainplot->showDataDensity = false;
-    this->mainplot = newmainplot;
-    newmainplot->plot = this;
-}
+    for (auto j = this->plots.begin(); j != this->plots.end(); j++)
+    {
+        (*j)->plot = nullptr;
+    }
 
-PlotArea* MrPlotter::dataDensityPlot() const
-{
-    return this->ddplot;
-}
+    QList<PlotArea*> newPlots;
 
-void MrPlotter::setDataDensityPlot(PlotArea* newddplot)
-{
-    newddplot->showDataDensity = true;
-    this->ddplot = newddplot;
-    newddplot->plot = this;
+    for (auto i = newplotlist.begin(); i != newplotlist.end(); i++)
+    {
+        PlotArea* pa = i->value<PlotArea*>();
+        Q_ASSERT_X(pa != nullptr, "setPlotList", "invalid member in stream list");
+        if (pa != nullptr)
+        {
+            pa->plot = this;
+            newPlots.append(pa);
+        }
+    }
+
+    this->plots = qMove(newPlots);
 }
 
 qulonglong MrPlotter::addArchiver(QString uri)
@@ -134,13 +140,9 @@ void MrPlotter::updateDataAsyncThrottled()
 
 void MrPlotter::updateDataAsync()
 {
-    if (mainplot != nullptr)
+    for (auto i = this->plots.begin(); i != this->plots.end(); i++)
     {
-        mainplot->updateDataAsync(this->cache);
-    }
-    if (ddplot != nullptr)
-    {
-        ddplot->updateDataAsync(this->cache);
+        (*i)->updateDataAsync(this->cache);
     }
 }
 
@@ -148,13 +150,9 @@ void MrPlotter::updateDataAsync()
 
 void MrPlotter::updateView()
 {
-    if (this->mainplot != nullptr)
+    for (auto i = this->plots.begin(); i != this->plots.end(); i++)
     {
-        this->mainplot->update();
-    }
-    if (this->ddplot != nullptr)
-    {
-        this->ddplot->update();
+        (*i)->update();
     }
     if (this->timeaxisarea != nullptr)
     {

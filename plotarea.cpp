@@ -67,7 +67,6 @@ PlotArea::PlotArea()
     }
 
     this->fullUpdateID = 0;
-    this->showDataDensity = false;
     this->yaxisarea = nullptr;
     this->plot = nullptr;
 
@@ -526,7 +525,7 @@ void PlotArea::rescaleAxes(int64_t timeaxis_start, int64_t timeaxis_end)
         YAxis* ya = s->axis;
         if (ya != nullptr && ya->dynamicAutoscale && !axes.contains(ya))
         {
-            ya->autoscale(timeaxis_start, timeaxis_end, this->showDataDensity);
+            ya->autoscale(timeaxis_start, timeaxis_end);
             axes << ya;
         }
     }

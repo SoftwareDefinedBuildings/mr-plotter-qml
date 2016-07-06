@@ -213,9 +213,6 @@ void PlotRenderer::render()
     int width = fbo->width();
     int height = fbo->height();
 
-    bool datadensity = this->pa->showDataDensity;
-
-    this->glUseProgram(datadensity ? this->ddprogram : this->program);
     this->glViewport(0, 0, width, height);
 
     this->glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -228,17 +225,20 @@ void PlotRenderer::render()
     {
         struct drawable& s = *i;
         QList<QSharedPointer<CacheEntry>>& todraw = s.data;
+
+        this->glUseProgram(s.dataDensity ? this->ddprogram : this->program);
+
         /* Set uniforms depending on whether *i is a selected stream. */
         this->glLineWidth(s.selected ? 3.0 : 1.0);
         this->glUniform1f(pointsizeLoc, s.selected ? 5.0 : 3.0);
-        this->glUniform3fv(datadensity ? colorLocDD : colorLoc, 1, COLOR_TO_ARRAY(s.color));
+        this->glUniform3fv(s.dataDensity ? colorLocDD : colorLoc, 1, COLOR_TO_ARRAY(s.color));
         this->glUniform1i(alwaysConnectLoc, s.alwaysConnect ? 1 : 0);
         for (auto j = todraw.begin(); j != todraw.end(); ++j)
         {
             QSharedPointer<CacheEntry>& ce = *j;
             Q_ASSERT(!ce->isPlaceholder());
 
-            if (datadensity)
+            if (s.dataDensity)
             {
                 ce->renderDDPlot(this, s.ymin, s.ymax, this->timeaxis_start, this->timeaxis_end, s.timeOffset, axisMatLocDD, axisVecLocDD);
             }

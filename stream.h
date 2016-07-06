@@ -28,6 +28,7 @@ struct drawable
     float ymin;
     float ymax;
     struct color color;
+    bool dataDensity;
     bool selected;
     bool alwaysConnect;
 };
@@ -40,6 +41,7 @@ class PlotArea;
 class Stream : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(bool dataDensity MEMBER dataDensity)
     Q_PROPERTY(bool selected MEMBER selected)
     Q_PROPERTY(bool alwaysConnect MEMBER alwaysConnect)
 
@@ -88,6 +90,11 @@ public:
 
     /* The ID of the archiver from which to receive data. */
     uint32_t archiver;
+
+    /* True if this stream, when rendered, should plot the data density
+     * rather than the values.
+     */
+    bool dataDensity;
 
     /* True if this stream should be rendered as if it is selected. */
     bool selected;
