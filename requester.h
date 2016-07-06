@@ -78,7 +78,9 @@ private:
     QHash<uint32_t, struct brqstate*> outstandingBracketLeft;
     QHash<uint32_t, struct brqstate*> outstandingBracketRight;
     QHash<uint32_t, QString> archivers;
-    QHash<QString, uint32_t> archiverids;
+    QMultiHash<QString, uint32_t> archiverids;
+
+    QHash<QString, QString> subscrhandles;
 
     BW* bw;
 };

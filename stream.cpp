@@ -27,14 +27,24 @@ Stream::Stream(const QUuid& u, uint32_t archiverID, QObject* parent):
     this->init();
 }
 
+Stream::~Stream()
+{
+    if (this->archiverset)
+    {
+        MrPlotter::cache.requester->unsubscribeBWArchiver(this->archiver);
+    }
+}
+
 void Stream::init()
 {
     this->timeOffset = 0;
+    this->archiver = 0;
 
     this->color.red = 0.0f;
     this->color.green = 0.0f;
     this->color.blue = 1.0f;
 
+    this->archiverset = false;
     this->dataDensity = false;
     this->selected = false;
     this->alwaysConnect = false;
@@ -113,12 +123,26 @@ QList<qreal> Stream::getTimeOffset()
 
 void Stream::setArchiver(QString uri)
 {
+    if (this->archiverset)
+    {
+        MrPlotter::cache.requester->unsubscribeBWArchiver(this->archiver);
+    }
+    this->archiverset = true;
     this->archiver = MrPlotter::cache.requester->subscribeBWArchiver(uri);
+    if (this->archiver == 0)
+    {
+        qDebug() << this->uuid.toString();
+    }
 }
 
 QString Stream::getArchiver()
 {
     return MrPlotter::cache.requester->getURI(this->archiver);
+}
+
+uint32_t Stream::getArchiverID()
+{
+    return this->archiver;
 }
 
 void Stream::setUUID(QString uuidstr)

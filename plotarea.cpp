@@ -561,7 +561,7 @@ void PlotArea::updateDataAsync(Cache& cache)
         int64_t srch_start = safeSub(timeaxis_start, s->timeOffset);
         int64_t srch_end = safeSub(timeaxis_end, s->timeOffset);
 
-        cache.requestData(s->archiver, s->uuid, srch_start, srch_end, pwe,
+        cache.requestData(s->getArchiverID(), s->uuid, srch_start, srch_end, pwe,
                           [myid, this, s, id, timeaxis_start, timeaxis_end](QList<QSharedPointer<CacheEntry>> data)
         {
             if (PlotArea::instances[myid] != this)

@@ -26,33 +26,80 @@ uint32_t Requester::subscribeBWArchiver(QString uri)
     {
         return (uint32_t) -1;
     }
-    if (this->archiverids.contains(uri))
+
+    bool alreadysubscr = this->subscrhandles.contains(uri);
+
+    uint32_t id;
+    do
     {
-        return this->archiverids[uri];
+        id = this->nextArchiverID++;
     }
-    uint32_t id = this->nextArchiverID++;
+    while (archivers.contains(id));
+
     this->archivers[id] = uri;
-    this->archiverids[uri] = id;
-    QString vkWithoutLastChar = this->bw->getVK();
-    vkWithoutLastChar.chop(1);
-    QString subscr = URI_TEMPLATE.arg(uri).arg("signal/%3,queries").arg(vkWithoutLastChar);
-    qDebug("Subscribing to %s", qPrintable(subscr));
-    this->bw->subscribe(subscr, [this](PMessage pm)
+    this->archiverids.insert(uri, id);
+
+    if (!alreadysubscr)
     {
-        this->handleResponse(pm);
-    }, [](QString error)
-    {
-        qDebug("On done: %s", qPrintable(error));
-    });
+        /* Marker, so we know that we have a pending subscription. */
+        this->subscrhandles[uri] = QStringLiteral("!");
+
+        QString vkWithoutLastChar = this->bw->getVK();
+        vkWithoutLastChar.chop(1);
+        QString subscr = URI_TEMPLATE.arg(uri).arg("signal/%3,queries").arg(vkWithoutLastChar);
+        qDebug("Subscribing to %s", qPrintable(subscr));
+        this->bw->subscribe(subscr, [this](PMessage pm)
+        {
+            this->handleResponse(pm);
+        }, [](QString error)
+        {
+            if (error != QStringLiteral(""))
+            {
+                qWarning("Error subscribing to URI: %s", qPrintable(error));
+            }
+        }, [this, uri](QString handle)
+        {
+            if (this->archiverids.contains(uri))
+            {
+                this->subscrhandles[uri] = handle;
+            }
+            else
+            {
+                /* The user unsubscribed while the subscribe request was still
+                 * pending...
+                 */
+                qDebug("Unsubscribing from %s", qPrintable(uri));
+                this->bw->unsubscribe(handle);
+                this->subscrhandles.remove(uri);
+            }
+        });
+    }
+
     return id;
 }
 
 void Requester::unsubscribeBWArchiver(uint32_t id)
 {
-    /* TODO: Actually unsubscribe from the URI. */
+    if (id == (uint32_t) -1)
+    {
+        return;
+    }
+
     QString uri = this->archivers[id];
-    this->archiverids.remove(uri);
+    this->archiverids.remove(uri, id);
     this->archivers.remove(id);
+
+    if (!this->archiverids.contains(uri))
+    {
+        /* Actually unsubscribe from the URI. */
+        qDebug("Unsubscribing from %s", qPrintable(uri));
+        QString handle = this->subscrhandles[uri];
+        if (handle != QStringLiteral("!"))
+        {
+            this->bw->unsubscribe(handle);
+            this->subscrhandles.remove(uri);
+        }
+    }
 }
 
 QString Requester::getURI(uint32_t archiverID)

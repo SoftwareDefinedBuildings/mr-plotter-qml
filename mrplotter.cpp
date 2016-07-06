@@ -189,7 +189,7 @@ void MrPlotter::autozoom(QVariantList streams)
         Q_ASSERT_X(s != nullptr, "autozoom", "invalid member in stream list");
         if (s != nullptr)
         {
-            byarchiver[s->archiver].append(s->uuid);
+            byarchiver[s->getArchiverID()].append(s->uuid);
         }
     }
 

@@ -54,6 +54,7 @@ public:
     Stream(QObject* parent = nullptr);
     Stream(const QString& u, uint32_t archiverID, QObject* parent = nullptr);
     Stream(const QUuid& u, uint32_t archiverID, QObject* parent = nullptr);
+    ~Stream();
 
     bool toDrawable(struct drawable& d) const;
 
@@ -67,6 +68,7 @@ public:
 
     Q_INVOKABLE void setArchiver(QString uri);
     Q_INVOKABLE QString getArchiver();
+    uint32_t getArchiverID();
 
     Q_INVOKABLE void setUUID(QString uuidstr);
     Q_INVOKABLE QString getUUID();
@@ -88,9 +90,6 @@ public:
     /* The color that this stream should have. */
     struct color color;
 
-    /* The ID of the archiver from which to receive data. */
-    uint32_t archiver;
-
     /* True if this stream, when rendered, should plot the data density
      * rather than the values.
      */
@@ -104,6 +103,12 @@ public:
 
 private:
     void init();
+
+    /* The ID of the archiver from which to receive data. */
+    uint32_t archiver;
+
+    /* True if the archiver has been set. */
+    bool archiverset;
 };
 
 #endif // STREAM_H
