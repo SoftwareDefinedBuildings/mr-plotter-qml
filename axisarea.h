@@ -14,6 +14,7 @@ class YAxisArea : public QQuickPaintedItem
     Q_PROPERTY(QList<QVariant> axisList READ getAxisList WRITE setAxisList)
     Q_PROPERTY(double rangeStart MEMBER rangeLo)
     Q_PROPERTY(double rangeEnd MEMBER rangeHi)
+    Q_PROPERTY(bool rightSide MEMBER rightside)
 
 public:
     YAxisArea(QQuickItem* parent = nullptr);
@@ -28,6 +29,8 @@ public:
 
     PlotArea* plotarea;
     QList<YAxis*> yAxes;
+
+    bool rightside;
 
 private:
     double rangeLo;

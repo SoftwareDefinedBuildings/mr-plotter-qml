@@ -203,7 +203,7 @@ QVector<struct tick> YAxis::getTicks()
             }
             else
             {
-                label = QString::number(low, 'e', precision - 1);
+                label = QString::number(low, 'e', 2);
             }
             ticks.append({low, label});
             low += delta;
@@ -221,7 +221,7 @@ QVector<struct tick> YAxis::getTicks()
             }
             else
             {
-                label = QString::number(low, 'e', ((int) log10(low)) + precision);
+                label = QString::number(low, 'e', 2);
             }
             ticks.append({low, label});
             low += delta;

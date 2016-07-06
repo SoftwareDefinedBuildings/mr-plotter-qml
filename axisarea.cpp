@@ -14,6 +14,7 @@ YAxisArea::YAxisArea(QQuickItem* parent):
 {
     this->rangeHi = 0.0;
     this->rangeLo = 1.0;
+    this->rightside = false;
     this->setWidth(1.0);
 }
 
@@ -21,8 +22,24 @@ void YAxisArea::paint(QPainter* painter)
 {
     this->setWidth(100 * this->yAxes.size());
 
-    int xval = ((int) (0.5 + this->width())) - AXISTHICKNESS - 1;
-    QTextOption to(Qt::AlignRight | Qt::AlignVCenter);
+    int xval;
+    int dir;
+
+    QTextOption to;
+
+    if (this->rightside)
+    {
+        xval = 0;
+        dir = 1;
+        to.setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    }
+    else
+    {
+        xval = ((int) (0.5 + this->width())) - AXISTHICKNESS - 1;
+        dir = -1;
+        to.setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    }
+
     to.setWrapMode(QTextOption::NoWrap);
     QTextOption labelo(Qt::AlignCenter);
 
@@ -40,18 +57,27 @@ void YAxisArea::paint(QPainter* painter)
             struct tick& tick = *i;
             double position = range * axis->map((float) tick.value) + this->rangeLo;
 
-            painter->drawRect(xval - TICKLENGTH, position, TICKLENGTH, TICKTHICKNESS);
-            painter->drawText(QRectF(xval - 100 - TICKLENGTH, position - 100, 100, 200),
-                              tick.label, to);
+            if (this->rightside)
+            {
+                painter->drawRect(xval + AXISTHICKNESS, position - (TICKTHICKNESS / 2), TICKLENGTH, TICKTHICKNESS);
+                painter->drawText(QRectF(xval + TICKLENGTH, position - 100, 100, 200),
+                                  tick.label, to);
+            }
+            else
+            {
+                painter->drawRect(xval - TICKLENGTH, position - (TICKTHICKNESS / 2), TICKLENGTH, TICKTHICKNESS);
+                painter->drawText(QRectF(xval - 100 - TICKLENGTH, position - 100, 100, 200),
+                                  tick.label, to);
+            }
         }
 
-        double labelX = xval - 60 - TICKLENGTH;
+        double labelX = xval + dir * (60 + TICKLENGTH);
         painter->translate(labelX, labelY);
-        painter->rotate(-90);
+        painter->rotate(dir * 90);
         painter->drawText(QRectF(-50, -this->height(), 100, 2 * this->height()), axis->name, labelo);
-        painter->rotate(90);
+        painter->rotate(-dir * 90);
         painter->translate(-labelX, -labelY);
-        xval -= 100;
+        xval += dir * 100;
     }
 }
 

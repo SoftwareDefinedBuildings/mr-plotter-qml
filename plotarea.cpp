@@ -55,7 +55,7 @@ inline uint8_t getPWExponent(uint64_t pointwidth)
     return qMin(pwe, (uint8_t) (PWE_MAX - 1));
 }
 
-PlotArea::PlotArea()
+PlotArea::PlotArea(): yaxisareas()
 {
     /* Initialize static cursors. */
     if (!PlotArea::initializedCursors)
@@ -67,7 +67,6 @@ PlotArea::PlotArea()
     }
 
     this->fullUpdateID = 0;
-    this->yaxisarea = nullptr;
     this->plot = nullptr;
 
     while (this->instances.contains(this->nextID))
@@ -592,15 +591,39 @@ const TimeAxis* PlotArea::getTimeAxis() const
     return &this->plot->timeaxis;
 }
 
-YAxisArea* PlotArea::getYAxisArea() const
+QList<QVariant> PlotArea::getYAxisAreaList() const
 {
-    return this->yaxisarea;
+    QList<QVariant> yaxisarealist;
+
+    for (auto i = this->yaxisareas.begin(); i != this->yaxisareas.end(); i++)
+    {
+        yaxisarealist.append(QVariant::fromValue(*i));
+    }
+
+    return  yaxisarealist;
 }
 
-void PlotArea::setYAxisArea(YAxisArea* newyaxisarea)
+void PlotArea::setYAxisAreaList(QList<QVariant> newyaxisarealist)
 {
-    this->yaxisarea = newyaxisarea;
-    this->yaxisarea->plotarea = this;
+    for (auto j = this->yaxisareas.begin(); j != this->yaxisareas.end(); j++)
+    {
+        (*j)->plotarea = nullptr;
+    }
+
+    QList<YAxisArea*> newYAxisAreas;
+
+    for (auto i = newyaxisarealist.begin(); i != newyaxisarealist.end(); i++)
+    {
+        YAxisArea* yaa = i->value<YAxisArea*>();
+        Q_ASSERT_X(yaa != nullptr, "setYAxisAreaList", "invalid member in Y axis area list");
+        if (yaa != nullptr)
+        {
+            yaa->plotarea = this;
+            newYAxisAreas.append(yaa);
+        }
+    }
+
+    this->yaxisareas = qMove(newYAxisAreas);
 }
 
 QList<QVariant> PlotArea::getStreamList() const

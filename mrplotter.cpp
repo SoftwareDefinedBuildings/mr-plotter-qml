@@ -13,7 +13,7 @@ Cache MrPlotter::cache;
 uint64_t MrPlotter::nextID = 0;
 QHash<uint64_t, MrPlotter*> MrPlotter::instances;
 
-MrPlotter::MrPlotter(): plots(), timeaxis()
+MrPlotter::MrPlotter(): timeaxis(), plots()
 {
     this->timeaxisarea = nullptr;
 

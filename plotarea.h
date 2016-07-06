@@ -35,7 +35,7 @@ class MrPlotter;
 class PlotArea : public QQuickFramebufferObject
 {
     Q_OBJECT
-    Q_PROPERTY(YAxisArea* yAxisArea READ getYAxisArea WRITE setYAxisArea)
+    Q_PROPERTY(QList<QVariant> yAxisAreaList READ getYAxisAreaList WRITE setYAxisAreaList)
     Q_PROPERTY(QList<QVariant> streamList READ getStreamList WRITE setStreamList)
     Q_PROPERTY(bool scrollZoomable READ getScrollZoomable WRITE setScrollZoomable)
 
@@ -59,8 +59,8 @@ public:
 
     const TimeAxis* getTimeAxis() const;
 
-    YAxisArea* getYAxisArea() const;
-    void setYAxisArea(YAxisArea* newyaxisarea);
+    QList<QVariant> getYAxisAreaList() const;
+    void setYAxisAreaList(QList<QVariant> newstreamlist);
 
     Q_INVOKABLE QList<QVariant> getStreamList() const;
     Q_INVOKABLE void setStreamList(QList<QVariant> newstreamlist);
@@ -77,7 +77,7 @@ private:
     void rescaleAxes(int64_t timeaxis_start, int64_t timeaxis_end);
 
     QHash<YAxis*, uint64_t> yAxes;
-    YAxisArea* yaxisarea;
+    QList<YAxisArea*> yaxisareas;
 
     QList<Stream*> streams;
 
