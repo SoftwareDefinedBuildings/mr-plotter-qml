@@ -170,7 +170,7 @@ uint32_t Requester::publishQuery(QString query, uint32_t archiver)
     req.insert("Nonce", nonce);
     req.insert("Query", query);
 
-    this->bw->publishMsgPack(uri, "2.0.8.1", req);
+    this->bw->publishMsgPack(uri, "", true, "2.0.8.1", req, QDateTime(), -1.0, "", false, false);
 
     return nonce;
 }
