@@ -48,7 +48,7 @@ uint32_t Requester::subscribeBWArchiver(QString uri)
         vkWithoutLastChar.chop(1);
         QString subscr = URI_TEMPLATE.arg(uri).arg("signal/%3,queries").arg(vkWithoutLastChar);
         qDebug("Subscribing to %s", qPrintable(subscr));
-        this->bw->subscribe(subscr, [this](PMessage pm)
+        this->bw->subscribe(subscr, "", true, QList<RoutingObject*>(), QDateTime(), -1, "", false, false, [this](PMessage pm)
         {
             this->handleResponse(pm);
         }, [](QString error)
@@ -170,7 +170,7 @@ uint32_t Requester::publishQuery(QString query, uint32_t archiver)
     req.insert("Nonce", nonce);
     req.insert("Query", query);
 
-    this->bw->publishMsgPack(uri, "", true, "2.0.8.1", req, QDateTime(), -1.0, "", false, false);
+    this->bw->publishMsgPack(uri, "", true, QList<RoutingObject*>(), BW::fromDF("2.0.8.1"), req, QDateTime(), -1.0, "", false, false);
 
     return nonce;
 }
