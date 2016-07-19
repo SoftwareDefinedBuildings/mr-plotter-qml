@@ -5,6 +5,7 @@
 #include "utils.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include <QDate>
 #include <QDateTime>
