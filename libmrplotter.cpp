@@ -7,6 +7,8 @@
 
 void initLibMrPlotter()
 {
+    Requester::init();
+
     qmlRegisterType<YAxis>("MrPlotter", 0, 1, "YAxis");
     qmlRegisterType<Stream>("MrPlotter", 0, 1, "Stream");
     qmlRegisterType<YAxisArea>("MrPlotter", 0, 1, "YAxisArea");

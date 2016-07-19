@@ -51,6 +51,8 @@ class Requester
 public:
     Requester();
 
+    static void init();
+
     void makeDataRequest(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
                          uint32_t archiver, ReqCallback callback);
     void makeBracketRequest(const QList<QUuid> uuids, uint32_t archiver, BracketCallback callback);
@@ -82,7 +84,7 @@ private:
 
     QHash<QString, QString> subscrhandles;
 
-    BW* bw;
+    static BW* bw;
 };
 
 #endif // REQUESTER_H

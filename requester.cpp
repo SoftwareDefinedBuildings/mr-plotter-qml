@@ -14,10 +14,16 @@
 
 #define PI 3.14159265358979323846
 
+BW* Requester::bw = nullptr;
+
 Requester::Requester(): nextNonce(0), nextArchiverID(0), outstandingDataReqs(), outstandingBracketLeft(), outstandingBracketRight()
 {
-    this->bw = BW::instance();
     qsrand((uint) QTime::currentTime().msec());
+}
+
+void Requester::init()
+{
+    Requester::bw = BW::instance();
 }
 
 uint32_t Requester::subscribeBWArchiver(QString uri)
