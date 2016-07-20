@@ -57,26 +57,27 @@ uint32_t Requester::subscribeBWArchiver(QString uri)
         this->bw->subscribe(subscr, "", true, QList<RoutingObject*>(), QDateTime(), -1, "", false, false, [this](PMessage pm)
         {
             this->handleResponse(pm);
-        }, [](QString error)
+        }, [this, uri](QString error, QString handle)
         {
             if (error != QStringLiteral(""))
             {
                 qWarning("Error subscribing to URI: %s", qPrintable(error));
             }
-        }, [this, uri](QString handle)
-        {
-            if (this->archiverids.contains(uri))
-            {
-                this->subscrhandles[uri] = handle;
-            }
             else
             {
-                /* The user unsubscribed while the subscribe request was still
-                 * pending...
-                 */
-                qDebug("Unsubscribing from %s", qPrintable(uri));
-                this->bw->unsubscribe(handle);
-                this->subscrhandles.remove(uri);
+                if (this->archiverids.contains(uri))
+                {
+                    this->subscrhandles[uri] = handle;
+                }
+                else
+                {
+                    /* The user unsubscribed while the subscribe request was still
+                     * pending...
+                     */
+                    qDebug("Unsubscribing from %s", qPrintable(uri));
+                    this->bw->unsubscribe(handle);
+                    this->subscrhandles.remove(uri);
+                }
             }
         });
     }
