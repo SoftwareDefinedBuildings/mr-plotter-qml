@@ -144,6 +144,10 @@ void MrPlotter::updateDataAsync()
     {
         (*i)->updateDataAsync(this->cache);
     }
+    if (this->timeaxisarea != nullptr)
+    {
+        this->timeaxisarea->update();
+    }
 }
 
 /* Updates the screen in response to the x-axis having shifted. */

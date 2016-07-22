@@ -1,13 +1,18 @@
 #include "axisarea.h"
+#include "plotarea.h"
 
 #include <cmath>
+#include <QFont>
 #include <QQuickPaintedItem>
+#include <QPaintDevice>
 #include <QPainter>
 #include <QQuickItem>
 
 #define AXISTHICKNESS 1
 #define TICKTHICKNESS 1
 #define TICKLENGTH 5
+
+QFont axisfont("Helvetica", 12);
 
 YAxisArea::YAxisArea(QQuickItem* parent):
     QQuickPaintedItem(parent), plotarea(nullptr), yAxes()
@@ -25,23 +30,24 @@ void YAxisArea::paint(QPainter* painter)
     int xval;
     int dir;
 
-    QTextOption to;
+    int tickopt;
+
+    painter->setFont(axisfont);
 
     if (this->rightside)
     {
         xval = 0;
         dir = 1;
-        to.setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        tickopt = Qt::AlignLeft | Qt::AlignVCenter | Qt::TextDontClip;
     }
     else
     {
         xval = ((int) (0.5 + this->width())) - AXISTHICKNESS - 1;
         dir = -1;
-        to.setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        tickopt = Qt::AlignRight | Qt::AlignVCenter | Qt::TextDontClip;
     }
 
-    to.setWrapMode(QTextOption::NoWrap);
-    QTextOption labelo(Qt::AlignCenter);
+    int labelopt = Qt::AlignCenter | Qt::TextDontClip;
 
     double range = this->rangeHi - this->rangeLo;
     double labelY = this->rangeHi - range / 2.0;
@@ -60,21 +66,21 @@ void YAxisArea::paint(QPainter* painter)
             if (this->rightside)
             {
                 painter->drawRect(xval + AXISTHICKNESS, position - (TICKTHICKNESS / 2), TICKLENGTH, TICKTHICKNESS);
-                painter->drawText(QRectF(xval + TICKLENGTH, position - 100, 100, 200),
-                                  tick.label, to);
+                painter->drawText(QRectF(xval + AXISTHICKNESS + TICKLENGTH + 1, position, 0, 0),
+                                  tickopt, tick.label);
             }
             else
             {
                 painter->drawRect(xval - TICKLENGTH, position - (TICKTHICKNESS / 2), TICKLENGTH, TICKTHICKNESS);
-                painter->drawText(QRectF(xval - 100 - TICKLENGTH, position - 100, 100, 200),
-                                  tick.label, to);
+                painter->drawText(QRectF(xval - TICKLENGTH, position, 0, 0),
+                                  tickopt, tick.label);
             }
         }
 
         double labelX = xval + dir * (60 + TICKLENGTH);
         painter->translate(labelX, labelY);
         painter->rotate(dir * 90);
-        painter->drawText(QRectF(-50, -this->height(), 100, 2 * this->height()), axis->name, labelo);
+        painter->drawText(QRectF(0, 0, 0, 0), labelopt, axis->name);
         painter->rotate(-dir * 90);
         painter->translate(-labelX, -labelY);
         xval += dir * 100;
@@ -126,6 +132,10 @@ void YAxisArea::setAxisList(QList<QVariant> newaxislist)
 
     this->yAxes = qMove(newYAxes);
 
+    if (this->plotarea != nullptr && this->plotarea->plot != nullptr)
+    {
+        this->plotarea->plot->updateDataAsyncThrottled();
+    }
     this->update();
 }
 
@@ -138,12 +148,13 @@ TimeAxisArea::TimeAxisArea()
 
 void TimeAxisArea::paint(QPainter* painter)
 {
+    painter->setFont(axisfont);
+
     double range = this->rangeHi - this->rangeLo;
 
     painter->drawRect(this->rangeLo, 0, (int) (0.5 + range), AXISTHICKNESS);
 
-    QTextOption to(Qt::AlignHCenter | Qt::AlignTop);
-    to.setWrapMode(QTextOption::NoWrap);
+    int tickopt = Qt::AlignHCenter | Qt::AlignTop | Qt::TextDontClip;
 
     if (this->timeaxis != nullptr)
     {
@@ -154,8 +165,7 @@ void TimeAxisArea::paint(QPainter* painter)
             double position = range * this->timeaxis->map(tick.timeval) + this->rangeLo;
 
             painter->drawRect(position, 0, TICKTHICKNESS, AXISTHICKNESS + TICKLENGTH);
-            painter->drawText(QRectF(position - 100, AXISTHICKNESS + TICKLENGTH, 200, 300),
-                              tick.label, to);
+            painter->drawText(QRectF(position, AXISTHICKNESS + TICKLENGTH, 0, 0), tickopt, tick.label);
         }
     }
 
@@ -166,4 +176,26 @@ void TimeAxisArea::paint(QPainter* painter)
 void TimeAxisArea::setTimeAxis(TimeAxis& newtimeaxis)
 {
     this->timeaxis = &newtimeaxis;
+}
+
+double TimeAxisArea::getRangeStart()
+{
+    return this->rangeLo;
+}
+
+double TimeAxisArea::getRangeEnd()
+{
+    return this->rangeHi;
+}
+
+void TimeAxisArea::setRangeStart(double newRangeStart)
+{
+    this->rangeLo = newRangeStart;
+    this->update();
+}
+
+void TimeAxisArea::setRangeEnd(double newRangeEnd)
+{
+    this->rangeHi = newRangeEnd;
+    this->update();
 }

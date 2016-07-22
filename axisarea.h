@@ -40,13 +40,19 @@ private:
 class TimeAxisArea : public QQuickPaintedItem
 {
     Q_OBJECT
-    Q_PROPERTY(double rangeStart MEMBER rangeLo)
-    Q_PROPERTY(double rangeEnd MEMBER rangeHi)
+    Q_PROPERTY(double rangeStart READ getRangeStart WRITE setRangeStart)
+    Q_PROPERTY(double rangeEnd READ getRangeEnd WRITE setRangeEnd)
 
 public:
     TimeAxisArea();
     void paint(QPainter* painter);
     void setTimeAxis(TimeAxis& newtimeaxis);
+
+    double getRangeStart();
+    double getRangeEnd();
+
+    void setRangeStart(double newRangeStart);
+    void setRangeEnd(double newRangeEnd);
 
     TimeAxis* timeaxis;
 
