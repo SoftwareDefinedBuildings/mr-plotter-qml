@@ -8,9 +8,12 @@
 #include <QPainter>
 #include <QQuickItem>
 
-#define AXISTHICKNESS 1
-#define TICKTHICKNESS 1
-#define TICKLENGTH 5
+/* Thicknesses are NOT scaled by dp */
+/* Lengths ARE scaled by dp */
+
+#define AXISTHICKNESS 2
+#define TICKTHICKNESS 2
+#define TICKLENGTH 8
 
 QFont axisfont("Helvetica", 12);
 
@@ -25,7 +28,14 @@ YAxisArea::YAxisArea(QQuickItem* parent):
 
 void YAxisArea::paint(QPainter* painter)
 {
-    this->setWidth(100 * this->yAxes.size());
+    /* 1 dp is a platform-independent measure of width. I got this logic
+     * from the code for Material:
+     *
+     * https://github.com/papyros/qml-material/blob/develop/src/core/units.cpp#L76
+     */
+    double dp = painter->device()->physicalDpiX() / 160.0;
+
+    this->setWidth(150 * dp * this->yAxes.size());
 
     int xval;
     int dir;
@@ -54,7 +64,7 @@ void YAxisArea::paint(QPainter* painter)
 
     for (auto j = this->yAxes.begin(); j != this->yAxes.end(); j++)
     {
-        painter->drawRect(QRectF(xval, this->rangeHi, AXISTHICKNESS, std::abs(range)));
+        painter->fillRect(QRectF(xval, this->rangeHi, AXISTHICKNESS, std::abs(range)), Qt::black);
 
         YAxis* axis = *j;
         QVector<struct tick> ticks = axis->getTicks();
@@ -65,25 +75,25 @@ void YAxisArea::paint(QPainter* painter)
 
             if (this->rightside)
             {
-                painter->drawRect(xval + AXISTHICKNESS, position - (TICKTHICKNESS / 2), TICKLENGTH, TICKTHICKNESS);
+                painter->fillRect(QRectF(xval + AXISTHICKNESS * dp, position - (TICKTHICKNESS / 2), TICKLENGTH * dp, TICKTHICKNESS), Qt::black);
                 painter->drawText(QRectF(xval + AXISTHICKNESS + TICKLENGTH + 1, position, 0, 0),
                                   tickopt, tick.label);
             }
             else
             {
-                painter->drawRect(xval - TICKLENGTH, position - (TICKTHICKNESS / 2), TICKLENGTH, TICKTHICKNESS);
+                painter->fillRect(QRectF(xval - TICKLENGTH * dp, position - (TICKTHICKNESS / 2), TICKLENGTH * dp, TICKTHICKNESS), Qt::black);
                 painter->drawText(QRectF(xval - TICKLENGTH, position, 0, 0),
                                   tickopt, tick.label);
             }
         }
 
-        double labelX = xval + dir * (60 + TICKLENGTH);
+        double labelX = xval + dir * (100 + TICKLENGTH) * dp;
         painter->translate(labelX, labelY);
         painter->rotate(dir * 90);
         painter->drawText(QRectF(0, 0, 0, 0), labelopt, axis->name);
         painter->rotate(-dir * 90);
         painter->translate(-labelX, -labelY);
-        xval += dir * 100;
+        xval += dir * 150 * dp;
     }
 }
 
@@ -148,11 +158,15 @@ TimeAxisArea::TimeAxisArea()
 
 void TimeAxisArea::paint(QPainter* painter)
 {
+    double dp = painter->device()->physicalDpiY() / 150.0;
+
+    this->setHeight(150 * dp);
+
     painter->setFont(axisfont);
 
     double range = this->rangeHi - this->rangeLo;
 
-    painter->drawRect(this->rangeLo, 0, (int) (0.5 + range), AXISTHICKNESS);
+    painter->fillRect(QRectF(this->rangeLo, 0, range, AXISTHICKNESS), Qt::black);
 
     int tickopt = Qt::AlignHCenter | Qt::AlignTop | Qt::TextDontClip;
 
@@ -164,13 +178,13 @@ void TimeAxisArea::paint(QPainter* painter)
             struct timetick& tick = *i;
             double position = range * this->timeaxis->map(tick.timeval) + this->rangeLo;
 
-            painter->drawRect(position, 0, TICKTHICKNESS, AXISTHICKNESS + TICKLENGTH);
+            painter->fillRect(QRectF(position, 0, TICKTHICKNESS, AXISTHICKNESS + TICKLENGTH), Qt::black);
             painter->drawText(QRectF(position, AXISTHICKNESS + TICKLENGTH, 0, 0), tickopt, tick.label);
         }
     }
 
     const QStaticText& label = this->timeaxis->getLabel();
-    painter->drawStaticText((this->width() - label.size().width()) / 2, 30, label);
+    painter->drawStaticText(QPointF((this->width() - label.size().width()) / 2, 70 * dp), label);
 }
 
 void TimeAxisArea::setTimeAxis(TimeAxis& newtimeaxis)
