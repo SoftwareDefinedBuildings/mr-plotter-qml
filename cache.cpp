@@ -170,7 +170,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
     int64_t halfpw = pw >> 1;
 
     bool prevfirst = (len > 0 && spoints[0].time == ((start - halfpw - 1) & pwmask));
-    bool nextlast = (len > 0 && spoints[len - 1].time == (((end - halfpw) & pwmask) + pw));
+    bool nextlast = (len > 0 && spoints[len - 1].time == (((end - halfpw + pw) & pwmask)));
 
     /* These "connect" variables refer to whether this cache entry
      * should take responsibility for connecting to the previous

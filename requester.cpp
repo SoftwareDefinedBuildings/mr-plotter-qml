@@ -124,7 +124,7 @@ QString Requester::getURI(uint32_t archiverID)
  *
  * Returns, via the CALLBACK, an array of statistical points satisfying
  * the query. If there is a point immediately before the first point
- * int the query, or immediately after the last point in the query,
+ * in the query, or immediately after the last point in the query,
  * those points are also included in the response.
  */
 void Requester::makeDataRequest(const QUuid &uuid, int64_t start, int64_t end, uint8_t pwe,
@@ -143,7 +143,7 @@ void Requester::makeDataRequest(const QUuid &uuid, int64_t start, int64_t end, u
     /* The way queries to BTrDB work is that it takes the start and end that
      * you give it, discards the lower bits (i.e., rounds it down to the
      * nearest pointwidth boundary), and returns all points that START in
-     * the resulting interval, both endpoints inclusive.
+     * the resulting interval, with the start inclusive and the end exclusive.
      *
      * So, in order to make sure we capture the point immediately before the
      * first point, or immediately after the last point, it is sufficient to
@@ -151,7 +151,10 @@ void Requester::makeDataRequest(const QUuid &uuid, int64_t start, int64_t end, u
      */
 
     truestart -= 1;
-    trueend += pw;
+    trueend += (pw + pw);
+    /* We add pw twice, once to get the point past the end of the query, and
+     * again to account for the fact that the endpoint is exclusive.
+     */
 
     /* WARNING: The above is not the same as saying trueend = end + halfpw.
      * In particular, consider the case where pwe == 0.
