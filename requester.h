@@ -20,6 +20,12 @@ const QString URI_TEMPLATE = QStringLiteral("%1/%2");
 
 #define QUERY_TEMPLATE QStringLiteral("select statistical(%1) data in (%2ns, %3ns) as ns where uuid = \"%4\";")
 
+struct rawpt
+{
+    int64_t time;
+    double value;
+};
+
 struct statpt
 {
     int64_t time;
@@ -61,6 +67,9 @@ public:
     void unsubscribeBWArchiver(uint32_t id);
     QString getURI(uint32_t archiverID);
 
+    void hardcodeLocalData(QUuid& uuid, QVector<struct rawpt>& points);
+    bool dropHardcodedLocalData(QUuid& uuid);
+
 private:
     uint32_t publishQuery(QString query, uint32_t archiver);
 
@@ -83,6 +92,8 @@ private:
     QMultiHash<QString, uint32_t> archiverids;
 
     QHash<QString, QString> subscrhandles;
+
+    QHash<QUuid, QVector<struct rawpt>> hardcoded;
 
     static BW* bw;
 };

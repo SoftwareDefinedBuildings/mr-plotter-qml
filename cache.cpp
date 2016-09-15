@@ -169,7 +169,10 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
 
     int64_t halfpw = pw >> 1;
 
+    /* True iff first point in spoints belongs to the cache entry previous to this one. */
     bool prevfirst = (len > 0 && spoints[0].time == ((start - halfpw - 1) & pwmask));
+
+    /* True iff the last point in spoints belongs to the cache entry after this one. */
     bool nextlast = (len > 0 && spoints[len - 1].time == (((end - halfpw + pw) & pwmask)));
 
     /* These "connect" variables refer to whether this cache entry
@@ -356,7 +359,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
          * have to worry about inserting a gap before the first point.
          */
         exptime = prevtime + pw;
-        if ((i == numinputs - 1 && !nextlast) || (i != numinputs - 1 && inputs[i + 1].time > exptime))
+        if ((i == numinputs - 1 && (!nextlast || inputs[i + 1].time > exptime)) || (i != numinputs - 1 && inputs[i + 1].time > exptime))
         {
             j++;
 

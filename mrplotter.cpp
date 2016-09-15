@@ -324,3 +324,53 @@ bool MrPlotter::getTimeTickPromotion()
 {
     return this->timeaxis.getPromoteTicks();
 }
+
+bool MrPlotter::hardcodeLocalData(QUuid uuid, QVariantList data)
+{
+    QVector<struct rawpt> points(data.length());
+    QVariantList::iterator i;
+    int index;
+    for (i = data.begin(), index = 0; i != data.end(); i++, index++)
+    {
+        QVariant& vpt = *i;
+        QList<QVariant> vlpt = vpt.toList();
+        struct rawpt& rpt = points[index];
+        bool ok;
+        double millis;
+        double nanos;
+
+        if (vlpt.size() != 3)
+        {
+            return false;
+        }
+
+        millis = vlpt.at(0).toDouble(&ok);
+        if (!ok)
+        {
+            return false;
+        }
+
+        nanos = vlpt.at(1).toDouble(&ok);
+        if (!ok)
+        {
+            return false;
+        }
+
+        rpt.value = vlpt.at(2).toDouble(&ok);
+        if (!ok)
+        {
+            return false;
+        }
+
+        rpt.time = joinTime((int64_t) millis, (int64_t) nanos);
+    }
+
+    this->cache.requester->hardcodeLocalData(uuid, points);
+
+    return true;
+}
+
+bool MrPlotter::dropHardcodedLocalData(QUuid uuid)
+{
+    return this->cache.requester->dropHardcodedLocalData(uuid);
+}

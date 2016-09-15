@@ -70,6 +70,9 @@ public:
     Q_INVOKABLE void updateDataAsync();
     Q_INVOKABLE void updateView();
 
+    Q_INVOKABLE bool hardcodeLocalData(QUuid uuid, QVariantList data);
+    Q_INVOKABLE bool dropHardcodedLocalData(QUuid uuid);
+
     TimeAxis timeaxis;
 
     int64_t scrollable_min;

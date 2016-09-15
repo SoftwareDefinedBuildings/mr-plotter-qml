@@ -191,7 +191,8 @@ inline void Requester::sendDataRequest(const QUuid &uuid, int64_t start, int64_t
 {
     if (archiver == (uint32_t) -1)
     {
-        /* This is a simulator. */
+        int truelen;
+        struct statpt* toreturn;
 
         int64_t pw = ((int64_t) 1) << pwe;
         int64_t pwe_mask = ~(pw - 1);
@@ -202,56 +203,113 @@ inline void Requester::sendDataRequest(const QUuid &uuid, int64_t start, int64_t
         Q_ASSERT(end >= start);
 
         int numpts = ((end - start) >> pwe) + 1;
-        struct statpt* toreturn = new struct statpt[numpts];
+        toreturn = new struct statpt[numpts];
 
-        int numskipped = 0;
-
-        for (int i = 0; i < numpts; i++)
+        if (this->hardcoded.contains(uuid))
         {
-            double min = INFINITY;
-            double max = -INFINITY;
-            double mean = 0.0;
+            int numskipped = 0;
+            int i;
 
-            int64_t stime = start + (i << pwe);
-            Q_ASSERT(stime <= end);
+            QVector<struct rawpt> hdata = this->hardcoded[uuid];
+            auto j = hdata.begin();
 
-            uint64_t count = 0;
-
-            for (int j = 0; j < pw; j++)
+            while (j != hdata.end() && j->time < start)
             {
-                int64_t time = stime + j - 1415643675000000000LL;
+                j++;
+            }
 
-                /* Decide if we should drop this point. */
-                int64_t rem = (time & 0x7F);
-                if (rem != 7 && rem != 8 && rem != 9 && rem != 10 && rem != 11)
+            for (i = 0; i < numpts && j != hdata.end(); i++)
+            {
+                double min = INFINITY;
+                double max = -INFINITY;
+                double mean = 0.0;
+
+                int64_t stime = start + (((int64_t) i) << pwe);
+                Q_ASSERT(stime <= end);
+
+                uint64_t count = 0;
+
+                for (; j != hdata.end() && j->time < (stime + pw); j++)
                 {
+                    double value = j->value;
+                    min = fmin(min, value);
+                    max = fmax(max, value);
+                    mean += value;
+                    count++;
+                }
+
+                if (count == 0)
+                {
+                    numskipped++;
                     continue;
                 }
 
-                double value = cos(time * PI / 100) + 0.5 * cos(time * PI / 63) + 0.3 * cos(time * PI / 7);
-                min = fmin(min, value);
-                max = fmax(max, value);
-                mean += value;
-                count++;
-            }
-            mean /= count;
+                mean /= count;
 
-            if (count == 0)
-            {
-                numskipped++;
-                continue;
+                int k = i - numskipped;
+
+                toreturn[k].time = stime;
+                toreturn[k].min = min;
+                toreturn[k].mean = mean;
+                toreturn[k].max = max;
+                toreturn[k].count = count;
             }
 
-            int k = i - numskipped;
-
-            toreturn[k].time = stime;
-            toreturn[k].min = min;
-            toreturn[k].mean = mean;
-            toreturn[k].max = max;
-            toreturn[k].count = count;
+            truelen = i - numskipped;
         }
+        else
+        {
+            /* This is a simulator. */
+            int numskipped = 0;
 
-        int truelen = numpts - numskipped;
+            for (int i = 0; i < numpts; i++)
+            {
+                double min = INFINITY;
+                double max = -INFINITY;
+                double mean = 0.0;
+
+                int64_t stime = start + (i << pwe);
+                Q_ASSERT(stime <= end);
+
+                uint64_t count = 0;
+
+                for (int j = 0; j < pw; j++)
+                {
+                    int64_t time = stime + j - 1415643675000000000LL;
+
+                    /* Decide if we should drop this point. */
+                    int64_t rem = (time & 0x7F);
+                    if (rem != 7 && rem != 8 && rem != 9 && rem != 10 && rem != 11)
+                    {
+                        continue;
+                    }
+
+                    double value = cos(time * PI / 100) + 0.5 * cos(time * PI / 63) + 0.3 * cos(time * PI / 7);
+                    min = fmin(min, value);
+                    max = fmax(max, value);
+                    mean += value;
+                    count++;
+                }
+
+                if (count == 0)
+                {
+                    numskipped++;
+                    continue;
+                }
+
+                mean /= count;
+
+                int k = i - numskipped;
+
+                toreturn[k].time = stime;
+                toreturn[k].min = min;
+                toreturn[k].mean = mean;
+                toreturn[k].max = max;
+                toreturn[k].count = count;
+            }
+
+            truelen = numpts - numskipped;
+        }
 
         QTimer::singleShot(500, [callback, toreturn, truelen]()
         {
@@ -285,18 +343,31 @@ inline void Requester::sendDataRequest(const QUuid &uuid, int64_t start, int64_t
 
 void Requester::sendBracketRequest(const QList<QUuid>& uuids, uint32_t archiver, BracketCallback callback)
 {
-    QHash<QUuid, struct brackets> result;
-    for (auto i = uuids.begin(); i != uuids.end(); i++)
-    {
-        struct brackets& brkts = result[*i];
-        brkts.lowerbound = 1415643674979469055;
-        brkts.upperbound = 1415643674979469318;
-    }
     if (archiver == (uint32_t) -1)
     {
+        QHash<QUuid, struct brackets> result;
+
+        for (auto i = uuids.begin(); i != uuids.end(); i++)
+        {
+            const QUuid& uuid = *i;
+            struct brackets& brkts = result[uuid];
+
+            if (this->hardcoded.contains(uuid))
+            {
+                QVector<struct rawpt>& hdata = this->hardcoded[uuid];
+                brkts.lowerbound = hdata.first().time;
+                brkts.upperbound = hdata.last().time;
+            }
+            else
+            {
+                qDebug("not hardcoded");
+                brkts.lowerbound = 1415643674979469055;
+                brkts.upperbound = 1415643674979469318;
+            }
+        }
+
         QTimer::singleShot(500, [callback, result]()
         {
-
             callback(result);
         });
         return;
@@ -550,4 +621,16 @@ void Requester::handleBracketResponse(struct brqstate* brqs, QVariantMap respons
         brqs->callback(brqs->brackets);
         delete brqs;
     }
+}
+
+void Requester::hardcodeLocalData(QUuid& uuid, QVector<rawpt>& points)
+{
+    this->hardcoded[uuid] = points;
+}
+
+bool Requester::dropHardcodedLocalData(QUuid& uuid)
+{
+    int removed = this->hardcoded.remove(uuid);
+    Q_ASSERT(removed <= 1);
+    return removed == 1;
 }
