@@ -145,6 +145,12 @@ struct streamcache {
     QMap<int64_t, QSharedPointer<CacheEntry>>* entries;
 };
 
+/* Start and end are inclusive. */
+struct timerange {
+    int64_t start;
+    int64_t end;
+};
+
 class Cache
 {
 public:
@@ -170,6 +176,13 @@ public:
 
     void requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
                          std::function<void(int64_t, int64_t)> callback);
+
+    void dropRanges(const QUuid& uuid, const QVector<struct timerange> ranges);
+
+    void dropBrackets(const QUuid& uuid);
+
+    void dropUUID(const QUuid& uuid);
+
     /* The VBOs that need to be deleted. */
     QVector<GLuint> todelete;
     Requester* requester;
@@ -177,6 +190,9 @@ public:
 private:
     void use(QSharedPointer<CacheEntry> ce, bool firstuse);
     void addCost(const QUuid& uuid, uint64_t amt);
+
+    /* Evicts an entry from the cache. Returns true iff it was the last entry for that UUID. */
+    bool evictEntry(const QSharedPointer<CacheEntry> todrop);
 
     uint64_t curr_queryid;
     /* The QMap here maps a timestamp to the cache entry that _ends_ at that timestamp. */

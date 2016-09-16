@@ -365,6 +365,9 @@ bool MrPlotter::hardcodeLocalData(QUuid uuid, QVariantList data)
         rpt.time = joinTime((int64_t) millis, (int64_t) nanos);
     }
 
+    /* We just changed the data. */
+    this->cache.dropUUID(uuid);
+
     this->cache.requester->hardcodeLocalData(uuid, points);
 
     return true;
@@ -372,5 +375,8 @@ bool MrPlotter::hardcodeLocalData(QUuid uuid, QVariantList data)
 
 bool MrPlotter::dropHardcodedLocalData(QUuid uuid)
 {
+    /* We just changed the data. */
+    this->cache.dropUUID(uuid);
+
     return this->cache.requester->dropHardcodedLocalData(uuid);
 }

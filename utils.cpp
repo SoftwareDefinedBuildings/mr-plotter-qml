@@ -43,3 +43,8 @@ void fromJSList(QList<qreal> jslist, int64_t* low, int64_t* high)
     *low = joinTime((int64_t) jslist.value(0), (int64_t) jslist.value(2));
     *high = joinTime((int64_t) jslist.value(1), (int64_t) jslist.value(3));
 }
+
+bool itvlOverlap(int64_t start1, int64_t end1, int64_t start2, int64_t end2)
+{
+    return (start1 >= start2 && start1 <= end2) || (start2 >= start1 && start2 <= end1);
+}

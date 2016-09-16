@@ -1,6 +1,7 @@
 #include "cache.h"
 #include "plotrenderer.h"
 #include "requester.h"
+#include "utils.h"
 
 #include <cstdint>
 #include <functional>
@@ -908,7 +909,7 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
 void Cache::requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
                             std::function<void (int64_t, int64_t)> callback)
 {
-    /* TODO: First, check if the brackets are in the cache. */
+    /* First, check if the brackets are in the cache. */
     QList<QUuid> torequest;
     int64_t initlowerbound = INT64_MAX;
     int64_t initupperbound = INT64_MIN;
@@ -955,6 +956,104 @@ void Cache::requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
     });
 }
 
+void Cache::dropRanges(const QUuid& uuid, const QVector<struct timerange> ranges)
+{
+    if (ranges.size() == 0 || !this->cache.contains(uuid))
+    {
+        return;
+    }
+
+    int64_t start = ranges.first().start;
+
+    struct streamcache& scache = this->cache[uuid];
+
+    for (uint8_t pwe = 0; pwe < PWE_MAX; pwe++)
+    {
+        QMap<int64_t, QSharedPointer<CacheEntry>>* pentries = &scache.entries[pwe];
+        if (pentries->size() == 0)
+        {
+            continue;
+        }
+
+        auto crange = ranges.begin();
+
+        /* Drop ranges from tree. */
+        auto i = pentries->lowerBound(start);
+        while (i != pentries->end())
+        {
+            QSharedPointer<CacheEntry>& ce = *i;
+
+            while (crange->end < ce->start)
+            {
+                crange++;
+                if (crange == ranges.end())
+                {
+                    /* We're done pruning the tree for this pwe. Move on to the next
+                     * one.
+                     */
+                    goto continueouterloop;
+                }
+            }
+
+            if (itvlOverlap(crange->start, crange->end, ce->start, ce->end))
+            {
+                /* Can't manipulate ce after erasing i, since it becomes a dangling reference. */
+                QSharedPointer<CacheEntry> toevict = ce;
+
+                i = pentries->erase(i);
+
+                // Update accounting, for cache eviction policy
+                if (this->evictEntry(toevict))
+                {
+                    return;
+                }
+            }
+            else
+            {
+                i++;
+            }
+        }
+    continueouterloop:
+        ;
+    }
+}
+
+void Cache::dropBrackets(const QUuid& uuid)
+{
+    if (!this->cache.contains(uuid))
+    {
+        return;
+    }
+    this->cache[uuid].cachedbounds = false;
+}
+
+void Cache::dropUUID(const QUuid& uuid)
+{
+    if (!this->cache.contains(uuid))
+    {
+        return;
+    }
+
+    struct streamcache& scache = this->cache[uuid];
+    for (uint8_t pwe = 0; pwe < PWE_MAX; pwe++)
+    {
+        QMap<int64_t, QSharedPointer<CacheEntry>>* pentries = &scache.entries[pwe];
+        for (auto i = pentries->begin(); i != pentries->end(); i++)
+        {
+            if (this->evictEntry(*i))
+            {
+                // When everything is empty...
+                return;
+            }
+        }
+    }
+
+    /* We evicted all cache entries for the UUID by manually iterating over them, but
+     * our accounting indicates that there are still cache entries for this UUID.
+     */
+    Q_UNREACHABLE();
+}
+
 void Cache::use(QSharedPointer<CacheEntry> ce, bool firstuse)
 {
     if (!firstuse)
@@ -972,7 +1071,7 @@ void Cache::addCost(const QUuid& uuid, uint64_t amt)
 
     while (this->cost >= CACHE_THRESHOLD && !this->lru.empty())
     {
-        QSharedPointer<CacheEntry> todrop = this->lru.takeLast();
+        QSharedPointer<CacheEntry> todrop = this->lru.last();
 
         Q_ASSERT(!todrop->isPlaceholder());
 
@@ -980,16 +1079,37 @@ void Cache::addCost(const QUuid& uuid, uint64_t amt)
 
         this->cache[todrop->uuid].entries[todrop->pwe].erase(todrop->cachepos);
 
-        uint64_t dropvalue = CACHE_ENTRY_OVERHEAD + todrop->cost;
-        struct streamcache& scache = this->cache[todrop->uuid];
-        uint64_t remaining = scache.cachedpts - dropvalue;
-        scache.cachedpts = remaining;
-        this->cost -= dropvalue;
-
-        if (remaining == 0)
-        {
-            delete[] scache.entries;
-            this->cache.remove(todrop->uuid);
-        }
+        this->evictEntry(todrop);
     }
+}
+
+/* Doesn't handle removing it from the tree. That is done by the caller, because in
+ * general the caller my be part of some kind of iteration that would need to be aware
+ * of this.
+ */
+bool Cache::evictEntry(const QSharedPointer<CacheEntry> todrop)
+{
+    uint64_t dropvalue = CACHE_ENTRY_OVERHEAD + todrop->cost;
+    struct streamcache& scache = this->cache[todrop->uuid];
+
+    Q_ASSERT(dropvalue <= this->cost);
+    Q_ASSERT(dropvalue <= scache.cachedpts);
+
+    /* Remove from the LRU list. */
+    this->lru.erase(todrop->lrupos);
+
+    uint64_t remaining = scache.cachedpts - dropvalue;
+    scache.cachedpts = remaining;
+
+    this->cost -= dropvalue;
+
+    if (remaining == 0)
+    {
+        delete[] scache.entries;
+        this->cache.remove(todrop->uuid);
+
+        return true;
+    }
+
+    return false;
 }

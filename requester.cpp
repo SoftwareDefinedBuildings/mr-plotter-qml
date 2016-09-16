@@ -352,7 +352,7 @@ void Requester::sendBracketRequest(const QList<QUuid>& uuids, uint32_t archiver,
             const QUuid& uuid = *i;
             struct brackets& brkts = result[uuid];
 
-            if (this->hardcoded.contains(uuid))
+            if (this->hardcoded.contains(uuid) && this->hardcoded[uuid].size() != 0)
             {
                 QVector<struct rawpt>& hdata = this->hardcoded[uuid];
                 brkts.lowerbound = hdata.first().time;
@@ -623,7 +623,7 @@ void Requester::handleBracketResponse(struct brqstate* brqs, QVariantMap respons
     }
 }
 
-void Requester::hardcodeLocalData(QUuid& uuid, QVector<rawpt>& points)
+void Requester::hardcodeLocalData(QUuid& uuid, QVector<struct rawpt>& points)
 {
     this->hardcoded[uuid] = points;
 }
