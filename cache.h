@@ -45,7 +45,7 @@ public:
     void cacheData(struct statpt* points, int len,
                    QSharedPointer<CacheEntry> prev, QSharedPointer<CacheEntry> next);
 
-    /* Returns true if CACHEDATA has been called on this entry. */
+    /* Returns true if CACHEDATA has not been called on this entry. */
     bool isPlaceholder();
 
     /* Prepares this cache entry for rendering. */
@@ -135,6 +135,8 @@ private:
 
     bool connectsToBefore;
     bool connectsToAfter;
+
+    bool evicted;
 };
 
 struct streamcache {

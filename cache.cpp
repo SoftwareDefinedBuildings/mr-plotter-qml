@@ -59,6 +59,8 @@ CacheEntry::CacheEntry(Cache* c, const QUuid& u, int64_t startRange, int64_t end
 
     this->connectsToBefore = false;
     this->connectsToAfter = false;
+
+    this->evicted = false;
 }
 
 CacheEntry::~CacheEntry()
@@ -819,15 +821,22 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
             this->requester->makeDataRequest(uuid, gapfill->start, gapfill->end, pwe, archiver,
                                              [this, i, gapfill, prev, entry, callback, result](struct statpt* points, int len)
             {
-                /* Add it to the LRU linked list before removing entries
-                 * to meet the cache threshold, so that we release this
-                 * same cache entry should we need to.
+                /* If the entry was evicted meanwhile, skip its initialization. Don't touch i,
+                 * since the entry has been removed from the tree and therefore the iterator
+                 * pointing to it is invalid.
                  */
-                gapfill->cacheData(points, len, prev, entry);
-                gapfill->cachepos = i;
-                this->use(gapfill, true);
+                if (!gapfill->evicted)
+                {
+                    /* Add it to the LRU linked list before removing entries
+                     * to meet the cache threshold, so that we release this
+                     * same cache entry should we need to.
+                     */
+                    gapfill->cacheData(points, len, prev, entry);
+                    gapfill->cachepos = i;
+                    this->use(gapfill, true);
 
-                this->addCost(gapfill->uuid, (uint64_t) len);
+                    this->addCost(gapfill->uuid, (uint64_t) len);
+                }
 
                 QHash<QSharedPointer<CacheEntry>, uint64_t>::const_iterator j;
                 for (j = this->loading.find(gapfill); j != this->loading.end() && j.key() == gapfill; ++j) {
@@ -1089,6 +1098,19 @@ void Cache::addCost(const QUuid& uuid, uint64_t amt)
  */
 bool Cache::evictEntry(const QSharedPointer<CacheEntry> todrop)
 {
+    todrop->evicted = true;
+
+    if (todrop->isPlaceholder())
+    {
+        /* The data for this entry is still pending, meaning it doesn't have a cost yet
+         * and isn't in the LRU list yet. We need to mark it as "evicted" so it can
+         * be discarded upon initialization. This is already done above, so we can
+         * just return.
+         */
+        return false;
+    }
+
+
     uint64_t dropvalue = CACHE_ENTRY_OVERHEAD + todrop->cost;
     struct streamcache& scache = this->cache[todrop->uuid];
 
