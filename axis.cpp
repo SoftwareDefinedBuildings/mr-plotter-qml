@@ -236,6 +236,8 @@ void YAxis::autoscale(int64_t start, int64_t end)
 {
     float minimum = INFINITY;
     float maximum = -INFINITY;
+    float extralen;
+
     for (auto i = this->streams.begin(); i != this->streams.end(); i++)
     {
         Stream* s = *i;
@@ -253,6 +255,10 @@ void YAxis::autoscale(int64_t start, int64_t end)
             }
         }
     }
+
+    extralen = (maximum - minimum) * 0.05;
+    maximum += extralen;
+    minimum -= extralen;
 
     if (qIsFinite(minimum) && qIsFinite(maximum))
     {
