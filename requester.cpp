@@ -311,7 +311,7 @@ inline void Requester::sendDataRequest(const QUuid &uuid, int64_t start, int64_t
             truelen = numpts - numskipped;
         }
 
-        QTimer::singleShot(500, [callback, toreturn, truelen]()
+        QTimer::singleShot(0, [callback, toreturn, truelen]()
         {
             callback(toreturn, truelen);
             delete[] toreturn;
@@ -322,7 +322,7 @@ inline void Requester::sendDataRequest(const QUuid &uuid, int64_t start, int64_t
 
     if (start > BTRDB_MAX || end < BTRDB_MIN)
     {
-        QTimer::singleShot(500, [callback]()
+        QTimer::singleShot(0, [callback]()
         {
             callback(nullptr, 0);
         });

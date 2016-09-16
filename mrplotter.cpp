@@ -370,6 +370,8 @@ bool MrPlotter::hardcodeLocalData(QUuid uuid, QVariantList data)
 
     this->cache.requester->hardcodeLocalData(uuid, points);
 
+    this->updateDataAsyncThrottled();
+
     return true;
 }
 
@@ -378,5 +380,9 @@ bool MrPlotter::dropHardcodedLocalData(QUuid uuid)
     /* We just changed the data. */
     this->cache.dropUUID(uuid);
 
-    return this->cache.requester->dropHardcodedLocalData(uuid);
+    bool rv = this->cache.requester->dropHardcodedLocalData(uuid);
+
+    this->updateDataAsyncThrottled();
+
+    return rv;
 }
