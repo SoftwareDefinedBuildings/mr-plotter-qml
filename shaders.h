@@ -4,15 +4,15 @@
 /* GLSL Shader Code */
 
 char vShaderStr[] = R"shadercode(
-uniform mat3 axisTransform;
-uniform vec2 axisBase;
-uniform float pointsize;
+uniform highp mat3 axisTransform;
+uniform highp vec2 axisBase;
+uniform highp float pointsize;
 uniform bool tstrip;
 uniform bool alwaysConnect;
-attribute float time;
-attribute float value;
-attribute float flags;
-varying float render;
+attribute highp float time;
+attribute highp float value;
+attribute highp float flags;
+varying highp float render;
 void main()
 {
     /* Transform the point to screen coordinates. */
@@ -44,9 +44,9 @@ void main()
 })shadercode";
 
 char fShaderStr[] = R"shadercode(
-uniform vec3 color;
-uniform float opacity;
-varying float render;
+uniform highp vec3 color;
+uniform highp float opacity;
+varying highp float render;
 void main()
 {
     if (render >= 1.0)
@@ -60,10 +60,10 @@ void main()
 })shadercode";
 
 char ddvShaderStr[] = R"shadercode(
-uniform mat3 axisTransform;
-uniform vec2 axisBase;
-attribute float time;
-attribute float count;
+uniform highp mat3 axisTransform;
+uniform highp vec2 axisBase;
+attribute highp float time;
+attribute highp float count;
 void main()
 {
     vec3 transformed = axisTransform * vec3(vec2(time, count) - axisBase, 1.0);
@@ -72,7 +72,7 @@ void main()
 )shadercode";
 
 char ddfShaderStr[] = R"shadercode(
-uniform vec3 color;
+uniform highp vec3 color;
 void main()
 {
     gl_FragColor = vec4(color, 1.0);
