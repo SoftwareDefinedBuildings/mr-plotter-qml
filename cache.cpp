@@ -70,7 +70,7 @@ CacheEntry::~CacheEntry()
      * the response comes back. So we can't free this memory just
      * yet.
      */
-    Q_ASSERT(this->cached != nullptr);
+    Q_ASSERT(this->cached != nullptr || this->evicted);
 
     delete[] this->cached;
 
@@ -698,8 +698,18 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
     uint64_t queryid = this->curr_queryid++;
     this->outstanding[queryid] = QPair<uint64_t, std::function<void()>>(0, [callback, result]()
     {
-        callback(*result);
+        QList<QSharedPointer<CacheEntry>> filtered;
+        for (auto i = result->begin(); i != result->end(); i++)
+        {
+            auto ce = *i;
+            if (!ce->evicted)
+            {
+                filtered.append(ce);
+            }
+        }
         delete result;
+
+        callback(filtered);
     });
 
     unsigned int numnewentries = 0;
@@ -953,7 +963,7 @@ void Cache::requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
             if (mustinit)
             {
                 scache.cachedpts = 0;
-                scache.entries = nullptr;
+                scache.entries = new QMap<int64_t, QSharedPointer<CacheEntry>>[PWE_MAX];
             }
             scache.lowerbound = i->lowerbound;
             scache.upperbound = i->upperbound;
@@ -1059,8 +1069,10 @@ void Cache::dropUUID(const QUuid& uuid)
 
     /* We evicted all cache entries for the UUID by manually iterating over them, but
      * our accounting indicates that there are still cache entries for this UUID.
+     * (Actually, if we made a bracket request and everything is empty, we will still
+     * get here, so it's commented out for now.
      */
-    Q_UNREACHABLE();
+    //Q_UNREACHABLE();
 }
 
 void Cache::use(QSharedPointer<CacheEntry> ce, bool firstuse)
