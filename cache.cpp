@@ -1098,6 +1098,9 @@ void Cache::addCost(const QUuid& uuid, uint64_t amt)
  */
 bool Cache::evictEntry(const QSharedPointer<CacheEntry> todrop)
 {
+    struct streamcache& scache = this->cache[todrop->uuid];
+    uint64_t dropvalue;
+
     todrop->evicted = true;
 
     if (todrop->isPlaceholder())
@@ -1107,18 +1110,18 @@ bool Cache::evictEntry(const QSharedPointer<CacheEntry> todrop)
          * be discarded upon initialization. This is already done above, so we can
          * just return.
          */
-        return false;
+        dropvalue = CACHE_ENTRY_OVERHEAD;
     }
+    else
+    {
+        dropvalue = CACHE_ENTRY_OVERHEAD + todrop->cost;
 
-
-    uint64_t dropvalue = CACHE_ENTRY_OVERHEAD + todrop->cost;
-    struct streamcache& scache = this->cache[todrop->uuid];
+        /* Remove from the LRU list. */
+        this->lru.erase(todrop->lrupos);
+    }
 
     Q_ASSERT(dropvalue <= this->cost);
     Q_ASSERT(dropvalue <= scache.cachedpts);
-
-    /* Remove from the LRU list. */
-    this->lru.erase(todrop->lrupos);
 
     uint64_t remaining = scache.cachedpts - dropvalue;
     scache.cachedpts = remaining;
