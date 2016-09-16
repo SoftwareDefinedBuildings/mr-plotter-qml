@@ -368,6 +368,8 @@ bool MrPlotter::hardcodeLocalData(QUuid uuid, QVariantList data)
     /* We just changed the data. */
     this->cache.dropUUID(uuid);
 
+    qDebug("Hardcoding %d points", points.length());
+
     this->cache.requester->hardcodeLocalData(uuid, points);
 
     this->updateDataAsyncThrottled();

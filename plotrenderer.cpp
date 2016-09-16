@@ -7,6 +7,8 @@
 #include <QOpenGLFramebufferObject>
 #include <QOpenGLFramebufferObjectFormat>
 #include <QOpenGLFunctions>
+#include <QOpenGLShader>
+#include <QOpenGLShaderProgram>
 #include <QQuickWindow>
 #include <QSize>
 #include <QtGlobal>
@@ -14,11 +16,26 @@
 /* The code to load a shader is taken from
  * https://www.khronos.org/assets/uploads/books/openglr_es_20_programming_guide_sample.pdf
  */
-GLuint loadShader(QOpenGLFunctions* funcs, GLenum type, const char* shaderSrc)
+GLuint loadShader(QOpenGLFunctions* funcs, QOpenGLShader::ShaderType type, const char* shaderSrc)
 {
-    GLuint shader;
-    GLint compiled;
+    QOpenGLShader* shader = new QOpenGLShader(type);
+    bool compiled = shader->compileSourceCode(shaderSrc);
 
+    if (!compiled)
+    {
+        QString log = shader->log();
+        qFatal("Error compiling shader:\n%s", qPrintable(log));
+
+        delete shader;
+
+        return 0;
+    }
+
+    /* SHADER SHOULD NOT BE DELETED */
+
+    return shader->shaderId();
+
+#if 0
     // Create the shader object
     shader = funcs->glCreateShader(type);
 
@@ -47,12 +64,13 @@ GLuint loadShader(QOpenGLFunctions* funcs, GLenum type, const char* shaderSrc)
     }
 
     return shader;
+#endif
 }
 
 GLuint compileAndLinkProgram(QOpenGLFunctions* funcs, char* vShader, char* fShader)
 {
-    GLuint vertexShader = loadShader(funcs, GL_VERTEX_SHADER, vShader);
-    GLuint fragmentShader = loadShader(funcs, GL_FRAGMENT_SHADER, fShader);
+    GLuint vertexShader = loadShader(funcs, QOpenGLShader::Vertex, vShader);
+    GLuint fragmentShader = loadShader(funcs, QOpenGLShader::Fragment, fShader);
 
     GLuint program = funcs->glCreateProgram();
 

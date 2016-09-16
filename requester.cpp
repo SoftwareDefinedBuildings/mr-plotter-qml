@@ -366,7 +366,7 @@ void Requester::sendBracketRequest(const QList<QUuid>& uuids, uint32_t archiver,
             }
         }
 
-        QTimer::singleShot(500, [callback, result]()
+        QTimer::singleShot(0, [callback, result]()
         {
             callback(result);
         });
