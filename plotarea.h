@@ -67,6 +67,8 @@ public:
 
     void updateDataAsync(Cache& cache);
 
+    void hardcodedDataBarrier();
+
     MrPlotter* plot;
 
 protected:
@@ -92,7 +94,9 @@ private:
 
     double pixelToTime;
 
+    /* If this wraps, then we'll have problems with the barrier... */
     uint64_t fullUpdateID;
+    uint64_t hardcodedDataBarrierID;
 
     uint64_t id;
 

@@ -368,7 +368,10 @@ bool MrPlotter::hardcodeLocalData(QUuid uuid, QVariantList data)
     /* We just changed the data. */
     this->cache.dropUUID(uuid);
 
-    qDebug("Hardcoding %d points", points.length());
+    for (auto p = this->plots.begin(); p != this->plots.end(); p++)
+    {
+        (*p)->hardcodedDataBarrier();
+    }
 
     this->cache.requester->hardcodeLocalData(uuid, points);
 

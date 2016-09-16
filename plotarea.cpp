@@ -67,6 +67,7 @@ PlotArea::PlotArea(): yaxisareas()
     }
 
     this->fullUpdateID = 0;
+    this->hardcodedDataBarrierID = 0;
     this->plot = nullptr;
 
     while (this->instances.contains(this->nextID))
@@ -572,6 +573,11 @@ void PlotArea::updateDataAsync(Cache& cache)
                  */
                 return;
             }
+            if ((int64_t) (this->hardcodedDataBarrierID - id) > 0)
+            {
+                // Throw away responses made before hardcode
+                return;
+            }
             if (id == this->fullUpdateID)
             {
                 s->data = data;
@@ -659,4 +665,9 @@ void PlotArea::setStreamList(QList<QVariant> newstreamlist)
     }
 
     this->streams = qMove(newStreams);
+}
+
+void PlotArea::hardcodedDataBarrier()
+{
+    this->hardcodedDataBarrierID = this->fullUpdateID + 1;
 }
