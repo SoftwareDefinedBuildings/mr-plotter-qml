@@ -1118,7 +1118,9 @@ bool Cache::evictEntry(const QSharedPointer<CacheEntry> todrop)
     if (todrop->isPlaceholder())
     {
         /* The data for this entry is still pending, meaning it doesn't have a cost yet
-         * and isn't in the LRU list yet.
+         * and isn't in the LRU list yet. We need to mark it as "evicted" so it can
+         * be discarded upon initialization. This is already done above, so we can
+         * just return.
          */
         dropvalue = CACHE_ENTRY_OVERHEAD;
     }

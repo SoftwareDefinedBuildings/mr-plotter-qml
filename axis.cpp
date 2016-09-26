@@ -268,6 +268,8 @@ void YAxis::autoscale(int64_t start, int64_t end)
             maximum += 1.0f;
         }
 
+        qDebug("autoscale %f %f", minimum, maximum);
+
         this->setDomain(minimum, maximum);
     }
 }
