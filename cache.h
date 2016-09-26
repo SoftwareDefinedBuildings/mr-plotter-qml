@@ -82,7 +82,7 @@ private:
      */
     QLinkedList<QSharedPointer<CacheEntry>>::iterator lrupos;
 
-    /* Position of this entry in the cahce, with regard to lookup.
+    /* Position of this entry in the cache, with regard to lookup.
      * Handled by the Cache class.
      */
     QMap<int64_t, QSharedPointer<CacheEntry>>::iterator cachepos;

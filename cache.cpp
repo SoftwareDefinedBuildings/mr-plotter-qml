@@ -698,18 +698,10 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
     uint64_t queryid = this->curr_queryid++;
     this->outstanding[queryid] = QPair<uint64_t, std::function<void()>>(0, [callback, result]()
     {
-        QList<QSharedPointer<CacheEntry>> filtered;
-        for (auto i = result->begin(); i != result->end(); i++)
-        {
-            auto ce = *i;
-            if (!ce->evicted)
-            {
-                filtered.append(ce);
-            }
-        }
+        QList<QSharedPointer<CacheEntry>> res = *result;
         delete result;
 
-        callback(filtered);
+        callback(res);
     });
 
     unsigned int numnewentries = 0;
@@ -831,6 +823,9 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
             this->requester->makeDataRequest(uuid, gapfill->start, gapfill->end, pwe, archiver,
                                              [this, i, gapfill, prev, entry, callback, result](struct statpt* points, int len)
             {
+                /* ALWAYS fill it with data, because this entry may be needed to draw one last frame. */
+                gapfill->cacheData(points, len, prev, entry);
+
                 /* If the entry was evicted meanwhile, skip its initialization. Don't touch i,
                  * since the entry has been removed from the tree and therefore the iterator
                  * pointing to it is invalid.
@@ -841,7 +836,6 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
                      * to meet the cache threshold, so that we release this
                      * same cache entry should we need to.
                      */
-                    gapfill->cacheData(points, len, prev, entry);
                     gapfill->cachepos = i;
                     this->use(gapfill, true);
 
