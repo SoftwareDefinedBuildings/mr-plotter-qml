@@ -10,6 +10,19 @@
 #include <QList>
 #include <QSharedPointer>
 
+StreamKey::StreamKey(const QUuid& stream_uuid, uint32_t stream_archiver)
+    : uuid(stream_uuid), archiver(stream_archiver) {}
+
+bool StreamKey::operator==(const StreamKey& other) const
+{
+    return this->uuid == other.uuid && this->archiver == other.archiver;
+}
+
+uint qHash(const StreamKey& sk, uint seed)
+{
+    return qHash(sk.uuid) ^ qHash(sk.archiver) ^ seed;
+}
+
 /* Size is 40 bytes.
  */
 struct cachedpt
@@ -40,8 +53,8 @@ struct cachedpt
 #define CACHE_ENTRY_OVERHEAD ((sizeof(CacheEntry) / sizeof(struct cachedpt)) + 1)
 
 
-CacheEntry::CacheEntry(Cache* c, const QUuid& u, int64_t startRange, int64_t endRange, uint8_t pwexp) :
-    start(startRange), end(endRange), uuid(u), maincache(c), pwe(pwexp)
+CacheEntry::CacheEntry(Cache* c, const StreamKey& sk, int64_t startRange, int64_t endRange, uint8_t pwexp) :
+    start(startRange), end(endRange), streamKey(sk), maincache(c), pwe(pwexp)
 {
     Q_ASSERT(pwexp < PWE_MAX);
     Q_ASSERT(endRange >= startRange);
@@ -674,14 +687,15 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
 {
     Q_ASSERT(pwe < PWE_MAX);
     QList<QSharedPointer<CacheEntry>>* result = new QList<QSharedPointer<CacheEntry>>;
+    StreamKey sk(uuid, archiver);
 
-    bool initscache = !this->cache.contains(uuid);
+    bool initscache = !this->cache.contains(sk);
 
-    struct streamcache& scache = this->cache[uuid];
+    struct streamcache& scache = this->cache[sk];
     if (initscache)
     {
         scache.cachedpts = 0;
-        scache.cachedbounds = false;
+        CLEAR_CACHED_BOUNDS(scache);
         scache.oldestgen = GENERATION_MAX;
         scache.entries = nullptr;
     }
@@ -804,7 +818,7 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
             {
                 Q_ASSERT ((*(i - 1))->end < nextexp);
             }
-            QSharedPointer<CacheEntry> gapfill(new CacheEntry(this, uuid, nextexp, filluntil, pwe));
+            QSharedPointer<CacheEntry> gapfill(new CacheEntry(this, sk, nextexp, filluntil, pwe));
             /* I could call this->addCost here, but it actually drops cache entries immediately,
              * altering the structure of the tree. If I get unlucky, it may remove the entry
              * that the iterator is pointing to (the variable ENTRY), invalidating the iterator.
@@ -840,8 +854,8 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
                     gapfill->cachepos = i;
                     this->use(gapfill, true);
 
-                    this->addCost(gapfill->uuid, (uint64_t) len);
-                    this->updateGeneration(gapfill->uuid, gen);
+                    this->addCost(gapfill->streamKey, (uint64_t) len);
+                    this->updateGeneration(gapfill->streamKey, gen);
                 }
 
                 QHash<QSharedPointer<CacheEntry>, uint64_t>::const_iterator j;
@@ -918,7 +932,7 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
 
         this->outstanding.remove(queryid);
     }
-    this->addCost(uuid, numnewentries * CACHE_ENTRY_OVERHEAD);
+    this->addCost(sk, numnewentries * CACHE_ENTRY_OVERHEAD);
 }
 
 void Cache::requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
@@ -931,10 +945,11 @@ void Cache::requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
     for (auto j = uuids.begin(); j != uuids.end(); j++)
     {
         const QUuid& u = *j;
-        if (this->cache.contains(u) && this->cache[u].cachedbounds)
+        StreamKey sk(u, archiver);
+        if (this->cache.contains(sk) && CACHED_BOUNDS(this->cache[sk]))
         {
-            initlowerbound = qMin(initlowerbound, this->cache[u].lowerbound);
-            initupperbound = qMax(initupperbound, this->cache[u].upperbound);
+            initlowerbound = qMin(initlowerbound, this->cache[sk].lowerbound);
+            initupperbound = qMax(initupperbound, this->cache[sk].upperbound);
         }
         else
         {
@@ -947,15 +962,16 @@ void Cache::requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
         callback(initlowerbound, initupperbound);
         return;
     }
-    this->requester->makeBracketRequest(torequest, archiver, [this, initlowerbound, initupperbound, callback](QHash<QUuid, struct brackets> brkts)
+    this->requester->makeBracketRequest(torequest, archiver, [this, archiver, initlowerbound, initupperbound, callback](QHash<QUuid, struct brackets> brkts)
     {
         int64_t lowerbound = initlowerbound;
         int64_t upperbound = initupperbound;
         for (auto i = brkts.begin(); i != brkts.end(); i++)
         {
             const QUuid& uuid = i.key();
-            bool mustinit = !this->cache.contains(uuid);
-            struct streamcache& scache = this->cache[uuid];
+            StreamKey sk(uuid, archiver);
+            bool mustinit = !this->cache.contains(sk);
+            struct streamcache& scache = this->cache[sk];
             if (mustinit)
             {
                 scache.cachedpts = 0;
@@ -963,7 +979,7 @@ void Cache::requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
             }
             scache.lowerbound = i->lowerbound;
             scache.upperbound = i->upperbound;
-            scache.cachedbounds = true;
+            Q_ASSERT(CACHED_BOUNDS(scache));
             lowerbound = qMin(lowerbound, i->lowerbound);
             upperbound = qMax(upperbound, i->upperbound);
         }
@@ -971,16 +987,16 @@ void Cache::requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
     });
 }
 
-void Cache::dropRanges(const QUuid& uuid, const QVector<struct timerange> ranges)
+void Cache::dropRanges(const StreamKey& sk, const struct timerange* ranges, int len)
 {
-    if (ranges.size() == 0 || !this->cache.contains(uuid))
+    if (len == 0 || !this->cache.contains(sk))
     {
         return;
     }
 
-    int64_t start = ranges.first().start;
+    int64_t start = ranges[0].start;
 
-    struct streamcache& scache = this->cache[uuid];
+    struct streamcache& scache = this->cache[sk];
 
     for (uint8_t pwe = 0; pwe < PWE_MAX; pwe++)
     {
@@ -990,7 +1006,8 @@ void Cache::dropRanges(const QUuid& uuid, const QVector<struct timerange> ranges
             continue;
         }
 
-        auto crange = ranges.begin();
+        /* Index into ranges array. */
+        int ridx = 0;
 
         /* Drop ranges from tree. */
         auto i = pentries->lowerBound(start);
@@ -998,10 +1015,10 @@ void Cache::dropRanges(const QUuid& uuid, const QVector<struct timerange> ranges
         {
             QSharedPointer<CacheEntry>& ce = *i;
 
-            while (crange->end < ce->start)
+            while (ranges[ridx].end < ce->start)
             {
-                crange++;
-                if (crange == ranges.end())
+                ridx++;
+                if (ridx == len)
                 {
                     /* We're done pruning the tree for this pwe. Move on to the next
                      * one.
@@ -1010,7 +1027,7 @@ void Cache::dropRanges(const QUuid& uuid, const QVector<struct timerange> ranges
                 }
             }
 
-            if (itvlOverlap(crange->start, crange->end, ce->start, ce->end))
+            if (itvlOverlap(ranges[ridx].start, ranges[ridx].end, ce->start, ce->end))
             {
                 /* Can't manipulate ce after erasing i, since it becomes a dangling reference. */
                 QSharedPointer<CacheEntry> toevict = ce;
@@ -1033,23 +1050,24 @@ void Cache::dropRanges(const QUuid& uuid, const QVector<struct timerange> ranges
     }
 }
 
-void Cache::dropBrackets(const QUuid& uuid)
+void Cache::dropBrackets(const StreamKey& sk)
 {
-    if (!this->cache.contains(uuid))
+    if (!this->cache.contains(sk))
     {
         return;
     }
-    this->cache[uuid].cachedbounds = false;
+    struct streamcache& scache = this->cache[sk];
+    CLEAR_CACHED_BOUNDS(scache);
 }
 
-void Cache::dropUUID(const QUuid& uuid)
+void Cache::dropStream(const StreamKey& sk)
 {
-    if (!this->cache.contains(uuid))
+    if (!this->cache.contains(sk))
     {
         return;
     }
 
-    struct streamcache& scache = this->cache[uuid];
+    struct streamcache& scache = this->cache[sk];
     for (uint8_t pwe = 0; pwe < PWE_MAX; pwe++)
     {
         QMap<int64_t, QSharedPointer<CacheEntry>>* pentries = &scache.entries[pwe];
@@ -1081,9 +1099,9 @@ void Cache::use(QSharedPointer<CacheEntry> ce, bool firstuse)
     ce->lrupos = this->lru.begin();
 }
 
-void Cache::addCost(const QUuid& uuid, uint64_t amt)
+void Cache::addCost(const StreamKey& sk, uint64_t amt)
 {
-    this->cache[uuid].cachedpts += amt;
+    this->cache[sk].cachedpts += amt;
     this->cost += amt;
 
     while (this->cost >= CACHE_THRESHOLD && !this->lru.empty())
@@ -1092,9 +1110,9 @@ void Cache::addCost(const QUuid& uuid, uint64_t amt)
 
         Q_ASSERT(!todrop->isPlaceholder());
 
-        Q_ASSERT(this->cache.contains(todrop->uuid));
+        Q_ASSERT(this->cache.contains(todrop->streamKey));
 
-        this->cache[todrop->uuid].entries[todrop->pwe].erase(todrop->cachepos);
+        this->cache[todrop->streamKey].entries[todrop->pwe].erase(todrop->cachepos);
 
         this->evictEntry(todrop);
     }
@@ -1102,11 +1120,11 @@ void Cache::addCost(const QUuid& uuid, uint64_t amt)
 
 /* Doesn't handle removing it from the tree. That is done by the caller, because in
  * general the caller my be part of some kind of iteration that would need to be aware
- * of this.
+ * of this and could probably do it more efficiently.
  */
 bool Cache::evictEntry(const QSharedPointer<CacheEntry> todrop)
 {
-    struct streamcache& scache = this->cache[todrop->uuid];
+    struct streamcache& scache = this->cache[todrop->streamKey];
     uint64_t dropvalue;
 
     todrop->evicted = true;
@@ -1139,7 +1157,7 @@ bool Cache::evictEntry(const QSharedPointer<CacheEntry> todrop)
     if (remaining == 0)
     {
         delete[] scache.entries;
-        this->cache.remove(todrop->uuid);
+        this->cache.remove(todrop->streamKey);
 
         return true;
     }
@@ -1147,11 +1165,51 @@ bool Cache::evictEntry(const QSharedPointer<CacheEntry> todrop)
     return false;
 }
 
-void Cache::updateGeneration(const QUuid& uuid, uint64_t receivedGen)
+void Cache::updateGeneration(const StreamKey& sk, uint64_t receivedGen)
 {
-    if (this->cache.contains(uuid))
+    if (this->cache.contains(sk))
     {
-        struct streamcache& scache = this->cache[uuid];
+        struct streamcache& scache = this->cache[sk];
         scache.oldestgen = qMin(scache.oldestgen, receivedGen);
+    }
+}
+
+void Cache::beginChangedRangesUpdate()
+{
+    /* Go through all of the streams in the cache and send out a request to get
+     * changed ranges. If we don't have any data yet for the stream, or if there
+     * is already a pending request that has been made, skip over the stream.
+     */
+    for (auto i = this->cache.begin(); i != this->cache.end(); i++)
+    {
+        const StreamKey sk = i.key();
+        struct streamcache& scache = *i;
+        if (scache.oldestgen == GENERATION_MAX || !CACHED_BOUNDS(scache))
+        {
+            /* No data, so skip this UUID. */
+            continue;
+        }
+
+        // TODO check if UUID already has a pending request out
+
+        // TODO: what archiver do I use?
+        this->requester->makeChangedRangesQuery(sk.uuid, BTRDB_MIN, BTRDB_MAX, scache.oldestgen, 0, sk.archiver,
+                                                [this, sk](const QUuid& uuid, struct timerange* changed, int len, uint64_t gen)
+        {
+            this->performChangedRangesUpdate(sk, changed, len, gen);
+        });
+    }
+}
+
+inline void Cache::performChangedRangesUpdate(const StreamKey& sk, struct timerange* changed, int len, uint64_t generation)
+{
+    if (this->cache.contains(sk))
+    {
+        struct streamcache& scache = this->cache[sk];
+        scache.oldestgen = generation;
+
+        /* TODO: Check if we need to invalidate our beliefs about the current brackets. */
+
+        this->dropRanges(sk, changed, len);
     }
 }

@@ -16,7 +16,7 @@
 
 BW* Requester::bw = nullptr;
 
-Requester::Requester(): nextNonce(0), nextArchiverID(0), outstandingDataReqs(), outstandingBracketLeft(), outstandingBracketRight()
+Requester::Requester(): nextNonce(0), nextArchiverID(0), outstandingDataReqs(), outstandingBracketLeft(), outstandingBracketRight(), outstandingChangedRangesReqs()
 {
     qsrand((uint) QTime::currentTime().msec());
 }
@@ -168,6 +168,11 @@ void Requester::makeDataRequest(const QUuid &uuid, int64_t start, int64_t end, u
 void Requester::makeBracketRequest(const QList<QUuid> uuids, uint32_t archiver, BracketCallback callback)
 {
     this->sendBracketRequest(uuids, archiver, callback);
+}
+
+void Requester::makeChangedRangesQuery(const QUuid& uuid, int64_t start, int64_t end, uint64_t fromGen, uint64_t toGen, uint32_t archiver, ChangedRangesCallback callback)
+{
+    this->sendChangedRangesQuery(uuid, start, end, fromGen, toGen, archiver, callback);
 }
 
 uint32_t Requester::publishQuery(QString query, uint32_t archiver)
@@ -337,11 +342,11 @@ inline void Requester::sendDataRequest(const QUuid &uuid, int64_t start, int64_t
 
     uint32_t nonce = this->publishQuery(query, archiver);
 
-    outstandingDataReqs.insert(nonce, callback);
+    this->outstandingDataReqs.insert(nonce, callback);
 
 }
 
-void Requester::sendBracketRequest(const QList<QUuid>& uuids, uint32_t archiver, BracketCallback callback)
+inline void Requester::sendBracketRequest(const QList<QUuid>& uuids, uint32_t archiver, BracketCallback callback)
 {
     if (archiver == (uint32_t) -1)
     {
@@ -393,6 +398,16 @@ void Requester::sendBracketRequest(const QList<QUuid>& uuids, uint32_t archiver,
 
     this->outstandingBracketRight.insert(nonce1, brqs);
     this->outstandingBracketLeft.insert(nonce2, brqs);
+}
+
+inline void Requester::sendChangedRangesQuery(const QUuid& uuid, int64_t start, int64_t end, uint64_t fromGen, uint64_t toGen, uint32_t archiver, ChangedRangesCallback callback)
+{
+    QString query = CHANGED_RANGES_TEMPLATE;
+    QString uuidstr = uuid.toString();
+    query = query.arg(fromGen).arg(toGen).arg(start).arg(end).arg(uuidstr.mid(1, uuidstr.size() - 2));
+
+    uint32_t nonce = this->publishQuery(query, archiver);
+    this->outstandingChangedRangesReqs.insert(nonce, callback);
 }
 
 QVariantMap parseBWResponse(PayloadObject& p, bool* hasnonce, uint32_t* nonceptr, bool* error)
@@ -492,6 +507,12 @@ void Requester::handleResponse(PMessage message)
         {
             this->handleBracketResponse(this->outstandingBracketRight[nonce], response, error, true);
             numremoved = this->outstandingBracketRight.remove(nonce);
+            Q_ASSERT(numremoved == 1);
+        }
+        else if (this->outstandingChangedRangesReqs.contains(nonce))
+        {
+            this->handleChangedRangesResponse(this->outstandingChangedRangesReqs[nonce], response, error);
+            numremoved = this->outstandingChangedRangesReqs.remove(nonce);
             Q_ASSERT(numremoved == 1);
         }
         else
@@ -631,6 +652,49 @@ void Requester::handleBracketResponse(struct brqstate* brqs, QVariantMap respons
         brqs->callback(brqs->brackets);
         delete brqs;
     }
+}
+
+void Requester::handleChangedRangesResponse(ChangedRangesCallback callback, QVariantMap response, bool error)
+{
+    QUuid uuid;
+    QVariantList changedRangesList;
+
+    struct timerange* changed;
+    int len;
+
+    uint64_t generation;
+
+    if (error)
+    {
+        goto nodata;
+    }
+
+    uuid = response["UUID"].toUuid();
+    changedRangesList = response["Changed"].toList();
+    len = changedRangesList.length();
+    if (len == 0)
+    {
+        /* No data to return. */
+        goto nodata;
+    }
+
+    generation = changedRangesList.at(0).toMap()["Generation"].toULongLong();
+    changed = new struct timerange[len];
+
+    for (int i = 0; i < len; i++)
+    {
+        struct timerange* rng = &changed[i];
+        const QVariantMap& changedRange = changedRangesList.at(i).toMap();
+        rng->start = changedRange["StartTime"].toLongLong();
+        rng->end = changedRange["EndTime"].toLongLong();
+    }
+
+    callback(uuid, changed, len, generation);
+    delete[] changed;
+
+nodata:
+    /* Return no data. */
+    callback(uuid, nullptr, 0, GENERATION_MAX);
 }
 
 void Requester::hardcodeLocalData(QUuid& uuid, QVector<struct rawpt>& points)

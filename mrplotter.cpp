@@ -366,7 +366,7 @@ bool MrPlotter::hardcodeLocalData(QUuid uuid, QVariantList data)
     }
 
     /* We just changed the data. */
-    this->cache.dropUUID(uuid);
+    this->cache.dropStream(StreamKey(uuid, (uint32_t) -1));
 
     this->cache.requester->hardcodeLocalData(uuid, points);
 
@@ -378,7 +378,7 @@ bool MrPlotter::hardcodeLocalData(QUuid uuid, QVariantList data)
 bool MrPlotter::dropHardcodedLocalData(QUuid uuid)
 {
     /* We just changed the data. */
-    this->cache.dropUUID(uuid);
+    this->cache.dropStream(StreamKey(uuid, (uint32_t) -1));
 
     bool rv = this->cache.requester->dropHardcodedLocalData(uuid);
 

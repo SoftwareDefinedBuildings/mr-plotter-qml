@@ -20,7 +20,7 @@ const QString URI_TEMPLATE = QStringLiteral("%1/%2");
 
 #define QUERY_TEMPLATE QStringLiteral("select statistical(%1) data in (%2ns, %3ns) as ns where uuid = \"%4\";")
 
-#define CHANGED_RANGES_TEMPLATE QStringLiteral("select changed(%1, 0) data in (%3ns, %4ns) as ns where uuid = \"%5\";")
+#define CHANGED_RANGES_TEMPLATE QStringLiteral("select changed(%1, %2) data in (%3ns, %4ns) as ns where uuid = \"%5\";")
 
 #define GENERATION_MAX Q_UINT64_C(0xFFFFFFFFFFFFFFFF)
 
@@ -45,8 +45,15 @@ struct brackets
     int64_t upperbound;
 };
 
+/* Start and end are inclusive. */
+struct timerange {
+    int64_t start;
+    int64_t end;
+};
+
 typedef std::function<void(struct statpt*, int len, uint64_t gen)> ReqCallback;
 typedef std::function<void(QHash<QUuid, struct brackets>)> BracketCallback;
+typedef std::function<void(QUuid& uuid, struct timerange*, int len, uint64_t gen)> ChangedRangesCallback;
 
 struct brqstate
 {
@@ -66,6 +73,7 @@ public:
     void makeDataRequest(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
                          uint32_t archiver, ReqCallback callback);
     void makeBracketRequest(const QList<QUuid> uuids, uint32_t archiver, BracketCallback callback);
+    void makeChangedRangesQuery(const QUuid& uuid, int64_t start, int64_t end, uint64_t fromGen, uint64_t toGen, uint32_t archiver, ChangedRangesCallback callback);
 
     uint32_t subscribeBWArchiver(QString uri);
     void unsubscribeBWArchiver(uint32_t id);
@@ -79,12 +87,14 @@ private:
 
     void sendDataRequest(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
                        uint32_t archiver, ReqCallback callback);
-
     void sendBracketRequest(const QList<QUuid>& uuids, uint32_t archiver, BracketCallback callback);
+    void sendChangedRangesQuery(const QUuid& uuid, int64_t start, int64_t end, uint64_t fromGen, uint64_t toGen, uint32_t archiver, ChangedRangesCallback callback);
 
     void handleResponse(PMessage message);
+
     void handleDataResponse(ReqCallback callback, QVariantMap response, bool error);
     void handleBracketResponse(struct brqstate* brqs, QVariantMap response, bool error, bool right);
+    void handleChangedRangesResponse(ChangedRangesCallback callback, QVariantMap response, bool error);
 
     uint32_t nextNonce;
     uint32_t nextArchiverID;
@@ -92,6 +102,7 @@ private:
     QHash<uint32_t, ReqCallback> outstandingDataReqs;
     QHash<uint32_t, struct brqstate*> outstandingBracketLeft;
     QHash<uint32_t, struct brqstate*> outstandingBracketRight;
+    QHash<uint32_t, ChangedRangesCallback> outstandingChangedRangesReqs;
     QHash<uint32_t, QString> archivers;
     QMultiHash<QString, uint32_t> archiverids;
 

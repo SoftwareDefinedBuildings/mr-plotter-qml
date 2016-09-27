@@ -20,6 +20,19 @@
 /* Currently set to 400 MB. */
 #define CACHE_THRESHOLD 10000000
 
+class StreamKey
+{
+public:
+    StreamKey(const QUuid& stream_uuid, uint32_t stream_archiver);
+
+    bool operator==(const StreamKey& other) const;
+
+    friend uint qHash(const StreamKey& sk, uint seed);
+
+    const QUuid uuid;
+    const uint32_t archiver;
+};
+
 class Cache;
 
 /* A Cache Entry represents a set of contiguous data cached in memory.
@@ -75,7 +88,7 @@ public:
 private:
     /* Constructs a placeholder entry (no data). The start and end
      * are both inclusive. */
-    CacheEntry(Cache* c, const QUuid& u, int64_t startRange, int64_t endRange, uint8_t pwe);
+    CacheEntry(Cache* c, const StreamKey& sk, int64_t startRange, int64_t endRange, uint8_t pwe);
 
     /* Position of this entry in the cache, with regard to eviction.
      * Handled by the Cache class.
@@ -87,8 +100,8 @@ private:
      */
     QMap<int64_t, QSharedPointer<CacheEntry>>::iterator cachepos;
 
-    /* UUID of the stream of data cached in this entry. */
-    QUuid uuid;
+    /* UUID and archiver of the stream of data cached in this entry. */
+    StreamKey streamKey;
 
     /* The first and last point drawn by this entry. */
     struct statpt* firstpt;
@@ -141,18 +154,18 @@ private:
 
 struct streamcache {
     uint64_t cachedpts;
-    bool cachedbounds;
     int64_t lowerbound;
     int64_t upperbound;
     uint64_t oldestgen;
     QMap<int64_t, QSharedPointer<CacheEntry>>* entries;
 };
 
-/* Start and end are inclusive. */
-struct timerange {
-    int64_t start;
-    int64_t end;
-};
+#define CACHED_BOUNDS(s) ((s).upperbound > (s).lowerbound)
+#define CLEAR_CACHED_BOUNDS(s) do { \
+        (s).lowerbound = Q_INT64_C(0x7FFFFFFFFFFFFFFF); \
+        (s).upperbound = Q_INT64_C(0x8000000000000000); \
+    } \
+    while (false)
 
 class Cache
 {
@@ -180,11 +193,11 @@ public:
     void requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
                          std::function<void(int64_t, int64_t)> callback);
 
-    void dropRanges(const QUuid& uuid, const QVector<struct timerange> ranges);
+    void dropRanges(const StreamKey& uuid, const struct timerange* ranges, int len);
 
-    void dropBrackets(const QUuid& uuid);
+    void dropBrackets(const StreamKey &sk);
 
-    void dropUUID(const QUuid& uuid);
+    void dropStream(const StreamKey& uuid);
 
     /* The VBOs that need to be deleted. */
     QVector<GLuint> todelete;
@@ -192,16 +205,19 @@ public:
 
 private:
     void use(QSharedPointer<CacheEntry> ce, bool firstuse);
-    void addCost(const QUuid& uuid, uint64_t amt);
+    void addCost(const StreamKey& uuid, uint64_t amt);
 
     /* Evicts an entry from the cache. Returns true iff it was the last entry for that UUID. */
     bool evictEntry(const QSharedPointer<CacheEntry> todrop);
 
-    void updateGeneration(const QUuid& uuid, uint64_t receivedGen);
+    void updateGeneration(const StreamKey& sk, uint64_t receivedGen);
+
+    void beginChangedRangesUpdate();
+    void performChangedRangesUpdate(const StreamKey& sk, struct timerange* changed, int len, uint64_t generation);
 
     uint64_t curr_queryid;
     /* The QMap here maps a timestamp to the cache entry that _ends_ at that timestamp. */
-    QHash<QUuid, struct streamcache> cache; /* Maps UUID to the total cost associated with that UUID and the data for that stream. */
+    QHash<StreamKey, struct streamcache> cache; /* Maps UUID to the total cost associated with that UUID and the data for that stream. */
     QHash<uint64_t, QPair<uint64_t, std::function<void()>>> outstanding; /* Maps query id to the number of outstanding requests. */
     QHash<QSharedPointer<CacheEntry>, uint64_t> loading; /* Maps cache entry to the list of queries waiting for it. */
 
