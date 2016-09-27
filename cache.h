@@ -20,6 +20,9 @@
 /* Currently set to 400 MB. */
 #define CACHE_THRESHOLD 10000000
 
+/* Time between changed range queries. */
+#define CHANGED_RANGES_REQUEST_INTERVAL 10000
+
 class StreamKey
 {
 public:
@@ -221,8 +224,13 @@ private:
     QHash<uint64_t, QPair<uint64_t, std::function<void()>>> outstanding; /* Maps query id to the number of outstanding requests. */
     QHash<QSharedPointer<CacheEntry>, uint64_t> loading; /* Maps cache entry to the list of queries waiting for it. */
 
+    QSet<StreamKey> outstandingChangedRangeQueries; /* The streams for which we are waiting for a response to a changed ranges query. */
+
     /* A linked list used to clear cache entries in LRU order. */
     QLinkedList<QSharedPointer<CacheEntry>> lru;
+
+    /* Timer that periodically invokes the changed ranges query to update the cached data. */
+    QTimer* changedRangesTimer;
 
     /* A representation of the total amount of data in the cache. */
     uint64_t cost;

@@ -654,6 +654,10 @@ Cache::Cache() : cache(), outstanding(), loading(), lru()
     this->curr_queryid = 0;
     this->cost = 0;
     this->requester = new Requester;
+
+    this->changedRangesTimer = new QTimer;
+    this->changedRangesTimer->setSingleShot(false);
+    this->changedRangesTimer->start(CHANGED_RANGES_REQUEST_INTERVAL);
 }
 
 Cache::~Cache()
@@ -1184,17 +1188,22 @@ void Cache::beginChangedRangesUpdate()
     {
         const StreamKey sk = i.key();
         struct streamcache& scache = *i;
-        if (scache.oldestgen == GENERATION_MAX || !CACHED_BOUNDS(scache))
+        if (scache.oldestgen == GENERATION_MAX)
         {
             /* No data, so skip this UUID. */
             continue;
         }
 
-        // TODO check if UUID already has a pending request out
+        if (this->outstandingChangedRangeQueries.contains(sk))
+        {
+            /* This stream already has an outstanding changed range query. */
+            continue;
+        }
 
-        // TODO: what archiver do I use?
+        this->outstandingChangedRangeQueries.insert(sk);
+
         this->requester->makeChangedRangesQuery(sk.uuid, BTRDB_MIN, BTRDB_MAX, scache.oldestgen, 0, sk.archiver,
-                                                [this, sk](const QUuid& uuid, struct timerange* changed, int len, uint64_t gen)
+                                                [this, sk](struct timerange* changed, int len, uint64_t gen)
         {
             this->performChangedRangesUpdate(sk, changed, len, gen);
         });
@@ -1203,12 +1212,19 @@ void Cache::beginChangedRangesUpdate()
 
 inline void Cache::performChangedRangesUpdate(const StreamKey& sk, struct timerange* changed, int len, uint64_t generation)
 {
-    if (this->cache.contains(sk))
+    bool removed = this->outstandingChangedRangeQueries.remove(sk);
+    Q_ASSERT(removed); // Until I'm sure I'm getting this right
+
+    if (removed && this->cache.contains(sk))
     {
         struct streamcache& scache = this->cache[sk];
         scache.oldestgen = generation;
 
-        /* TODO: Check if we need to invalidate our beliefs about the current brackets. */
+        if (len != 0 && CACHED_BOUNDS(scache))
+        {
+            scache.lowerbound = qMin(scache.lowerbound, changed[0].start);
+            scache.upperbound = qMax(scache.upperbound, changed[len - 1].end);
+        }
 
         this->dropRanges(sk, changed, len);
     }

@@ -18,6 +18,8 @@ const QString URI_TEMPLATE = QStringLiteral("%1/%2");
 #define BTRDB_MIN ((int64_t) 1)
 #define BTRDB_MAX ((int64_t) ((Q_INT64_C(48) << 56) - Q_INT64_C(1)))
 
+#define ARCHIVER_LOCAL ((uint32_t) -1)
+
 #define QUERY_TEMPLATE QStringLiteral("select statistical(%1) data in (%2ns, %3ns) as ns where uuid = \"%4\";")
 
 #define CHANGED_RANGES_TEMPLATE QStringLiteral("select changed(%1, %2) data in (%3ns, %4ns) as ns where uuid = \"%5\";")
@@ -53,7 +55,7 @@ struct timerange {
 
 typedef std::function<void(struct statpt*, int len, uint64_t gen)> ReqCallback;
 typedef std::function<void(QHash<QUuid, struct brackets>)> BracketCallback;
-typedef std::function<void(QUuid& uuid, struct timerange*, int len, uint64_t gen)> ChangedRangesCallback;
+typedef std::function<void(struct timerange*, int len, uint64_t gen)> ChangedRangesCallback;
 
 struct brqstate
 {

@@ -30,7 +30,7 @@ uint32_t Requester::subscribeBWArchiver(QString uri)
 {
     if (uri.compare(QStringLiteral("local")) == 0)
     {
-        return (uint32_t) -1;
+        return ARCHIVER_LOCAL;
     }
 
     bool alreadysubscr = this->subscrhandles.contains(uri);
@@ -87,7 +87,7 @@ uint32_t Requester::subscribeBWArchiver(QString uri)
 
 void Requester::unsubscribeBWArchiver(uint32_t id)
 {
-    if (id == (uint32_t) -1)
+    if (id == ARCHIVER_LOCAL)
     {
         return;
     }
@@ -111,7 +111,7 @@ void Requester::unsubscribeBWArchiver(uint32_t id)
 
 QString Requester::getURI(uint32_t archiverID)
 {
-    if (archiverID == (uint32_t) -1)
+    if (archiverID == ARCHIVER_LOCAL)
     {
         return QStringLiteral("local");
     }
@@ -194,7 +194,7 @@ uint32_t Requester::publishQuery(QString query, uint32_t archiver)
 inline void Requester::sendDataRequest(const QUuid &uuid, int64_t start, int64_t end, uint8_t pwe,
                                      uint32_t archiver, ReqCallback callback)
 {
-    if (archiver == (uint32_t) -1)
+    if (archiver == ARCHIVER_LOCAL)
     {
         int truelen;
         struct statpt* toreturn;
@@ -348,7 +348,7 @@ inline void Requester::sendDataRequest(const QUuid &uuid, int64_t start, int64_t
 
 inline void Requester::sendBracketRequest(const QList<QUuid>& uuids, uint32_t archiver, BracketCallback callback)
 {
-    if (archiver == (uint32_t) -1)
+    if (archiver == ARCHIVER_LOCAL)
     {
         QHash<QUuid, struct brackets> result;
 
@@ -402,6 +402,15 @@ inline void Requester::sendBracketRequest(const QList<QUuid>& uuids, uint32_t ar
 
 inline void Requester::sendChangedRangesQuery(const QUuid& uuid, int64_t start, int64_t end, uint64_t fromGen, uint64_t toGen, uint32_t archiver, ChangedRangesCallback callback)
 {
+    if (archiver == ARCHIVER_LOCAL)
+    {
+        QTimer::singleShot(0, [callback]()
+        {
+            callback(nullptr, 0, 1);
+        });
+        return;
+    }
+
     QString query = CHANGED_RANGES_TEMPLATE;
     QString uuidstr = uuid.toString();
     query = query.arg(fromGen).arg(toGen).arg(start).arg(end).arg(uuidstr.mid(1, uuidstr.size() - 2));
@@ -656,7 +665,6 @@ void Requester::handleBracketResponse(struct brqstate* brqs, QVariantMap respons
 
 void Requester::handleChangedRangesResponse(ChangedRangesCallback callback, QVariantMap response, bool error)
 {
-    QUuid uuid;
     QVariantList changedRangesList;
 
     struct timerange* changed;
@@ -669,7 +677,6 @@ void Requester::handleChangedRangesResponse(ChangedRangesCallback callback, QVar
         goto nodata;
     }
 
-    uuid = response["UUID"].toUuid();
     changedRangesList = response["Changed"].toList();
     len = changedRangesList.length();
     if (len == 0)
@@ -689,12 +696,12 @@ void Requester::handleChangedRangesResponse(ChangedRangesCallback callback, QVar
         rng->end = changedRange["EndTime"].toLongLong();
     }
 
-    callback(uuid, changed, len, generation);
+    callback(changed, len, generation);
     delete[] changed;
 
 nodata:
     /* Return no data. */
-    callback(uuid, nullptr, 0, GENERATION_MAX);
+    callback(nullptr, 0, GENERATION_MAX);
 }
 
 void Requester::hardcodeLocalData(QUuid& uuid, QVector<struct rawpt>& points)
