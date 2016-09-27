@@ -655,9 +655,7 @@ Cache::Cache() : cache(), outstanding(), loading(), lru()
     this->cost = 0;
     this->requester = new Requester;
 
-    this->changedRangesTimer = new QTimer;
-    this->changedRangesTimer->setSingleShot(false);
-    this->changedRangesTimer->start(CHANGED_RANGES_REQUEST_INTERVAL);
+    this->begunChangedRangesUpdateLoop = false;
 }
 
 Cache::~Cache()
@@ -937,6 +935,8 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
         this->outstanding.remove(queryid);
     }
     this->addCost(sk, numnewentries * CACHE_ENTRY_OVERHEAD);
+
+    this->beginChangedRangesUpdateLoopIfNotBegun();
 }
 
 void Cache::requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
@@ -989,6 +989,8 @@ void Cache::requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
         }
         callback(lowerbound, upperbound);
     });
+
+    this->beginChangedRangesUpdateLoopIfNotBegun();
 }
 
 void Cache::dropRanges(const StreamKey& sk, const struct timerange* ranges, int len)
@@ -1208,6 +1210,12 @@ void Cache::beginChangedRangesUpdate()
             this->performChangedRangesUpdate(sk, changed, len, gen);
         });
     }
+
+    /* Schedule the next changed ranges update. */
+    QTimer::singleShot(CHANGED_RANGES_REQUEST_INTERVAL, Qt::CoarseTimer, [this]()
+    {
+        this->beginChangedRangesUpdate();
+    });
 }
 
 inline void Cache::performChangedRangesUpdate(const StreamKey& sk, struct timerange* changed, int len, uint64_t generation)
@@ -1227,5 +1235,14 @@ inline void Cache::performChangedRangesUpdate(const StreamKey& sk, struct timera
         }
 
         this->dropRanges(sk, changed, len);
+    }
+}
+
+void Cache::beginChangedRangesUpdateLoopIfNotBegun()
+{
+    if (!this->begunChangedRangesUpdateLoop)
+    {
+        this->begunChangedRangesUpdateLoop = true;
+        this->beginChangedRangesUpdate();
     }
 }

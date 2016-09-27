@@ -218,6 +218,10 @@ private:
     void beginChangedRangesUpdate();
     void performChangedRangesUpdate(const StreamKey& sk, struct timerange* changed, int len, uint64_t generation);
 
+    void beginChangedRangesUpdateLoopIfNotBegun();
+
+    bool begunChangedRangesUpdateLoop;
+
     uint64_t curr_queryid;
     /* The QMap here maps a timestamp to the cache entry that _ends_ at that timestamp. */
     QHash<StreamKey, struct streamcache> cache; /* Maps UUID to the total cost associated with that UUID and the data for that stream. */
@@ -228,9 +232,6 @@ private:
 
     /* A linked list used to clear cache entries in LRU order. */
     QLinkedList<QSharedPointer<CacheEntry>> lru;
-
-    /* Timer that periodically invokes the changed ranges query to update the cached data. */
-    QTimer* changedRangesTimer;
 
     /* A representation of the total amount of data in the cache. */
     uint64_t cost;
