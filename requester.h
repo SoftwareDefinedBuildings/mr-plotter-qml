@@ -20,6 +20,10 @@ const QString URI_TEMPLATE = QStringLiteral("%1/%2");
 
 #define QUERY_TEMPLATE QStringLiteral("select statistical(%1) data in (%2ns, %3ns) as ns where uuid = \"%4\";")
 
+#define CHANGED_RANGES_TEMPLATE QStringLiteral("select changed(%1, 0) data in (%3ns, %4ns) as ns where uuid = \"%5\";")
+
+#define GENERATION_MAX Q_UINT64_C(0xFFFFFFFFFFFFFFFF)
+
 struct rawpt
 {
     int64_t time;
@@ -41,7 +45,7 @@ struct brackets
     int64_t upperbound;
 };
 
-typedef std::function<void(struct statpt*, int len)> ReqCallback;
+typedef std::function<void(struct statpt*, int len, uint64_t gen)> ReqCallback;
 typedef std::function<void(QHash<QUuid, struct brackets>)> BracketCallback;
 
 struct brqstate

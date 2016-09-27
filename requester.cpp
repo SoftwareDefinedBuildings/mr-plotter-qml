@@ -313,7 +313,7 @@ inline void Requester::sendDataRequest(const QUuid &uuid, int64_t start, int64_t
 
         QTimer::singleShot(0, [callback, toreturn, truelen]()
         {
-            callback(toreturn, truelen);
+            callback(toreturn, truelen, GENERATION_MAX);
             delete[] toreturn;
         });
 
@@ -324,7 +324,7 @@ inline void Requester::sendDataRequest(const QUuid &uuid, int64_t start, int64_t
     {
         QTimer::singleShot(0, [callback]()
         {
-            callback(nullptr, 0);
+            callback(nullptr, 0, GENERATION_MAX);
         });
         return;
     }
@@ -512,6 +512,8 @@ void Requester::handleDataResponse(ReqCallback callback, QVariantMap response, b
     QVariantList maxes;
     QVariantList counts;
 
+    uint64_t generation;
+
     struct statpt* points;
     int len;
 
@@ -533,17 +535,25 @@ void Requester::handleDataResponse(ReqCallback callback, QVariantMap response, b
     }
 
     stats = statsList[0].toMap();
-    if (!stats.contains("Times") || !stats.contains("Min") || !stats.contains("Mean") || !stats.contains("Max") || !stats.contains("Count"))
+    if (!stats.contains("Generation") || !stats.contains("Times") || !stats.contains("Min") || !stats.contains("Mean") || !stats.contains("Max") || !stats.contains("Count"))
     {
         qDebug("stats entry is missing expected fields");
         goto nodata;
     }
+
+    generation = stats["Generation"].toULongLong();
 
     times = stats["Times"].toList();
     mins = stats["Min"].toList();
     means = stats["Mean"].toList();
     maxes = stats["Max"].toList();
     counts = stats["Count"].toList();
+
+    if (generation == 0)
+    {
+        qDebug("Invalid generation");
+        goto nodata;
+    }
 
     if (times.size() != mins.size() || mins.size() != means.size() || means.size() != maxes.size() || maxes.size() != counts.size())
     {
@@ -564,14 +574,14 @@ void Requester::handleDataResponse(ReqCallback callback, QVariantMap response, b
         pt->count = counts.at(i).toULongLong();
     }
 
-    callback(points, len);
+    callback(points, len, generation);
     delete[] points;
 
     return;
 
 nodata:
     /* Return no data. */
-    callback(nullptr, 0);
+    callback(nullptr, 0, GENERATION_MAX);
 }
 
 void Requester::handleBracketResponse(struct brqstate* brqs, QVariantMap response, bool error, bool right)

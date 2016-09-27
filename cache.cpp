@@ -682,6 +682,7 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
     {
         scache.cachedpts = 0;
         scache.cachedbounds = false;
+        scache.oldestgen = GENERATION_MAX;
         scache.entries = nullptr;
     }
 
@@ -821,7 +822,7 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
 
             /* Make the request. */
             this->requester->makeDataRequest(uuid, gapfill->start, gapfill->end, pwe, archiver,
-                                             [this, i, gapfill, prev, entry, callback, result](struct statpt* points, int len)
+                                             [this, i, gapfill, prev, entry, callback, result](struct statpt* points, int len, uint64_t gen)
             {
                 /* ALWAYS fill it with data, because this entry may be needed to draw one last frame. */
                 gapfill->cacheData(points, len, prev, entry);
@@ -840,6 +841,7 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
                     this->use(gapfill, true);
 
                     this->addCost(gapfill->uuid, (uint64_t) len);
+                    this->updateGeneration(gapfill->uuid, gen);
                 }
 
                 QHash<QSharedPointer<CacheEntry>, uint64_t>::const_iterator j;
@@ -1143,4 +1145,13 @@ bool Cache::evictEntry(const QSharedPointer<CacheEntry> todrop)
     }
 
     return false;
+}
+
+void Cache::updateGeneration(const QUuid& uuid, uint64_t receivedGen)
+{
+    if (this->cache.contains(uuid))
+    {
+        struct streamcache& scache = this->cache[uuid];
+        scache.oldestgen = qMin(scache.oldestgen, receivedGen);
+    }
 }

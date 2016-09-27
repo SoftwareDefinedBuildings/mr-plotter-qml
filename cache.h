@@ -144,6 +144,7 @@ struct streamcache {
     bool cachedbounds;
     int64_t lowerbound;
     int64_t upperbound;
+    uint64_t oldestgen;
     QMap<int64_t, QSharedPointer<CacheEntry>>* entries;
 };
 
@@ -195,6 +196,8 @@ private:
 
     /* Evicts an entry from the cache. Returns true iff it was the last entry for that UUID. */
     bool evictEntry(const QSharedPointer<CacheEntry> todrop);
+
+    void updateGeneration(const QUuid& uuid, uint64_t receivedGen);
 
     uint64_t curr_queryid;
     /* The QMap here maps a timestamp to the cache entry that _ends_ at that timestamp. */
