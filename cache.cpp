@@ -13,6 +13,12 @@
 StreamKey::StreamKey(const QUuid& stream_uuid, uint32_t stream_archiver)
     : uuid(stream_uuid), archiver(stream_archiver) {}
 
+StreamKey::StreamKey(const StreamKey& other)
+    : StreamKey(other.uuid, other.archiver) {}
+
+StreamKey::StreamKey()
+    : uuid(), archiver(0) {}
+
 bool StreamKey::operator==(const StreamKey& other) const
 {
     return this->uuid == other.uuid && this->archiver == other.archiver;
@@ -22,6 +28,12 @@ uint qHash(const StreamKey& sk, uint seed)
 {
     return qHash(sk.uuid) ^ qHash(sk.archiver) ^ seed;
 }
+
+CostEntry::CostEntry(QSharedPointer<CacheEntry>& cache_ent)
+    : cache_entry(cache_ent), type(CostType::CACHE_ENTRY) {}
+
+CostEntry::CostEntry(StreamKey& stream_ent)
+    : stream_entry(stream_ent), type(CostType::STREAM_ENTRY) {}
 
 /* Size is 40 bytes.
  */
@@ -51,6 +63,9 @@ struct cachedpt
  * entry in the hash table.
  */
 #define CACHE_ENTRY_OVERHEAD ((sizeof(CacheEntry) / sizeof(struct cachedpt)) + 1)
+
+/* The overhead cost, in cached points, of the metadata for a stream. */
+#define STREAM_OVERHEAD (((sizeof(struct streamcache) + PWE_MAX * sizeof(QMap<int64_t, QSharedPointer<CacheEntry>>)) / sizeof(struct cachedpt)) + 1)
 
 
 CacheEntry::CacheEntry(Cache* c, const StreamKey& sk, int64_t startRange, int64_t endRange, uint8_t pwexp) :
@@ -699,6 +714,7 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
         scache.cachedpts = 0;
         CLEAR_CACHED_BOUNDS(scache);
         scache.oldestgen = GENERATION_MAX;
+        scache.lrupos = this->lru.end();
         scache.entries = nullptr;
     }
 
@@ -935,6 +951,10 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
         this->outstanding.remove(queryid);
     }
     this->addCost(sk, numnewentries * CACHE_ENTRY_OVERHEAD);
+    if (initscache)
+    {
+        this->addCost(sk, STREAM_OVERHEAD);
+    }
 
     this->beginChangedRangesUpdateLoopIfNotBegun();
 }
@@ -979,14 +999,24 @@ void Cache::requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
             if (mustinit)
             {
                 scache.cachedpts = 0;
+                scache.lrupos = this->lru.end();
                 scache.entries = new QMap<int64_t, QSharedPointer<CacheEntry>>[PWE_MAX];
             }
             scache.lowerbound = i->lowerbound;
             scache.upperbound = i->upperbound;
             Q_ASSERT(CACHED_BOUNDS(scache));
+
             lowerbound = qMin(lowerbound, i->lowerbound);
             upperbound = qMax(upperbound, i->upperbound);
+
+            if (mustinit)
+            {
+                this->addCost(sk, STREAM_OVERHEAD);
+                this->lru.push_front(CostEntry(sk));
+                scache.lrupos = this->lru.begin();
+            }
         }
+
         callback(lowerbound, upperbound);
     });
 
@@ -1041,7 +1071,7 @@ void Cache::dropRanges(const StreamKey& sk, const struct timerange* ranges, int 
                 i = pentries->erase(i);
 
                 // Update accounting, for cache eviction policy
-                if (this->evictEntry(toevict))
+                if (this->evictCacheEntry(toevict))
                 {
                     return;
                 }
@@ -1079,7 +1109,7 @@ void Cache::dropStream(const StreamKey& sk)
         QMap<int64_t, QSharedPointer<CacheEntry>>* pentries = &scache.entries[pwe];
         for (auto i = pentries->begin(); i != pentries->end(); i++)
         {
-            if (this->evictEntry(*i))
+            if (this->evictCacheEntry(*i))
             {
                 // When everything is empty...
                 return;
@@ -1089,10 +1119,9 @@ void Cache::dropStream(const StreamKey& sk)
 
     /* We evicted all cache entries for the UUID by manually iterating over them, but
      * our accounting indicates that there are still cache entries for this UUID.
-     * (Actually, if we made a bracket request and everything is empty, we will still
-     * get here, so it's commented out for now.
+     * This means that we still have cached brackets to deal with.
      */
-    //Q_UNREACHABLE();
+    this->evictStreamEntry(sk);
 }
 
 void Cache::use(QSharedPointer<CacheEntry> ce, bool firstuse)
@@ -1101,26 +1130,47 @@ void Cache::use(QSharedPointer<CacheEntry> ce, bool firstuse)
     {
         this->lru.erase(ce->lrupos);
     }
-    this->lru.push_front(ce);
+    this->lru.push_front(CostEntry(ce));
     ce->lrupos = this->lru.begin();
 }
 
 void Cache::addCost(const StreamKey& sk, uint64_t amt)
 {
-    this->cache[sk].cachedpts += amt;
+    struct streamcache& scache = this->cache[sk];
+    if (this->lru.size() != 0 && scache.lrupos != this->lru.end())
+    {
+        Q_ASSERT(scache.cachedpts == STREAM_OVERHEAD);
+        this->lru.erase(scache.lrupos);
+        scache.lrupos = this->lru.end();
+    }
+
+    scache.cachedpts += amt;
     this->cost += amt;
 
     while (this->cost >= CACHE_THRESHOLD && !this->lru.empty())
     {
-        QSharedPointer<CacheEntry> todrop = this->lru.last();
+        CostEntry& todrop = this->lru.last();
+        QSharedPointer<CacheEntry> ceptr;
 
-        Q_ASSERT(!todrop->isPlaceholder());
+        switch (todrop.type)
+        {
+        case CostType::CACHE_ENTRY:
+            ceptr = todrop.cache_entry;
 
-        Q_ASSERT(this->cache.contains(todrop->streamKey));
+            Q_ASSERT(!ceptr->isPlaceholder());
 
-        this->cache[todrop->streamKey].entries[todrop->pwe].erase(todrop->cachepos);
+            Q_ASSERT(this->cache.contains(ceptr->streamKey));
 
-        this->evictEntry(todrop);
+            this->cache[ceptr->streamKey].entries[ceptr->pwe].erase(ceptr->cachepos);
+
+            this->evictCacheEntry(ceptr);
+
+            break;
+
+        case CostType::STREAM_ENTRY:
+            this->evictStreamEntry(todrop.stream_entry);
+            break;
+        }
     }
 }
 
@@ -1128,7 +1178,7 @@ void Cache::addCost(const StreamKey& sk, uint64_t amt)
  * general the caller my be part of some kind of iteration that would need to be aware
  * of this and could probably do it more efficiently.
  */
-bool Cache::evictEntry(const QSharedPointer<CacheEntry> todrop)
+bool Cache::evictCacheEntry(const QSharedPointer<CacheEntry> todrop)
 {
     struct streamcache& scache = this->cache[todrop->streamKey];
     uint64_t dropvalue;
@@ -1160,15 +1210,48 @@ bool Cache::evictEntry(const QSharedPointer<CacheEntry> todrop)
 
     this->cost -= dropvalue;
 
-    if (remaining == 0)
+    if (remaining == STREAM_OVERHEAD)
     {
-        delete[] scache.entries;
-        this->cache.remove(todrop->streamKey);
+        if (CACHED_BOUNDS(scache))
+        {
+            /* Add an LRU entry for the cached bounds, so they too eventually get pruned. */
+            this->lru.push_front(CostEntry(todrop->streamKey));
+            scache.lrupos = this->lru.begin();
+        }
+        else
+        {
+            delete[] scache.entries;
+            this->cache.remove(todrop->streamKey);
 
-        return true;
+            return true;
+        }
     }
 
     return false;
+}
+
+/* Unlike evictCacheEntry, which requires the caller to remove the cache entry from the tree, this function
+ * also removes the stream entry from the hash table.
+ */
+void Cache::evictStreamEntry(const StreamKey& todrop)
+{
+    Q_ASSERT(this->cache.contains(todrop));
+
+    struct streamcache& scache = this->cache[todrop];
+
+    /* If this condition isn't true, then we can't just prune this. This kind
+     * of CostEntry should only be on the list if there's no data for a stream.
+     * We can't evict the metadata while there's still data.
+     */
+    Q_ASSERT(scache.cachedpts == STREAM_OVERHEAD);
+    Q_ASSERT(this->lru.end() != scache.lrupos);
+
+    this->lru.erase(scache.lrupos);
+
+    this->cost -= STREAM_OVERHEAD;
+
+    delete[] scache.entries;
+    this->cache.remove(todrop);
 }
 
 void Cache::updateGeneration(const StreamKey& sk, uint64_t receivedGen)

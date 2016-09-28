@@ -27,6 +27,8 @@ class StreamKey
 {
 public:
     StreamKey(const QUuid& stream_uuid, uint32_t stream_archiver);
+    StreamKey(const StreamKey& other);
+    StreamKey();
 
     bool operator==(const StreamKey& other) const;
 
@@ -34,6 +36,31 @@ public:
 
     const QUuid uuid;
     const uint32_t archiver;
+};
+
+enum class CostType
+{
+    CACHE_ENTRY,
+    STREAM_ENTRY
+};
+
+class CacheEntry;
+
+
+/* Represents an entity associated with a cost in the cache. Currently there are
+ * only two types of entities associated with a cost: (1) Cache Entries, which contain
+ * cached data, and (2) Stream Entries, which consist of the metadata of a stream,
+ * including the cached bounds.
+ */
+class CostEntry
+{
+public:
+    CostEntry(QSharedPointer<CacheEntry>& cache_entry);
+    CostEntry(StreamKey& stream_entry);
+
+    QSharedPointer<CacheEntry> cache_entry;
+    StreamKey stream_entry;
+    enum CostType type;
 };
 
 class Cache;
@@ -96,7 +123,7 @@ private:
     /* Position of this entry in the cache, with regard to eviction.
      * Handled by the Cache class.
      */
-    QLinkedList<QSharedPointer<CacheEntry>>::iterator lrupos;
+    QLinkedList<CostEntry>::iterator lrupos;
 
     /* Position of this entry in the cache, with regard to lookup.
      * Handled by the Cache class.
@@ -160,6 +187,7 @@ struct streamcache {
     int64_t lowerbound;
     int64_t upperbound;
     uint64_t oldestgen;
+    QLinkedList<CostEntry>::iterator lrupos; // always set to cache->lru.end(), unless cachedpts == STREAM_OVERHEAD (in which case this is actually on the LRU list)
     QMap<int64_t, QSharedPointer<CacheEntry>>* entries;
 };
 
@@ -196,11 +224,11 @@ public:
     void requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
                          std::function<void(int64_t, int64_t)> callback);
 
-    void dropRanges(const StreamKey& uuid, const struct timerange* ranges, int len);
+    void dropRanges(const StreamKey& sk, const struct timerange* ranges, int len);
 
-    void dropBrackets(const StreamKey &sk);
+    void dropBrackets(const StreamKey& sk);
 
-    void dropStream(const StreamKey& uuid);
+    void dropStream(const StreamKey& sk);
 
     /* The VBOs that need to be deleted. */
     QVector<GLuint> todelete;
@@ -211,7 +239,9 @@ private:
     void addCost(const StreamKey& uuid, uint64_t amt);
 
     /* Evicts an entry from the cache. Returns true iff it was the last entry for that UUID. */
-    bool evictEntry(const QSharedPointer<CacheEntry> todrop);
+    bool evictCacheEntry(const QSharedPointer<CacheEntry> todrop);
+
+    void evictStreamEntry(const StreamKey& todrop);
 
     void updateGeneration(const StreamKey& sk, uint64_t receivedGen);
 
@@ -231,7 +261,7 @@ private:
     QSet<StreamKey> outstandingChangedRangeQueries; /* The streams for which we are waiting for a response to a changed ranges query. */
 
     /* A linked list used to clear cache entries in LRU order. */
-    QLinkedList<QSharedPointer<CacheEntry>> lru;
+    QLinkedList<CostEntry> lru;
 
     /* A representation of the total amount of data in the cache. */
     uint64_t cost;
