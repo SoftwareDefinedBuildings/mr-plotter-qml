@@ -1289,7 +1289,7 @@ void Cache::beginChangedRangesUpdate()
 
         this->outstandingChangedRangeQueries.insert(sk);
 
-        this->requester->makeChangedRangesQuery(sk.uuid, BTRDB_MIN, BTRDB_MAX, scache.oldestgen, 0, sk.archiver,
+        this->requester->makeChangedRangesQuery(sk.uuid, scache.oldestgen, 0, sk.archiver,
                                                 [this, sk](struct timerange* changed, int len, uint64_t gen)
         {
             this->performChangedRangesUpdate(sk, changed, len, gen);

@@ -170,9 +170,9 @@ void Requester::makeBracketRequest(const QList<QUuid> uuids, uint32_t archiver, 
     this->sendBracketRequest(uuids, archiver, callback);
 }
 
-void Requester::makeChangedRangesQuery(const QUuid& uuid, int64_t start, int64_t end, uint64_t fromGen, uint64_t toGen, uint32_t archiver, ChangedRangesCallback callback)
+void Requester::makeChangedRangesQuery(const QUuid& uuid, uint64_t fromGen, uint64_t toGen, uint32_t archiver, ChangedRangesCallback callback)
 {
-    this->sendChangedRangesQuery(uuid, start, end, fromGen, toGen, archiver, callback);
+    this->sendChangedRangesQuery(uuid, fromGen, toGen, archiver, callback);
 }
 
 uint32_t Requester::publishQuery(QString query, uint32_t archiver)
@@ -400,7 +400,7 @@ inline void Requester::sendBracketRequest(const QList<QUuid>& uuids, uint32_t ar
     this->outstandingBracketLeft.insert(nonce2, brqs);
 }
 
-inline void Requester::sendChangedRangesQuery(const QUuid& uuid, int64_t start, int64_t end, uint64_t fromGen, uint64_t toGen, uint32_t archiver, ChangedRangesCallback callback)
+inline void Requester::sendChangedRangesQuery(const QUuid& uuid, uint64_t fromGen, uint64_t toGen, uint32_t archiver, ChangedRangesCallback callback)
 {
     if (archiver == ARCHIVER_LOCAL)
     {
@@ -413,13 +413,20 @@ inline void Requester::sendChangedRangesQuery(const QUuid& uuid, int64_t start, 
 
     QString query = CHANGED_RANGES_TEMPLATE;
     QString uuidstr = uuid.toString();
-    query = query.arg(fromGen).arg(toGen).arg(start).arg(end).arg(uuidstr.mid(1, uuidstr.size() - 2));
+    query = query.arg(fromGen).arg(toGen).arg(CHANGED_RANGES_RESOLUTION).arg(uuidstr.mid(1, uuidstr.size() - 2));
 
     uint32_t nonce = this->publishQuery(query, archiver);
     this->outstandingChangedRangesReqs.insert(nonce, callback);
 }
 
-QVariantMap parseBWResponse(PayloadObject& p, bool* hasnonce, uint32_t* nonceptr, bool* error)
+enum class ResponseType
+{
+    METADATA_RESPONSE,
+    DATA_RESPONSE,
+    CHANGED_RANGES_RESPONSE
+};
+
+QVariantMap parseBWResponse(PayloadObject& p, bool* hasnonce, uint32_t* nonceptr, enum ResponseType* type, bool* error)
 {
     bool ok;
     QVariantMap response = MsgPack::unpack(p.contentArray()).toMap();
@@ -441,18 +448,52 @@ QVariantMap parseBWResponse(PayloadObject& p, bool* hasnonce, uint32_t* nonceptr
         *error = true;
         return QVariantMap();
     }
-    if (!response.contains("Data"))
+
+    int ponum = p.ponum();
+    if (ponum == BW::fromDF("2.0.8.2"))
     {
-        qDebug("Response is missing expected field \"Data\"");
+        *type = ResponseType::METADATA_RESPONSE;
+    }
+    else if (ponum == BW::fromDF("2.0.8.4"))
+    {
+        *type = ResponseType::DATA_RESPONSE;
+    }
+    else if (ponum == BW::fromDF("2.0.8.8"))
+    {
+        *type = ResponseType::CHANGED_RANGES_RESPONSE;
+    }
+    else
+    {
+        qDebug("Response has invalid PO number");
         *error = true;
         return QVariantMap();
     }
-    if (!response.contains("Stats"))
+
+    if (*type == ResponseType::CHANGED_RANGES_RESPONSE)
     {
-        qDebug("Response is missing required field \"Stats\"");
-        *error = true;
-        return QVariantMap();
+        if (!response.contains("Changed"))
+        {
+            qDebug("Response is missing expected field \"Changed\"");
+            *error = true;
+            return QVariantMap();
+        }
     }
+    else if (*type == ResponseType::DATA_RESPONSE)
+    {
+        if (!response.contains("Data"))
+        {
+            qDebug("Response is missing expected field \"Data\"");
+            *error = true;
+            return QVariantMap();
+        }
+        if (!response.contains("Stats"))
+        {
+            qDebug("Response is missing required field \"Stats\"");
+            *error = true;
+            return QVariantMap();
+        }
+    }
+
     *error = false;
     return response;
 }
@@ -484,14 +525,15 @@ int64_t getExtrTime(QVariantMap resp, bool getmax)
 
 void Requester::handleResponse(PMessage message)
 {
-    QList<PayloadObject*> pos = message->FilterPOs(BW::fromDF("2.0.8.4"));
+    QList<PayloadObject*> pos = message->FilterPOs(BW::fromDF("2.0.8.0"), 24);
     for (auto p = pos.begin(); p != pos.end(); p++)
     {
         uint32_t nonce;
         bool hasnonce;
+        enum ResponseType type;
         bool error;
 
-        QVariantMap response = parseBWResponse(**p, &hasnonce, &nonce, &error);
+        QVariantMap response = parseBWResponse(**p, &hasnonce, &nonce, &type, &error);
 
         if (!hasnonce)
         {
@@ -500,33 +542,36 @@ void Requester::handleResponse(PMessage message)
 
         /* Dispatch on the type of query. */
         int numremoved;
-        if (this->outstandingDataReqs.contains(nonce))
+
+        if (type == ResponseType::CHANGED_RANGES_RESPONSE)
         {
-            this->handleDataResponse(this->outstandingDataReqs[nonce], response, error);
-            numremoved = this->outstandingDataReqs.remove(nonce);
-            Q_ASSERT(numremoved == 1);
+            if (this->outstandingChangedRangesReqs.contains(nonce))
+            {
+                this->handleChangedRangesResponse(this->outstandingChangedRangesReqs[nonce], response, error);
+                numremoved = this->outstandingChangedRangesReqs.remove(nonce);
+                Q_ASSERT(numremoved == 1);
+            }
         }
-        else if (this->outstandingBracketLeft.contains(nonce))
+        else if (type == ResponseType::DATA_RESPONSE)
         {
-            this->handleBracketResponse(this->outstandingBracketLeft[nonce], response, error, false);
-            numremoved = this->outstandingBracketLeft.remove(nonce);
-            Q_ASSERT(numremoved == 1);
-        }
-        else if (this->outstandingBracketRight.contains(nonce))
-        {
-            this->handleBracketResponse(this->outstandingBracketRight[nonce], response, error, true);
-            numremoved = this->outstandingBracketRight.remove(nonce);
-            Q_ASSERT(numremoved == 1);
-        }
-        else if (this->outstandingChangedRangesReqs.contains(nonce))
-        {
-            this->handleChangedRangesResponse(this->outstandingChangedRangesReqs[nonce], response, error);
-            numremoved = this->outstandingChangedRangesReqs.remove(nonce);
-            Q_ASSERT(numremoved == 1);
-        }
-        else
-        {
-            qDebug("Got unmatched response with nonce %u", nonce);
+            if (this->outstandingDataReqs.contains(nonce))
+            {
+                this->handleDataResponse(this->outstandingDataReqs[nonce], response, error);
+                numremoved = this->outstandingDataReqs.remove(nonce);
+                Q_ASSERT(numremoved == 1);
+            }
+            else if (this->outstandingBracketLeft.contains(nonce))
+            {
+                this->handleBracketResponse(this->outstandingBracketLeft[nonce], response, error, false);
+                numremoved = this->outstandingBracketLeft.remove(nonce);
+                Q_ASSERT(numremoved == 1);
+            }
+            else if (this->outstandingBracketRight.contains(nonce))
+            {
+                this->handleBracketResponse(this->outstandingBracketRight[nonce], response, error, true);
+                numremoved = this->outstandingBracketRight.remove(nonce);
+                Q_ASSERT(numremoved == 1);
+            }
         }
     }
 }
@@ -698,6 +743,8 @@ void Requester::handleChangedRangesResponse(ChangedRangesCallback callback, QVar
 
     callback(changed, len, generation);
     delete[] changed;
+
+    return;
 
 nodata:
     /* Return no data. */

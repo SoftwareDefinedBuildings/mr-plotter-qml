@@ -18,11 +18,13 @@ const QString URI_TEMPLATE = QStringLiteral("%1/%2");
 #define BTRDB_MIN ((int64_t) 1)
 #define BTRDB_MAX ((int64_t) ((Q_INT64_C(48) << 56) - Q_INT64_C(1)))
 
+#define CHANGED_RANGES_RESOLUTION 20
+
 #define ARCHIVER_LOCAL ((uint32_t) -1)
 
 #define QUERY_TEMPLATE QStringLiteral("select statistical(%1) data in (%2ns, %3ns) as ns where uuid = \"%4\";")
 
-#define CHANGED_RANGES_TEMPLATE QStringLiteral("select changed(%1, %2) data in (%3ns, %4ns) as ns where uuid = \"%5\";")
+#define CHANGED_RANGES_TEMPLATE QStringLiteral("select changed(%2, %1, %3) data where uuid = \"%4\";")
 
 #define GENERATION_MAX Q_UINT64_C(0xFFFFFFFFFFFFFFFF)
 
@@ -75,7 +77,7 @@ public:
     void makeDataRequest(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
                          uint32_t archiver, ReqCallback callback);
     void makeBracketRequest(const QList<QUuid> uuids, uint32_t archiver, BracketCallback callback);
-    void makeChangedRangesQuery(const QUuid& uuid, int64_t start, int64_t end, uint64_t fromGen, uint64_t toGen, uint32_t archiver, ChangedRangesCallback callback);
+    void makeChangedRangesQuery(const QUuid& uuid, uint64_t fromGen, uint64_t toGen, uint32_t archiver, ChangedRangesCallback callback);
 
     uint32_t subscribeBWArchiver(QString uri);
     void unsubscribeBWArchiver(uint32_t id);
@@ -90,7 +92,7 @@ private:
     void sendDataRequest(const QUuid& uuid, int64_t start, int64_t end, uint8_t pwe,
                        uint32_t archiver, ReqCallback callback);
     void sendBracketRequest(const QList<QUuid>& uuids, uint32_t archiver, BracketCallback callback);
-    void sendChangedRangesQuery(const QUuid& uuid, int64_t start, int64_t end, uint64_t fromGen, uint64_t toGen, uint32_t archiver, ChangedRangesCallback callback);
+    void sendChangedRangesQuery(const QUuid& uuid, uint64_t fromGen, uint64_t toGen, uint32_t archiver, ChangedRangesCallback callback);
 
     void handleResponse(PMessage message);
 
