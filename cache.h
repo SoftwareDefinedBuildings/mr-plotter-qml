@@ -16,9 +16,9 @@
 /* One more than the maximum pointwidth. */
 #define PWE_MAX 63
 
-/* The maximum number of datapoints that can be cached. */
+/* The maximum number of bytes that can be cached. */
 /* Currently set to 400 MB. */
-#define CACHE_THRESHOLD 10000000
+#define CACHE_THRESHOLD 400000
 
 /* Time between changed range queries. */
 #define CHANGED_RANGES_REQUEST_INTERVAL 10000
@@ -183,7 +183,7 @@ private:
 };
 
 struct streamcache {
-    uint64_t cachedpts;
+    uint64_t cachedbytes;
     int64_t lowerbound;
     int64_t upperbound;
     uint64_t oldestgen;

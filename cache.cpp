@@ -62,10 +62,12 @@ struct cachedpt
  * there is a placeholder cache entry which is preventing us from freeing that
  * entry in the hash table.
  */
-#define CACHE_ENTRY_OVERHEAD ((sizeof(CacheEntry) / sizeof(struct cachedpt)) + 1)
+#define CACHE_ENTRY_OVERHEAD (sizeof(CacheEntry))
 
 /* The overhead cost, in cached points, of the metadata for a stream. */
-#define STREAM_OVERHEAD (((sizeof(struct streamcache) + PWE_MAX * sizeof(QMap<int64_t, QSharedPointer<CacheEntry>>)) / sizeof(struct cachedpt)) + 1)
+#define STREAM_OVERHEAD (sizeof(struct streamcache) + PWE_MAX * sizeof(QMap<int64_t, QSharedPointer<CacheEntry>>))
+
+#define CACHED_POINT_SIZE (sizeof(struct cachedpt))
 
 
 CacheEntry::CacheEntry(Cache* c, const StreamKey& sk, int64_t startRange, int64_t endRange, uint8_t pwexp) :
@@ -193,7 +195,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
 {
     Q_ASSERT(this->cached == nullptr);
 
-    this->cost = (uint64_t) len;
+    this->cost = ((uint64_t) len) * CACHED_POINT_SIZE;
 
     int64_t pw = ((int64_t) 1) << this->pwe;
     int64_t pwmask = ~(pw - 1);
@@ -711,7 +713,7 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
     struct streamcache& scache = this->cache[sk];
     if (initscache)
     {
-        scache.cachedpts = 0;
+        scache.cachedbytes = 0;
         CLEAR_CACHED_BOUNDS(scache);
         scache.oldestgen = GENERATION_MAX;
         scache.lrupos = this->lru.end();
@@ -872,7 +874,7 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
                     gapfill->cachepos = i;
                     this->use(gapfill, true);
 
-                    this->addCost(gapfill->streamKey, (uint64_t) len);
+                    this->addCost(gapfill->streamKey, ((uint64_t) len) * CACHED_POINT_SIZE);
                     this->updateGeneration(gapfill->streamKey, gen);
                 }
 
@@ -998,7 +1000,7 @@ void Cache::requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
             struct streamcache& scache = this->cache[sk];
             if (mustinit)
             {
-                scache.cachedpts = 0;
+                scache.cachedbytes = 0;
                 scache.lrupos = this->lru.end();
                 scache.entries = new QMap<int64_t, QSharedPointer<CacheEntry>>[PWE_MAX];
             }
@@ -1139,12 +1141,12 @@ void Cache::addCost(const StreamKey& sk, uint64_t amt)
     struct streamcache& scache = this->cache[sk];
     if (this->lru.size() != 0 && scache.lrupos != this->lru.end())
     {
-        Q_ASSERT(scache.cachedpts == STREAM_OVERHEAD);
+        Q_ASSERT(scache.cachedbytes == STREAM_OVERHEAD);
         this->lru.erase(scache.lrupos);
         scache.lrupos = this->lru.end();
     }
 
-    scache.cachedpts += amt;
+    scache.cachedbytes += amt;
     this->cost += amt;
 
     while (this->cost >= CACHE_THRESHOLD && !this->lru.empty())
@@ -1203,10 +1205,10 @@ bool Cache::evictCacheEntry(const QSharedPointer<CacheEntry> todrop)
     }
 
     Q_ASSERT(dropvalue <= this->cost);
-    Q_ASSERT(dropvalue <= scache.cachedpts);
+    Q_ASSERT(dropvalue <= scache.cachedbytes);
 
-    uint64_t remaining = scache.cachedpts - dropvalue;
-    scache.cachedpts = remaining;
+    uint64_t remaining = scache.cachedbytes - dropvalue;
+    scache.cachedbytes = remaining;
 
     this->cost -= dropvalue;
 
@@ -1243,7 +1245,7 @@ void Cache::evictStreamEntry(const StreamKey& todrop)
      * of CostEntry should only be on the list if there's no data for a stream.
      * We can't evict the metadata while there's still data.
      */
-    Q_ASSERT(scache.cachedpts == STREAM_OVERHEAD);
+    Q_ASSERT(scache.cachedbytes == STREAM_OVERHEAD);
     Q_ASSERT(this->lru.end() != scache.lrupos);
 
     this->lru.erase(scache.lrupos);
