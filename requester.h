@@ -67,6 +67,12 @@ struct brqstate
     bool gotright;
 };
 
+struct archiverinfo
+{
+    QString uri;
+    uint64_t refcnt;
+};
+
 class Requester
 {
 public:
@@ -107,8 +113,8 @@ private:
     QHash<uint32_t, struct brqstate*> outstandingBracketLeft;
     QHash<uint32_t, struct brqstate*> outstandingBracketRight;
     QHash<uint32_t, ChangedRangesCallback> outstandingChangedRangesReqs;
-    QHash<uint32_t, QString> archivers;
-    QMultiHash<QString, uint32_t> archiverids;
+    QHash<uint32_t, struct archiverinfo> archivers;
+    QHash<QString, uint32_t> archiverids;
 
     QHash<QString, QString> subscrhandles;
 

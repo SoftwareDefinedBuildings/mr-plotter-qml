@@ -30,6 +30,12 @@ MrPlotter::MrPlotter(): timeaxis(), plots()
 
     this->id = this->nextID++;
     this->instances.insert(this->id, this);
+
+    this->updateTimer = new QTimer(this);
+    this->updateTimer->setSingleShot(false);
+    this->updateTimer->setInterval(PLOT_DATA_UPDATE_INTERVAL);
+    QObject::connect(this->updateTimer, SIGNAL(timeout()), this, SLOT(updateDataAsyncThrottled()));
+    this->updateTimer->start();
 }
 
 MrPlotter::~MrPlotter()

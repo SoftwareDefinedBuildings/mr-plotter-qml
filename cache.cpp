@@ -1032,8 +1032,6 @@ void Cache::dropRanges(const StreamKey& sk, const struct timerange* ranges, int 
         return;
     }
 
-    int64_t start = ranges[0].start;
-
     struct streamcache& scache = this->cache[sk];
 
     for (uint8_t pwe = 0; pwe < PWE_MAX; pwe++)
@@ -1048,7 +1046,7 @@ void Cache::dropRanges(const StreamKey& sk, const struct timerange* ranges, int 
         int ridx = 0;
 
         /* Drop ranges from tree. */
-        auto i = pentries->lowerBound(start);
+        auto i = pentries->begin();
         while (i != pentries->end())
         {
             QSharedPointer<CacheEntry>& ce = *i;

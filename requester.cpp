@@ -36,17 +36,32 @@ uint32_t Requester::subscribeBWArchiver(QString uri)
     bool alreadysubscr = this->subscrhandles.contains(uri);
 
     uint32_t id;
-    do
+
+    if (alreadysubscr)
     {
-        id = this->nextArchiverID++;
+        Q_ASSERT(this->archiverids.contains(uri));
+        id = this->archiverids[uri];
+        Q_ASSERT(this->archivers.contains(id));
+        struct archiverinfo& ainfo = this->archivers[id];
+        Q_ASSERT(ainfo.refcnt != 0);
+        ainfo.refcnt++;
     }
-    while (archivers.contains(id));
-
-    this->archivers[id] = uri;
-    this->archiverids.insert(uri, id);
-
-    if (!alreadysubscr)
+    else
     {
+        Q_ASSERT(!this->archiverids.contains(uri));
+
+        do
+        {
+            id = this->nextArchiverID++;
+        }
+        while (archivers.contains(id));
+
+        struct archiverinfo& ainfo = this->archivers[id];
+        ainfo.uri = uri;
+        ainfo.refcnt = 1;
+
+        this->archiverids.insert(uri, id);
+
         /* Marker, so we know that we have a pending subscription. */
         this->subscrhandles[uri] = QStringLiteral("!");
 
@@ -92,12 +107,20 @@ void Requester::unsubscribeBWArchiver(uint32_t id)
         return;
     }
 
-    QString uri = this->archivers[id];
-    this->archiverids.remove(uri, id);
-    this->archivers.remove(id);
+    Q_ASSERT(this->archivers.contains(id));
 
-    if (!this->archiverids.contains(uri))
+    struct archiverinfo& ainfo = this->archivers[id];
+    Q_ASSERT(ainfo.refcnt != 0);
+    Q_ASSERT(this->archiverids.contains(ainfo.uri));
+
+    QString uri = ainfo.uri;
+    ainfo.refcnt--;
+
+    if (ainfo.refcnt == 0)
     {
+        this->archivers.remove(id);
+        this->archiverids.remove(uri);
+
         /* Actually unsubscribe from the URI. */
         qDebug("Unsubscribing from %s", qPrintable(uri));
         QString handle = this->subscrhandles[uri];
@@ -115,7 +138,8 @@ QString Requester::getURI(uint32_t archiverID)
     {
         return QStringLiteral("local");
     }
-    return this->archivers[archiverID];
+    Q_ASSERT(this->archivers.contains(archiverID));
+    return this->archivers[archiverID].uri;
 }
 
 
@@ -178,7 +202,10 @@ void Requester::makeChangedRangesQuery(const QUuid& uuid, uint64_t fromGen, uint
 uint32_t Requester::publishQuery(QString query, uint32_t archiver)
 {
     QVariantMap req;
-    QString uri = URI_TEMPLATE.arg(this->archivers[archiver]).arg(QStringLiteral("slot/query"));
+
+    Q_ASSERT(this->archivers.contains(archiver));
+
+    QString uri = URI_TEMPLATE.arg(this->archivers[archiver].uri).arg(QStringLiteral("slot/query"));
 
     uint32_t nonce = this->nextNonce++ ^ (uint32_t) qrand();
 

@@ -8,6 +8,8 @@
 #include <QHash>
 #include <QObject>
 
+#define PLOT_DATA_UPDATE_INTERVAL 10000
+
 class PlotArea;
 
 class MrPlotter : public QObject
@@ -66,7 +68,6 @@ public:
     Q_INVOKABLE void setTimeTickPromotion(bool enable);
     Q_INVOKABLE bool getTimeTickPromotion();
 
-    Q_INVOKABLE void updateDataAsyncThrottled();
     Q_INVOKABLE void updateDataAsync();
     Q_INVOKABLE void updateView();
 
@@ -83,9 +84,12 @@ public:
 signals:
 
 public slots:
+    void updateDataAsyncThrottled();
 
 private:
     TimeAxisArea* timeaxisarea;
+
+    QTimer* updateTimer;
 
     QList<PlotArea*> plots;
 
