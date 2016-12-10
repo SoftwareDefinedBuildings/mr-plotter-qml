@@ -240,8 +240,14 @@ void MrPlotter::autozoom(QVariantList streams)
                 /* Edge case where all points are on the same nanosecond */
                 if (bounds->lowerbound == bounds->upperbound)
                 {
-                    bounds->lowerbound--;
-                    bounds->upperbound++;
+                    if (bounds->lowerbound != INT64_MIN)
+                    {
+                        bounds->lowerbound--;
+                    }
+                    if (bounds->upperbound != INT64_MAX)
+                    {
+                        bounds->upperbound++;
+                    }
                 }
 
                 if (bounds->lowerbound < bounds->upperbound)

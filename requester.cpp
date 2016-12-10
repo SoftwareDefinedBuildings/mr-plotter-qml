@@ -164,6 +164,15 @@ void Requester::makeDataRequest(const QUuid &uuid, int64_t start, int64_t end, u
     int64_t truestart = start - halfpw;
     int64_t trueend = end - halfpw;
 
+    if (truestart > start)
+    {
+        truestart = INT64_MIN;
+    }
+    if (trueend > end)
+    {
+        trueend = INT64_MIN;
+    }
+
 
     /* The way queries to BTrDB work is that it takes the start and end that
      * you give it, discards the lower bits (i.e., rounds it down to the
@@ -172,11 +181,23 @@ void Requester::makeDataRequest(const QUuid &uuid, int64_t start, int64_t end, u
      *
      * So, in order to make sure we capture the point immediately before the
      * first point, or immediately after the last point, it is sufficient to
-     * widen our range a little bit.
+     * widen our range a little bit (while avoiding overflow).
      */
 
-    truestart -= 1;
-    trueend += (pw + pw);
+    if (truestart != INT64_MIN)
+    {
+        /* This will happen as long as we aren't near the boundary. */
+        truestart -= 1;
+    }
+    if (trueend <= (INT64_MAX - pw) - pw)
+    {
+        /* This will happen as long as we aren't near the boundary. */
+        trueend = (trueend + pw) + pw;
+    }
+    else
+    {
+        trueend = INT64_MAX;
+    }
     /* We add pw twice, once to get the point past the end of the query, and
      * again to account for the fact that the endpoint is exclusive.
      */
@@ -401,8 +422,8 @@ inline void Requester::sendBracketRequest(const QList<QUuid>& uuids, uint32_t ar
                 brkts.lowerbound = 1415643674979469055;
                 brkts.upperbound = 1415643674979469318;
 #else
-                brkts.lowerbound = Q_INT64_C(0x8000000000000000);
-                brkts.upperbound = Q_INT64_C(0x7FFFFFFFFFFFFFFF);
+                brkts.lowerbound = INT64_MIN;
+                brkts.upperbound = INT64_MAX;
 #endif
             }
         }

@@ -1137,6 +1137,12 @@ void Cache::use(QSharedPointer<CacheEntry> ce, bool firstuse)
 void Cache::addCost(const StreamKey& sk, uint64_t amt)
 {
     struct streamcache& scache = this->cache[sk];
+
+    Q_ASSERT(this->cost >= scache.cachedbytes);
+
+    /* If there was no data cached, and only the brackets, then remove
+     * the bracket LRU entry.
+     */
     if (this->lru.size() != 0 && scache.lrupos != this->lru.end())
     {
         Q_ASSERT(scache.cachedbytes == STREAM_OVERHEAD);
@@ -1183,6 +1189,8 @@ bool Cache::evictCacheEntry(const QSharedPointer<CacheEntry> todrop)
     struct streamcache& scache = this->cache[todrop->streamKey];
     uint64_t dropvalue;
 
+    Q_ASSERT(this->cost >= scache.cachedbytes);
+
     todrop->evicted = true;
 
     if (todrop->isPlaceholder())
@@ -1220,6 +1228,8 @@ bool Cache::evictCacheEntry(const QSharedPointer<CacheEntry> todrop)
         }
         else
         {
+            this->cost -= STREAM_OVERHEAD;
+
             delete[] scache.entries;
             this->cache.remove(todrop->streamKey);
 
