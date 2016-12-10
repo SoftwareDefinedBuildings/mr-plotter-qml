@@ -237,6 +237,13 @@ void MrPlotter::autozoom(QVariantList streams)
             bounds->upperbound = qMax(bounds->upperbound, upperbound);
             if (--bounds->reqsleft == 0)
             {
+                /* Edge case where all points are on the same nanosecond */
+                if (bounds->lowerbound == bounds->upperbound)
+                {
+                    bounds->lowerbound--;
+                    bounds->upperbound++;
+                }
+
                 if (bounds->lowerbound < bounds->upperbound)
                 {
                     this->timeaxis.setDomain(bounds->lowerbound, bounds->upperbound);

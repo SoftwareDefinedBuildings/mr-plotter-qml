@@ -13,6 +13,7 @@
 #include <QUuid>
 
 #define PI 3.14159265358979323846
+#define USE_SIMULATOR 0
 
 BW* Requester::bw = nullptr;
 
@@ -291,6 +292,7 @@ inline void Requester::sendDataRequest(const QUuid &uuid, int64_t start, int64_t
         }
         else
         {
+#if USE_SIMULATOR
             /* This is a simulator. */
             int numskipped = 0;
 
@@ -341,6 +343,9 @@ inline void Requester::sendDataRequest(const QUuid &uuid, int64_t start, int64_t
             }
 
             truelen = numpts - numskipped;
+#else
+            truelen = 0;
+#endif
         }
 
         QTimer::singleShot(0, [callback, toreturn, truelen]()
@@ -392,9 +397,13 @@ inline void Requester::sendBracketRequest(const QList<QUuid>& uuids, uint32_t ar
             }
             else
             {
-                qDebug("not hardcoded");
+#if USE_SIMULATOR
                 brkts.lowerbound = 1415643674979469055;
                 brkts.upperbound = 1415643674979469318;
+#else
+                brkts.lowerbound = Q_INT64_C(0x8000000000000000);
+                brkts.upperbound = Q_INT64_C(0x7FFFFFFFFFFFFFFF);
+#endif
             }
         }
 

@@ -25,7 +25,7 @@ YAxis::YAxis(QObject* parent): YAxis(-1.0f, 1.0f, parent)
 }
 
 YAxis::YAxis(float domainLow, float domainHigh, QObject* parent):
-    QObject(parent), id(YAxis::nextID++), axisarea(nullptr)
+    QObject(parent), id(YAxis::nextID++), axisareas()
 {
     this->domainLo = domainLow;
     this->domainHi = domainHigh;
@@ -136,9 +136,9 @@ qreal YAxis::getDomainLo() const
 void YAxis::setDomainLo(qreal domainLo)
 {
     this->domainLo = domainLo;
-    if (this->axisarea != nullptr)
+    for (auto j = this->axisareas.begin(); j != this->axisareas.end(); j++)
     {
-        this->axisarea->update();
+        (*j)->update();
     }
     for (auto i = this->streams.begin(); i != this->streams.end(); i++)
     {
@@ -158,12 +158,13 @@ qreal YAxis::getDomainHi() const
 void YAxis::setDomainHi(qreal domainHi)
 {
     this->domainHi = domainHi;
-    if (this->axisarea != nullptr)
+    for (auto j = this->axisareas.begin(); j != this->axisareas.end(); j++)
     {
-        this->axisarea->update();
-        if (this->axisarea->plotarea != nullptr)
+        YAxisArea* axisarea = *j;
+        axisarea->update();
+        if (axisarea->plotarea != nullptr)
         {
-            this->axisarea->plotarea->update();
+            axisarea->plotarea->update();
         }
     }
 }

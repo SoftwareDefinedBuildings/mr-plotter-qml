@@ -81,9 +81,16 @@ bool Stream::setColor(float red, float green, float blue)
     this->color.green = green;
     this->color.blue = blue;
 
-    if (this->axis != nullptr && this->axis->axisarea != nullptr && this->axis->axisarea->plotarea != nullptr)
+    if (this->axis != nullptr)
     {
-        this->axis->axisarea->plotarea->update();
+        for (auto j = this->axis->axisareas.begin(); j != this->axis->axisareas.end(); j++)
+        {
+            YAxisArea* axisarea = *j;
+            if (axisarea->plotarea != nullptr)
+            {
+                axisarea->plotarea->update();
+            }
+        }
     }
     return true;
 }

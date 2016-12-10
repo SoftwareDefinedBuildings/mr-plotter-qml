@@ -99,12 +99,12 @@ void YAxisArea::paint(QPainter* painter)
 
 bool YAxisArea::addYAxis(YAxis* newyaxis)
 {
-    if (newyaxis->axisarea == this)
+    if (newyaxis->axisareas.contains(this))
     {
         return false;
     }
 
-    newyaxis->axisarea = this;
+    newyaxis->axisareas.append(this);
     this->yAxes.push_back(newyaxis);
     this->update();
     return true;
@@ -123,19 +123,15 @@ QList<QVariant> YAxisArea::getAxisList() const
 
 void YAxisArea::setAxisList(QList<QVariant> newaxislist)
 {
-    for (auto j = this->yAxes.begin(); j != this->yAxes.end(); j++)
-    {
-        (*j)->axisarea = nullptr;
-    }
     QList<YAxis*> newYAxes;
 
     for (auto i = newaxislist.begin(); i != newaxislist.end(); i++)
     {
         YAxis* a = i->value<YAxis*>();
         Q_ASSERT_X(a != nullptr, "setAxisList", "invalid element in new axis list");
-        if (a != nullptr)
+        if (a != nullptr && !a->axisareas.contains(this))
         {
-            a->axisarea = this;
+            a->axisareas.append(this);
             newYAxes.append(a);
         }
     }

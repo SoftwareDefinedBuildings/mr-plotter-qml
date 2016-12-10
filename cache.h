@@ -191,7 +191,8 @@ struct streamcache {
     QMap<int64_t, QSharedPointer<CacheEntry>>* entries;
 };
 
-#define CACHED_BOUNDS(s) ((s).upperbound > (s).lowerbound)
+/* Use >= instead of > in case there's only one point in the stream. */
+#define CACHED_BOUNDS(s) ((s).upperbound >= (s).lowerbound)
 #define CLEAR_CACHED_BOUNDS(s) do { \
         (s).lowerbound = Q_INT64_C(0x7FFFFFFFFFFFFFFF); \
         (s).upperbound = Q_INT64_C(0x8000000000000000); \

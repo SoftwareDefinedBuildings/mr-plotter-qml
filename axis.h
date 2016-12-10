@@ -108,7 +108,7 @@ public:
     int minticks;
 
     QString name;
-    YAxisArea* axisarea;
+    QList<YAxisArea*> axisareas;
 
     bool dynamicAutoscale;
 
