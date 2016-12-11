@@ -256,7 +256,7 @@ inline void Requester::sendDataRequest(const QUuid &uuid, int64_t start, int64_t
 
         Q_ASSERT(end >= start);
 
-        int numpts = ((end - start) >> pwe) + 1;
+        int numpts = (((uint64_t) (end - start)) >> pwe);
         toreturn = new struct statpt[numpts];
 
         if (this->hardcoded.contains(uuid))

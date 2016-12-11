@@ -304,7 +304,6 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         /* There's no point immediately after the last point, so we need to pull the
          * data density plot to 0 and then extend it to the end of this cache entry.
          */
-
         ddendatzero = true;
     }
 
@@ -372,6 +371,19 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
             j = 1;
         }
     }
+    else
+    {
+        /* We still need to initialize exptime.
+         * Note this only matters if prevfirst is false (ddstartatzero is true)
+         * and numinputs is 0.
+         * We know that len is nonzero (since we handle that case specially), so
+         * the only way numinputs can be 0 is if we have nextlast && !this->joinsNext.
+         *
+         * Below, we set exptime to the time where we would expect the first point
+         * after the start to be.
+         */
+        exptime = ((this->start - halfpw - 1) & pwmask) + pw;
+    }
 
     for (i = 0; i < numinputs; i++, j++)
     {
@@ -388,11 +400,11 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         prevcount = output->count;
 
         /* Check if we need to insert a gap after this point.
-         * Gaps between two cache entries and handled by the first cache entry, so we don't
+         * Gaps between two cache entries are handled by the first cache entry, so we don't
          * have to worry about inserting a gap before the first point.
          */
         exptime = prevtime + pw;
-        if ((i == numinputs - 1 && (!nextlast || inputs[i + 1].time > exptime)) || (i != numinputs - 1 && inputs[i + 1].time > exptime))
+        if ((i == numinputs - 1 && !this->joinsNext && (!nextlast || inputs[i + 1].time > exptime)) || (i != numinputs - 1 && inputs[i + 1].time > exptime))
         {
             j++;
 
@@ -437,14 +449,19 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         }
     }
 
-    if (nextlast)
+    if (nextlast && !this->joinsNext)
     {
         /* This is mutually exclusive with ddendatzero. */
         if (spoints[len - 1].time > exptime)
         {
-            pullToZero(&outputs[j], exptime, this->epoch, prevcount, &spoints[i - 1], &spoints[len - 1]);
-            pullToZeroNoInterp(&outputs[j + 1], spoints[len - 1].time, this->epoch, 0.0f);
-            j += 2;
+            /* Don't interpolate unless there is actually a point to interpolate from! */
+            if (i > 0)
+            {
+                pullToZero(&outputs[j], exptime, this->epoch, prevcount, &inputs[i - 1], &spoints[len - 1]);
+                j += 1;
+            }
+            pullToZeroNoInterp(&outputs[j], spoints[len - 1].time, this->epoch, 0.0f);
+            j += 1;
         }
     }
 
@@ -453,6 +470,8 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
         if (this->connectsToAfter)
         {
             pullToZero(&outputs[j], exptime, this->epoch, prevcount, &spoints[len - 1], next->firstpt);
+
+            /* Is this really necessary? */
             pullToZero(&outputs[j + 1], this->end + 1, this->epoch, 0.0f, &spoints[len - 1], next->firstpt);
 
             struct cachedpt* output = &outputs[j + 2];
