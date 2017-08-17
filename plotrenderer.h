@@ -7,6 +7,7 @@
 
 #include <QQuickFramebufferObject>
 #include <QOpenGLFunctions>
+#include <QOpenGLShader>
 #include <QList>
 #include <QVector>
 #include <QUuid>
@@ -29,6 +30,12 @@ protected:
 
 private:
     static bool compiled_shaders;
+
+    static QOpenGLShader* mainVertexShader;
+    static QOpenGLShader* ddVertexShader;
+    static QOpenGLShader* mainFragmentShader;
+    static QOpenGLShader* ddFragmentShader;
+
     static GLuint program;
     static GLuint ddprogram;
 

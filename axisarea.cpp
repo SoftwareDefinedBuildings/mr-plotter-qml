@@ -129,14 +129,27 @@ void YAxisArea::setAxisList(QList<QVariant> newaxislist)
     {
         YAxis* a = i->value<YAxis*>();
         Q_ASSERT_X(a != nullptr, "setAxisList", "invalid element in new axis list");
-        if (a != nullptr && !a->axisareas.contains(this))
+        if (a != nullptr)
         {
-            a->axisareas.append(this);
             newYAxes.append(a);
+            if (!a->axisareas.contains(this))
+            {
+                a->axisareas.append(this);
+            }
         }
     }
 
     this->yAxes = qMove(newYAxes);
+
+    if (this->yAxes.count() != 0 && this->width() == 0.0)
+    {
+        /*
+         * Turns out that Qt does an optimization to not update an
+         * element if its width is zero, so I need to manually
+         * set the width to something nonzero to make this case work.
+         */
+        this->setWidth(1.0);
+    }
 
     if (this->plotarea != nullptr && this->plotarea->plot != nullptr)
     {

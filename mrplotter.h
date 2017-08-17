@@ -41,10 +41,7 @@ public:
     TimeAxisArea* timeAxisArea() const;
     void setTimeAxisArea(TimeAxisArea* newtimeaxisarea);
 
-    Q_INVOKABLE static qulonglong addArchiver(QString uri);
-    Q_INVOKABLE static void removeArchiver(qulonglong archiver);
-
-    Q_INVOKABLE Stream* newStream(QString uuid, qulonglong archiverID);
+    Q_INVOKABLE Stream* newStream(QString uuid, DataSource* dataSource);
     Q_INVOKABLE void delStream(Stream* s);
 
     Q_INVOKABLE bool setTimeDomain(QList<qreal> domain);
@@ -71,8 +68,8 @@ public:
     Q_INVOKABLE void updateDataAsync();
     Q_INVOKABLE void updateView();
 
-    Q_INVOKABLE bool hardcodeLocalData(QUuid uuid, QVariantList data);
-    Q_INVOKABLE bool dropHardcodedLocalData(QUuid uuid);
+//    Q_INVOKABLE bool hardcodeLocalData(QUuid uuid, QVariantList data);
+//    Q_INVOKABLE bool dropHardcodedLocalData(QUuid uuid);
 
     TimeAxis timeaxis;
 

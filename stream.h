@@ -42,21 +42,26 @@ class Stream : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(bool dataDensity MEMBER dataDensity)
-    Q_PROPERTY(bool selected MEMBER selected)
-    Q_PROPERTY(bool alwaysConnect MEMBER alwaysConnect)
+    Q_PROPERTY(bool selected READ getSelected WRITE setSelected NOTIFY selectedChanged)
+    Q_PROPERTY(bool alwaysConnect READ getAlwaysConnect WRITE setAlwaysConnect NOTIFY alwaysConnectChanged)
 
-    Q_PROPERTY(QColor color READ getColor WRITE setColor)
-    Q_PROPERTY(QList<qreal> timeOffset READ getTimeOffset WRITE setTimeOffset)
-    Q_PROPERTY(QString archiver READ getArchiver WRITE setArchiver)
-    Q_PROPERTY(QString uuid READ getUUID WRITE setUUID)
+    Q_PROPERTY(QColor color READ getColor WRITE setColor NOTIFY colorChanged)
+    Q_PROPERTY(QList<qreal> timeOffset READ getTimeOffset WRITE setTimeOffset NOTIFY timeOffsetChanged)
+    Q_PROPERTY(DataSource* dataSource READ getDataSource WRITE setDataSource NOTIFY dataSourceChanged)
+    Q_PROPERTY(QString uuid READ getUUID WRITE setUUID NOTIFY uuidChanged)
 
 public:
     Stream(QObject* parent = nullptr);
-    Stream(const QString& u, uint32_t archiverID, QObject* parent = nullptr);
-    Stream(const QUuid& u, uint32_t archiverID, QObject* parent = nullptr);
-    ~Stream();
+    Stream(const QString& u, DataSource* dataSource, QObject* parent = nullptr);
+    Stream(const QUuid& u, DataSource* dataSource, QObject* parent = nullptr);
 
     bool toDrawable(struct drawable& d) const;
+
+    bool getSelected() const;
+    void setSelected(bool isSelected);
+
+    bool getAlwaysConnect() const;
+    void setAlwaysConnect(bool shouldAlwaysConnect);
 
     Q_INVOKABLE bool setColor(float red, float green, float blue);
     Q_INVOKABLE bool setColor(QColor color);
@@ -66,9 +71,8 @@ public:
     Q_INVOKABLE void setTimeOffset(QList<qreal> offset);
     Q_INVOKABLE QList<qreal> getTimeOffset();
 
-    Q_INVOKABLE void setArchiver(QString uri);
-    Q_INVOKABLE QString getArchiver();
-    uint32_t getArchiverID();
+    Q_INVOKABLE void setDataSource(DataSource* source);
+    Q_INVOKABLE DataSource* getDataSource();
 
     Q_INVOKABLE void setUUID(QString uuidstr);
     Q_INVOKABLE QString getUUID();
@@ -101,14 +105,22 @@ public:
     /* True if the points of this stream should always be joined. */
     bool alwaysConnect;
 
+signals:
+    void selectedChanged();
+    void colorChanged();
+    void timeOffsetChanged();
+    void dataSourceChanged();
+    void uuidChanged();
+    void alwaysConnectChanged();
+
 private:
     void init();
 
-    /* The ID of the archiver from which to receive data. */
-    uint32_t archiver;
+    /* The source to query to get data for this stream. */
+    DataSource* source;
 
-    /* True if the archiver has been set. */
-    bool archiverset;
+    /* True if the source has been set. */
+    bool sourceset;
 };
 
 #endif // STREAM_H

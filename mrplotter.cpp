@@ -76,19 +76,9 @@ void MrPlotter::setPlotList(QList<QVariant> newplotlist)
     this->plots = qMove(newPlots);
 }
 
-qulonglong MrPlotter::addArchiver(QString uri)
+Stream* MrPlotter::newStream(QString uuid, DataSource* dataSource)
 {
-    return (qulonglong) MrPlotter::cache.requester->subscribeBWArchiver(uri);
-}
-
-void MrPlotter::removeArchiver(qulonglong archiver)
-{
-    return MrPlotter::cache.requester->unsubscribeBWArchiver((uint32_t) archiver);
-}
-
-Stream* MrPlotter::newStream(QString uuid, qulonglong archiverID)
-{
-    return new Stream(uuid, (uint32_t) archiverID, this);
+    return new Stream(uuid, dataSource, this);
 }
 
 void MrPlotter::delStream(Stream* s)
@@ -190,21 +180,21 @@ struct autozoomdata
 
 void MrPlotter::autozoom(QVariantList streams)
 {
-    QHash<uint32_t, QList<QUuid>> byarchiver;
+    QHash<DataSource*, QList<QUuid>> bysource;
 
-    /* Organize the streams based on archiver ID. */
+    /* Organize the streams based on data source. */
     for (auto i = streams.begin(); i != streams.end(); i++)
     {
         Stream* s = i->value<Stream*>();
         Q_ASSERT_X(s != nullptr, "autozoom", "invalid member in stream list");
         if (s != nullptr)
         {
-            byarchiver[s->getArchiverID()].append(s->uuid);
+            bysource[s->getDataSource()].append(s->uuid);
         }
     }
 
-    QList<uint32_t> archivers = byarchiver.keys();
-    if (archivers.size() == 0)
+    QList<DataSource*> sources = bysource.keys();
+    if (sources.size() == 0)
     {
         return;
     }
@@ -212,13 +202,13 @@ void MrPlotter::autozoom(QVariantList streams)
     struct autozoomdata* bounds = new struct autozoomdata;
     bounds->lowerbound = INT64_MAX;
     bounds->upperbound = INT64_MIN;
-    bounds->reqsleft = archivers.size();
+    bounds->reqsleft = sources.size();
 
     uint64_t myid = this->id;
 
-    for (auto j = archivers.begin(); j != archivers.end(); j++)
+    for (auto j = sources.begin(); j != sources.end(); j++)
     {
-        cache.requestBrackets(*j, byarchiver[*j],
+        cache.requestBrackets(*j, bysource[*j],
                 [myid, this, bounds](int64_t lowerbound, int64_t upperbound)
         {
             if (MrPlotter::instances[myid] != this)
@@ -233,6 +223,7 @@ void MrPlotter::autozoom(QVariantList streams)
                 }
                 return;
             }
+
             bounds->lowerbound = qMin(bounds->lowerbound, lowerbound);
             bounds->upperbound = qMax(bounds->upperbound, upperbound);
             if (--bounds->reqsleft == 0)
@@ -344,64 +335,64 @@ bool MrPlotter::getTimeTickPromotion()
     return this->timeaxis.getPromoteTicks();
 }
 
-bool MrPlotter::hardcodeLocalData(QUuid uuid, QVariantList data)
-{
-    QVector<struct rawpt> points(data.length());
-    QVariantList::iterator i;
-    int index;
-    for (i = data.begin(), index = 0; i != data.end(); i++, index++)
-    {
-        QVariant& vpt = *i;
-        QList<QVariant> vlpt = vpt.toList();
-        struct rawpt& rpt = points[index];
-        bool ok;
-        double millis;
-        double nanos;
+//bool MrPlotter::hardcodeLocalData(QUuid uuid, QVariantList data)
+//{
+//    QVector<struct rawpt> points(data.length());
+//    QVariantList::iterator i;
+//    int index;
+//    for (i = data.begin(), index = 0; i != data.end(); i++, index++)
+//    {
+//        QVariant& vpt = *i;
+//        QList<QVariant> vlpt = vpt.toList();
+//        struct rawpt& rpt = points[index];
+//        bool ok;
+//        double millis;
+//        double nanos;
 
-        if (vlpt.size() != 3)
-        {
-            return false;
-        }
+//        if (vlpt.size() != 3)
+//        {
+//            return false;
+//        }
 
-        millis = vlpt.at(0).toDouble(&ok);
-        if (!ok)
-        {
-            return false;
-        }
+//        millis = vlpt.at(0).toDouble(&ok);
+//        if (!ok)
+//        {
+//            return false;
+//        }
 
-        nanos = vlpt.at(1).toDouble(&ok);
-        if (!ok)
-        {
-            return false;
-        }
+//        nanos = vlpt.at(1).toDouble(&ok);
+//        if (!ok)
+//        {
+//            return false;
+//        }
 
-        rpt.value = vlpt.at(2).toDouble(&ok);
-        if (!ok)
-        {
-            return false;
-        }
+//        rpt.value = vlpt.at(2).toDouble(&ok);
+//        if (!ok)
+//        {
+//            return false;
+//        }
 
-        rpt.time = joinTime((int64_t) millis, (int64_t) nanos);
-    }
+//        rpt.time = joinTime((int64_t) millis, (int64_t) nanos);
+//    }
 
-    /* We just changed the data. */
-    this->cache.dropStream(StreamKey(uuid, (uint32_t) -1));
+//    /* We just changed the data. */
+//    this->cache.dropStream(StreamKey(uuid, nullptr));
 
-    this->cache.requester->hardcodeLocalData(uuid, points);
+//    this->cache.requester->hardcodeLocalData(uuid, points);
 
-    this->updateDataAsyncThrottled();
+//    this->updateDataAsyncThrottled();
 
-    return true;
-}
+//    return true;
+//}
 
-bool MrPlotter::dropHardcodedLocalData(QUuid uuid)
-{
-    /* We just changed the data. */
-    this->cache.dropStream(StreamKey(uuid, (uint32_t) -1));
+//bool MrPlotter::dropHardcodedLocalData(QUuid uuid)
+//{
+//    /* We just changed the data. */
+//    this->cache.dropStream(StreamKey(uuid, nullptr));
 
-    bool rv = this->cache.requester->dropHardcodedLocalData(uuid);
+//    bool rv = this->cache.requester->dropHardcodedLocalData(uuid);
 
-    this->updateDataAsyncThrottled();
+//    this->updateDataAsyncThrottled();
 
-    return rv;
-}
+//    return rv;
+//}

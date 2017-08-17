@@ -33,6 +33,20 @@ YAxis::YAxis(float domainLow, float domainHigh, QObject* parent):
     this->minticks = DEFAULT_MINTICKS;
 }
 
+QString YAxis::getName()
+{
+    return this->name;
+}
+
+void YAxis::setName(QString newName)
+{
+    this->name = newName;
+    for (auto i = this->axisareas.begin(); i != this->axisareas.end(); i++)
+    {
+        (*i)->update();
+    }
+}
+
 bool YAxis::addStream(Stream* s)
 {
     if (s->axis == this)
@@ -100,8 +114,35 @@ bool YAxis::setDomain(float low, float high)
         return false;
     }
 
-    this->setProperty("domainLo", low);
-    this->setProperty("domainHi", high);
+    if (this->domainLo == low && this->domainHi == high) {
+        return true;
+    }
+
+    // I used to have this code so that axes could be animated, but
+    // it caused stack overflow problems once I added the notify signal
+    /*this->setProperty("domainLo", low);
+    this->setProperty("domainHi", high);*/
+
+    this->domainLo = low;
+    this->domainHi = high;
+
+    for (auto j = this->axisareas.begin(); j != this->axisareas.end(); j++)
+    {
+        (*j)->update();
+        if ((*j)->plotarea != nullptr) {
+            (*j)->plotarea->update();
+        }
+    }
+    for (auto i = this->streams.begin(); i != this->streams.end(); i++)
+    {
+        Stream* s = *i;
+        if (s->plotarea != nullptr)
+        {
+            s->plotarea->update();
+        }
+    }
+
+    emit this->domainChanged();
 
     return true;
 }
@@ -133,21 +174,9 @@ qreal YAxis::getDomainLo() const
     return (qreal) this->domainLo;
 }
 
-void YAxis::setDomainLo(qreal domainLo)
+bool YAxis::setDomainLo(qreal domainLo)
 {
-    this->domainLo = domainLo;
-    for (auto j = this->axisareas.begin(); j != this->axisareas.end(); j++)
-    {
-        (*j)->update();
-    }
-    for (auto i = this->streams.begin(); i != this->streams.end(); i++)
-    {
-        Stream* s = *i;
-        if (s->plotarea != nullptr)
-        {
-            s->plotarea->update();
-        }
-    }
+    return this->setDomain(domainLo, this->domainHi);
 }
 
 qreal YAxis::getDomainHi() const
@@ -155,38 +184,40 @@ qreal YAxis::getDomainHi() const
     return (qreal) this->domainHi;
 }
 
-void YAxis::setDomainHi(qreal domainHi)
+bool YAxis::setDomainHi(qreal domainHi)
 {
-    this->domainHi = domainHi;
-    for (auto j = this->axisareas.begin(); j != this->axisareas.end(); j++)
+    return this->setDomain(this->domainLo, domainHi);
+}
+
+void getTickMetadata(float domainLo, float domainHi, int minticks,
+                     int* maxticks, int* precision, double* delta)
+{
+    *maxticks = minticks << 1;
+    *precision = (int) (0.5 + log10(domainHi - domainLo) - log10(*maxticks));
+    *delta = pow(10, *precision);
+
+    double numTicks = (domainHi - domainLo) / *delta;
+    while (numTicks > *maxticks)
     {
-        YAxisArea* axisarea = *j;
-        axisarea->update();
-        if (axisarea->plotarea != nullptr)
-        {
-            axisarea->plotarea->update();
-        }
+        *delta *= 2;
+        numTicks /= 2;
+    }
+    while (numTicks < minticks)
+    {
+        *delta /= 2;
+        numTicks *= 2;
+        *precision -= 1;
     }
 }
 
 QVector<struct tick> YAxis::getTicks()
 {
-    int maxticks = this->minticks << 1;
-    int precision = (int) (0.5 + log10(this->domainHi - this->domainLo) - log10(maxticks));
-    double delta = pow(10, precision);
+    int maxticks;
+    int precision;
+    double delta;
 
-    double numTicks = (this->domainHi - this->domainLo) / delta;
-    while (numTicks > maxticks)
-    {
-        delta *= 2;
-        numTicks /= 2;
-    }
-    while (numTicks < minticks)
-    {
-        delta /= 2;
-        numTicks *= 2;
-        precision -= 1;
-    }
+    getTickMetadata(this->domainLo, this->domainHi, this->minticks,
+                    &maxticks, &precision, &delta);
 
     double low = ceil(this->domainLo / delta) * delta;
 
@@ -233,6 +264,18 @@ QVector<struct tick> YAxis::getTicks()
     return ticks;
 }
 
+void niceScale(float* domainLo, float* domainHi, int minticks)
+{
+    int maxticks;
+    int precision;
+    double delta;
+    getTickMetadata(*domainLo, *domainHi, minticks,
+                    &maxticks, &precision, &delta);
+
+    *domainLo = floor((*domainLo) / delta) * delta;
+    *domainHi = ceil((*domainHi) / delta) * delta;
+}
+
 void YAxis::autoscale(int64_t start, int64_t end)
 {
     float minimum = INFINITY;
@@ -269,6 +312,7 @@ void YAxis::autoscale(int64_t start, int64_t end)
             maximum += 1.0f;
         }
 
+        niceScale(&minimum, &maximum, this->minticks);
         this->setDomain(minimum, maximum);
     }
 }
@@ -373,7 +417,7 @@ QString getTimeTickLabel(int64_t timestamp, QDateTime& datetime, Timescale granu
 
 QString TimeAxis::labelformat("Time [%1]");
 
-TimeAxis::TimeAxis(): tz(QTimeZone::utc())
+TimeAxis::TimeAxis(): tz(QTimeZone::systemTimeZone())
 {
     this->domainLo = 1451606400000000000LL;
     this->domainHi = 1483228799999999999LL;

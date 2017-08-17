@@ -1,8 +1,6 @@
 QT += qml quick
 CONFIG += c++11
 
-QMAKE_CXXFLAGS += -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS
-
 INCLUDEPATH += $$PWD
 
 SOURCES += \
@@ -15,7 +13,9 @@ SOURCES += \
     $$PWD/axis.cpp \
     $$PWD/axisarea.cpp \
     $$PWD/libmrplotter.cpp \
-    $$PWD/utils.cpp
+    $$PWD/utils.cpp \
+    $$PWD/datasource.cpp \
+    $$PWD/bwdatasource.cpp
 
 HEADERS += \
     $$PWD/plotarea.h \
@@ -28,4 +28,6 @@ HEADERS += \
     $$PWD/axis.h \
     $$PWD/axisarea.h \
     $$PWD/libmrplotter.h \
-    $$PWD/utils.h
+    $$PWD/utils.h \
+    $$PWD/datasource.h \
+    $$PWD/bwdatasource.h

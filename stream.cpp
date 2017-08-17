@@ -1,5 +1,6 @@
 #include "axis.h"
 #include "axisarea.h"
+#include "datasource.h"
 #include "plotarea.h"
 #include "stream.h"
 #include "utils.h"
@@ -10,41 +11,34 @@
 #include <QString>
 #include <QUuid>
 
-Stream::Stream(QObject* parent): QObject(parent), uuid(), archiver(0)
+Stream::Stream(QObject* parent): QObject(parent), uuid(), source(nullptr)
 {
     this->init();
 }
 
-Stream::Stream(const QString& u, uint32_t archiverID, QObject* parent):
-    QObject(parent), uuid(u), archiver(archiverID)
+Stream::Stream(const QString& u, DataSource* dataSource, QObject* parent):
+    QObject(parent), uuid(u), source(dataSource)
 {
     this->init();
+    this->sourceset = true;
 }
 
-Stream::Stream(const QUuid& u, uint32_t archiverID, QObject* parent):
-    QObject(parent), uuid(u), archiver(archiverID)
+Stream::Stream(const QUuid& u, DataSource* dataSource, QObject* parent):
+    QObject(parent), uuid(u), source(dataSource)
 {
     this->init();
-}
-
-Stream::~Stream()
-{
-    if (this->archiverset)
-    {
-        MrPlotter::cache.requester->unsubscribeBWArchiver(this->archiver);
-    }
+    this->sourceset = true;
 }
 
 void Stream::init()
 {
     this->timeOffset = 0;
-    this->archiver = 0;
 
     this->color.red = 0.0f;
     this->color.green = 0.0f;
     this->color.blue = 1.0f;
 
-    this->archiverset = false;
+    this->sourceset = false;
     this->dataDensity = false;
     this->selected = false;
     this->alwaysConnect = false;
@@ -70,6 +64,32 @@ bool Stream::toDrawable(struct drawable& d) const
     return true;
 }
 
+bool Stream::getSelected() const {
+    return this->selected;
+}
+
+void Stream::setSelected(bool isSelected) {
+    bool changed = (this->selected != isSelected);
+    this->selected = isSelected;
+    if (changed && this->plotarea != nullptr) {
+        this->plotarea->update();
+        emit this->selectedChanged();
+    }
+}
+
+bool Stream::getAlwaysConnect() const {
+    return this->alwaysConnect;
+}
+
+void Stream::setAlwaysConnect(bool shouldAlwaysConnect) {
+    bool changed = (this->alwaysConnect != shouldAlwaysConnect);
+    this->alwaysConnect = shouldAlwaysConnect;
+    if (changed && this->plotarea != nullptr) {
+        this->plotarea->update();
+        emit this->alwaysConnectChanged();
+    }
+}
+
 bool Stream::setColor(float red, float green, float blue)
 {
     if (red < 0.0f || red > 1.0f || green < 0.0f || green > 1.0f ||
@@ -92,6 +112,8 @@ bool Stream::setColor(float red, float green, float blue)
             }
         }
     }
+
+    emit this->colorChanged();
     return true;
 }
 
@@ -103,12 +125,13 @@ bool Stream::setColor(QColor color)
 
 QColor Stream::getColor()
 {
-    return QColor(qRound(this->color.red * 255), qRound(this->color.green * 255), qRound(this->color.blue * 255), 0.0f);
+    return QColor(qRound(this->color.red * 255), qRound(this->color.green * 255), qRound(this->color.blue * 255));
 }
 
 void Stream::setTimeOffset(int64_t offset)
 {
     this->timeOffset = offset;
+    emit this->timeOffsetChanged();
 }
 
 void Stream::setTimeOffset(QList<qreal> offset)
@@ -128,33 +151,22 @@ QList<qreal> Stream::getTimeOffset()
     return offset;
 }
 
-void Stream::setArchiver(QString uri)
+void Stream::setDataSource(DataSource* source)
 {
-    if (this->archiverset)
-    {
-        MrPlotter::cache.requester->unsubscribeBWArchiver(this->archiver);
-    }
-    this->archiverset = true;
-    this->archiver = MrPlotter::cache.requester->subscribeBWArchiver(uri);
-    if (this->archiver == 0)
-    {
-        qDebug() << this->uuid.toString();
-    }
+    this->sourceset = true;
+    this->source = source;
+    emit this->dataSourceChanged();
 }
 
-QString Stream::getArchiver()
+DataSource* Stream::getDataSource()
 {
-    return MrPlotter::cache.requester->getURI(this->archiver);
-}
-
-uint32_t Stream::getArchiverID()
-{
-    return this->archiver;
+    return this->source;
 }
 
 void Stream::setUUID(QString uuidstr)
 {
     this->uuid = QUuid(uuidstr);
+    emit this->dataSourceChanged();
 }
 
 QString Stream::getUUID()

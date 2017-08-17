@@ -2,12 +2,15 @@
 
 #include <axis.h>
 #include <axisarea.h>
+#include <btrdbdatasource.h>
+#include <bwdatasource.h>
 #include <mrplotter.h>
 #include <plotarea.h>
 
 void initLibMrPlotter()
 {
-    Requester::init();
+    qmlRegisterInterface<DataSource>("DataSource");
+    qmlRegisterType<BWDataSource>("MrPlotter", 0, 1, "BWDataSource");
 
     qmlRegisterType<YAxis>("MrPlotter", 0, 1, "YAxis");
     qmlRegisterType<Stream>("MrPlotter", 0, 1, "Stream");

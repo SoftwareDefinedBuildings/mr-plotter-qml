@@ -18,7 +18,7 @@ class YAxisArea : public QQuickPaintedItem
 
 public:
     YAxisArea(QQuickItem* parent = nullptr);
-    void paint(QPainter* painter);
+    void paint(QPainter* painter) override;
     Q_INVOKABLE bool addYAxis(YAxis* newyaxis);
 
     /* Each QVariant has an underlying type of YAxis*. I need to do this
@@ -45,7 +45,7 @@ class TimeAxisArea : public QQuickPaintedItem
 
 public:
     TimeAxisArea();
-    void paint(QPainter* painter);
+    void paint(QPainter* painter) override;
     void setTimeAxis(TimeAxis& newtimeaxis);
 
     double getRangeStart();

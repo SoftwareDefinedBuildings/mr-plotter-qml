@@ -16,7 +16,7 @@
 /* The code to load a shader is taken from
  * https://www.khronos.org/assets/uploads/books/openglr_es_20_programming_guide_sample.pdf
  */
-GLuint loadShader(QOpenGLFunctions* funcs, QOpenGLShader::ShaderType type, const char* shaderSrc)
+QOpenGLShader* loadShader(QOpenGLShader::ShaderType type, const char* shaderSrc)
 {
     QOpenGLShader* shader = new QOpenGLShader(type);
     bool compiled = shader->compileSourceCode(shaderSrc);
@@ -28,12 +28,10 @@ GLuint loadShader(QOpenGLFunctions* funcs, QOpenGLShader::ShaderType type, const
 
         delete shader;
 
-        return 0;
+        return nullptr;
     }
 
-    /* SHADER SHOULD NOT BE DELETED */
-
-    return shader->shaderId();
+    return shader;
 
 #if 0
     // Create the shader object
@@ -67,11 +65,8 @@ GLuint loadShader(QOpenGLFunctions* funcs, QOpenGLShader::ShaderType type, const
 #endif
 }
 
-GLuint compileAndLinkProgram(QOpenGLFunctions* funcs, char* vShader, char* fShader)
+GLuint compileAndLinkProgram(QOpenGLFunctions* funcs, QOpenGLShader* vertexShader, QOpenGLShader* fragmentShader, bool dataDensity)
 {
-    GLuint vertexShader = loadShader(funcs, QOpenGLShader::Vertex, vShader);
-    GLuint fragmentShader = loadShader(funcs, QOpenGLShader::Fragment, fShader);
-
     GLuint program = funcs->glCreateProgram();
 
     if (program == 0)
@@ -80,10 +75,10 @@ GLuint compileAndLinkProgram(QOpenGLFunctions* funcs, char* vShader, char* fShad
         return 0;
     }
 
-    funcs->glAttachShader(program, vertexShader);
-    funcs->glAttachShader(program, fragmentShader);
+    funcs->glAttachShader(program, vertexShader->shaderId());
+    funcs->glAttachShader(program, fragmentShader->shaderId());
 
-    if (vShader == vShaderStr)
+    if (!dataDensity)
     {
         funcs->glBindAttribLocation(program, TIME_ATTR_LOC, "time");
         funcs->glBindAttribLocation(program, VALUE_ATTR_LOC, "value");
@@ -118,6 +113,12 @@ GLuint compileAndLinkProgram(QOpenGLFunctions* funcs, char* vShader, char* fShad
 }
 
 bool PlotRenderer::compiled_shaders = false;
+
+QOpenGLShader* PlotRenderer::mainVertexShader;
+QOpenGLShader* PlotRenderer::ddVertexShader;
+QOpenGLShader* PlotRenderer::mainFragmentShader;
+QOpenGLShader* PlotRenderer::ddFragmentShader;
+
 GLuint PlotRenderer::program;
 GLuint PlotRenderer::ddprogram;
 
@@ -151,8 +152,15 @@ PlotRenderer::PlotRenderer(const PlotArea* plotarea) : pa(plotarea)
 
     if (!this->compiled_shaders)
     {
-        this->program = compileAndLinkProgram(this, vShaderStr, fShaderStr);
-        this->ddprogram = compileAndLinkProgram(this, ddvShaderStr, ddfShaderStr);
+        this->mainVertexShader = loadShader(QOpenGLShader::Vertex, vShaderStr);
+        this->mainFragmentShader = loadShader(QOpenGLShader::Fragment, fShaderStr);
+        Q_ASSERT(this->mainVertexShader != nullptr && this->mainFragmentShader != nullptr);
+        this->program = compileAndLinkProgram(this, this->mainVertexShader, this->mainFragmentShader, false);
+
+        this->ddVertexShader = loadShader(QOpenGLShader::Vertex, ddvShaderStr);
+        this->ddFragmentShader = loadShader(QOpenGLShader::Fragment, ddfShaderStr);
+        Q_ASSERT(this->ddVertexShader != nullptr && this->ddFragmentShader != nullptr);
+        this->ddprogram = compileAndLinkProgram(this, this->ddVertexShader, this->ddFragmentShader, true);
 
         this->axisMatLoc = this->glGetUniformLocation(this->program, "axisTransform");
         this->axisVecLoc = this->glGetUniformLocation(this->program, "axisBase");

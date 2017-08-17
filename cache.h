@@ -9,6 +9,8 @@
 #include <QHash>
 #include <QLinkedList>
 #include <QMap>
+#include <QSet>
+#include <QSharedPointer>
 #include <QUuid>
 #include <QVector>
 
@@ -27,7 +29,7 @@
 class StreamKey
 {
 public:
-    StreamKey(const QUuid& stream_uuid, uint32_t stream_archiver);
+    StreamKey(const QUuid& stream_uuid, DataSource* stream_source);
     StreamKey(const StreamKey& other);
     StreamKey();
 
@@ -36,7 +38,7 @@ public:
     friend uint qHash(const StreamKey& sk, uint seed);
 
     const QUuid uuid;
-    const uint32_t archiver;
+    DataSource* source;
 };
 
 enum class CostType
@@ -61,7 +63,7 @@ public:
 
     QSharedPointer<CacheEntry> cache_entry;
     StreamKey stream_entry;
-    enum CostType type;
+    CostType type;
 };
 
 class Cache;
@@ -219,11 +221,11 @@ public:
      * cache entries are very tiny and many VBOs need to be drawn. The default
      * hint of 0 means to never widen the requests.
      */
-    void requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int64_t end,
+    void requestData(DataSource* source, const QUuid& uuid, int64_t start, int64_t end,
                      uint8_t pwe, std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
                      uint64_t request_hint = 0, bool includemargins = false);
 
-    void requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
+    void requestBrackets(DataSource* source, const QList<QUuid> uuids,
                          std::function<void(int64_t, int64_t)> callback);
 
     void dropRanges(const StreamKey& sk, const struct timerange* ranges, int len);

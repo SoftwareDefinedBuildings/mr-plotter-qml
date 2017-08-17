@@ -9,24 +9,25 @@
 #include <QHash>
 #include <QList>
 #include <QSharedPointer>
+#include <QTimer>
 
-StreamKey::StreamKey(const QUuid& stream_uuid, uint32_t stream_archiver)
-    : uuid(stream_uuid), archiver(stream_archiver) {}
+StreamKey::StreamKey(const QUuid& stream_uuid, DataSource* stream_source)
+    : uuid(stream_uuid), source(stream_source) {}
 
 StreamKey::StreamKey(const StreamKey& other)
-    : StreamKey(other.uuid, other.archiver) {}
+    : StreamKey(other.uuid, other.source) {}
 
 StreamKey::StreamKey()
-    : uuid(), archiver(0) {}
+    : uuid(), source(nullptr) {}
 
 bool StreamKey::operator==(const StreamKey& other) const
 {
-    return this->uuid == other.uuid && this->archiver == other.archiver;
+    return this->uuid == other.uuid && this->source == other.source;
 }
 
 uint qHash(const StreamKey& sk, uint seed)
 {
-    return qHash(sk.uuid) ^ qHash(sk.archiver) ^ seed;
+    return qHash(sk.uuid) ^ qHash(reinterpret_cast<uintptr_t>(sk.source)) ^ seed;
 }
 
 CostEntry::CostEntry(QSharedPointer<CacheEntry>& cache_ent)
@@ -197,16 +198,16 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
 
     this->cost = ((uint64_t) len) * CACHED_POINT_SIZE;
 
-    int64_t pw = ((int64_t) 1) << this->pwe;
+    int64_t pw = Q_INT64_C(1) << this->pwe;
     int64_t pwmask = ~(pw - 1);
 
     int64_t halfpw = pw >> 1;
 
     /* True iff first point in spoints belongs to the cache entry previous to this one. */
-    bool prevfirst = (len > 0 && spoints[0].time == ((start - halfpw - 1) & pwmask));
+    bool prevfirst = (len > 0 && spoints[0].time == ((this->start - halfpw - 1) & pwmask));
 
     /* True iff the last point in spoints belongs to the cache entry after this one. */
-    bool nextlast = (len > 0 && spoints[len - 1].time == (((end - halfpw + pw) & pwmask)));
+    bool nextlast = (len > 0 && spoints[len - 1].time == (((this->end - halfpw + pw) & pwmask)));
 
     /* These "connect" variables refer to whether this cache entry
      * should take responsibility for connecting to the previous
@@ -327,7 +328,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
      * two additional point to the right. We take the smaller of the two to use the
      * tighter upper bound. If we make this too high it's OK; we just allocate more
      * memory than we really need. If we make it too low, then we'll write past the end
-     * of the buffer.
+     * of the buffer, which is bad.
      */
     this->cachedlen = (int) qMin((((uint64_t) len) << 1) + 2, (((uint64_t) (end - start)) >> this->pwe) + 4);
     this->cached = new struct cachedpt[cachedlen + this->connectsToBefore + ddstartatzero + this->connectsToAfter + (2 * ddendatzero)];
@@ -719,13 +720,13 @@ Cache::~Cache()
  * associated to each chunk of data we get back, but it provides
  * for a cleaner API overall.
  */
-void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int64_t end,
+void Cache::requestData(DataSource* source, const QUuid& uuid, int64_t start, int64_t end,
                         uint8_t pwe, std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
                         uint64_t request_hint, bool includemargins)
 {
     Q_ASSERT(pwe < PWE_MAX);
     QList<QSharedPointer<CacheEntry>>* result = new QList<QSharedPointer<CacheEntry>>;
-    StreamKey sk(uuid, archiver);
+    StreamKey sk(uuid, source);
 
     bool initscache = !this->cache.contains(sk);
 
@@ -874,7 +875,7 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
             i = entries->insert(i, gapfill->end, gapfill);
 
             /* Make the request. */
-            this->requester->makeDataRequest(uuid, gapfill->start, gapfill->end, pwe, archiver,
+            this->requester->makeDataRequest(uuid, gapfill->start, gapfill->end, pwe, source,
                                              [this, i, gapfill, prev, entry, callback, result](struct statpt* points, int len, uint64_t gen)
             {
                 /* ALWAYS fill it with data, because this entry may be needed to draw one last frame. */
@@ -894,7 +895,13 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
                     this->use(gapfill, true);
 
                     this->addCost(gapfill->streamKey, ((uint64_t) len) * CACHED_POINT_SIZE);
-                    this->updateGeneration(gapfill->streamKey, gen);
+                    if (len != 0) {
+                        /* If we got back zero points, BTrDB gave us no frames,
+                         * and therefore no version number. Don't trust the
+                         * version number in the callback.
+                         */
+                        this->updateGeneration(gapfill->streamKey, gen);
+                    }
                 }
 
                 QHash<QSharedPointer<CacheEntry>, uint64_t>::const_iterator j;
@@ -980,7 +987,7 @@ void Cache::requestData(uint32_t archiver, const QUuid& uuid, int64_t start, int
     this->beginChangedRangesUpdateLoopIfNotBegun();
 }
 
-void Cache::requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
+void Cache::requestBrackets(DataSource* source, const QList<QUuid> uuids,
                             std::function<void (int64_t, int64_t)> callback)
 {
     /* First, check if the brackets are in the cache. */
@@ -990,7 +997,7 @@ void Cache::requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
     for (auto j = uuids.begin(); j != uuids.end(); j++)
     {
         const QUuid& u = *j;
-        StreamKey sk(u, archiver);
+        StreamKey sk(u, source);
         if (this->cache.contains(sk) && CACHED_BOUNDS(this->cache[sk]))
         {
             initlowerbound = qMin(initlowerbound, this->cache[sk].lowerbound);
@@ -1007,14 +1014,14 @@ void Cache::requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
         callback(initlowerbound, initupperbound);
         return;
     }
-    this->requester->makeBracketRequest(torequest, archiver, [this, archiver, initlowerbound, initupperbound, callback](QHash<QUuid, struct brackets> brkts)
+    this->requester->makeBracketRequest(torequest, source, [this, source, initlowerbound, initupperbound, callback](QHash<QUuid, struct brackets> brkts)
     {
         int64_t lowerbound = initlowerbound;
         int64_t upperbound = initupperbound;
         for (auto i = brkts.begin(); i != brkts.end(); i++)
         {
             const QUuid& uuid = i.key();
-            StreamKey sk(uuid, archiver);
+            StreamKey sk(uuid, source);
             bool mustinit = !this->cache.contains(sk);
             struct streamcache& scache = this->cache[sk];
             if (mustinit)
@@ -1025,7 +1032,12 @@ void Cache::requestBrackets(uint32_t archiver, const QList<QUuid> uuids,
             }
             scache.lowerbound = i->lowerbound;
             scache.upperbound = i->upperbound;
-            Q_ASSERT(CACHED_BOUNDS(scache));
+
+            /*
+             * If there's no data for this stream, then the assertion
+             * may fail, but if there's data, it should always pass.
+             */
+            //Q_ASSERT(CACHED_BOUNDS(scache));
 
             lowerbound = qMin(lowerbound, i->lowerbound);
             upperbound = qMax(upperbound, i->upperbound);
@@ -1316,7 +1328,7 @@ void Cache::beginChangedRangesUpdate()
 
         this->outstandingChangedRangeQueries.insert(sk);
 
-        this->requester->makeChangedRangesQuery(sk.uuid, scache.oldestgen, 0, sk.archiver,
+        this->requester->makeChangedRangesQuery(sk.uuid, scache.oldestgen, 0, sk.source,
                                                 [this, sk](struct timerange* changed, int len, uint64_t gen)
         {
             this->performChangedRangesUpdate(sk, changed, len, gen);
@@ -1335,15 +1347,18 @@ inline void Cache::performChangedRangesUpdate(const StreamKey& sk, struct timera
     bool removed = this->outstandingChangedRangeQueries.remove(sk);
     Q_ASSERT(removed); // Until I'm sure I'm getting this right
 
-    if (removed && this->cache.contains(sk))
+    if (removed && this->cache.contains(sk) && len != 0)
     {
         struct streamcache& scache = this->cache[sk];
         scache.oldestgen = generation;
 
         if (len != 0 && CACHED_BOUNDS(scache))
         {
-            scache.lowerbound = qMin(scache.lowerbound, changed[0].start);
-            scache.upperbound = qMax(scache.upperbound, changed[len - 1].end);
+            if (scache.lowerbound >= changed[0].start
+                    || scache.upperbound <= changed[len - 1].end)
+            {
+                CLEAR_CACHED_BOUNDS(scache);
+            }
         }
 
         this->dropRanges(sk, changed, len);

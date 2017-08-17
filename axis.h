@@ -32,17 +32,20 @@ struct tick
 class YAxis : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(bool dynamicAutoscale MEMBER dynamicAutoscale)
-    Q_PROPERTY(QString name MEMBER name)
+    Q_PROPERTY(bool dynamicAutoscale MEMBER dynamicAutoscale NOTIFY dynamicAutoscaleChanged)
+    Q_PROPERTY(QString name READ getName WRITE setName NOTIFY nameChanged)
     Q_PROPERTY(int minTicks MEMBER minticks)
-    Q_PROPERTY(QList<qreal> domain READ getDomainArr WRITE setDomainArr)
+    Q_PROPERTY(QList<qreal> domain READ getDomainArr WRITE setDomainArr NOTIFY domainChanged)
     Q_PROPERTY(QList<QVariant> streamList READ getStreamList WRITE setStreamList)
-    Q_PROPERTY(qreal domainLo READ getDomainLo WRITE setDomainLo)
-    Q_PROPERTY(qreal domainHi READ getDomainHi WRITE setDomainHi)
+    Q_PROPERTY(qreal domainLo READ getDomainLo WRITE setDomainLo NOTIFY domainChanged)
+    Q_PROPERTY(qreal domainHi READ getDomainHi WRITE setDomainHi NOTIFY domainChanged)
 
 public:
     YAxis(QObject* parent = nullptr);
     YAxis(float domainLow, float domainHigh, QObject* parent = nullptr);
+
+    QString getName();
+    void setName(QString newName);
 
     /* Returns true if the stream was already added to an axis, and was
      * removed from that axis to satisfy this request.
@@ -66,7 +69,7 @@ public:
      */
     Q_INVOKABLE bool setDomain(float low, float high);
 
-    /* Sets the provided references LOW and HIGH to the domain of this
+    /* Sets the provided pointers LOW and HIGH to the domain of this
      * axis.
      */
     void getDomain(float* low, float* high) const;
@@ -75,10 +78,10 @@ public:
     Q_INVOKABLE QList<qreal> getDomainArr() const;
 
     Q_INVOKABLE qreal getDomainLo() const;
-    Q_INVOKABLE void setDomainLo(qreal domainLo);
+    Q_INVOKABLE bool setDomainLo(qreal domainLo);
 
     Q_INVOKABLE qreal getDomainHi() const;
-    Q_INVOKABLE void setDomainHi(qreal domainHi);
+    Q_INVOKABLE bool setDomainHi(qreal domainHi);
 
     QVector<struct tick> getTicks();
 
@@ -111,6 +114,11 @@ public:
     QList<YAxisArea*> axisareas;
 
     bool dynamicAutoscale;
+
+signals:
+    void nameChanged();
+    void domainChanged();
+    void dynamicAutoscaleChanged();
 
 private:
     static uint64_t nextID;
