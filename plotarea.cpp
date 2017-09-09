@@ -191,6 +191,14 @@ setdomain:
     this->plot->timeaxis.setDomain(timeaxis_start, timeaxis_end);
 
     this->plot->updateView();
+
+    /*
+     * This is a point of uncertainty. Do we want to fetch new data only when the user
+     * releases his or her mouse, or do we fetch new data as they scroll as well?
+     * Currently we fetch new data as the user scrolls; comment out the next line
+     * to change that.
+     */
+    this->plot->updateDataAsyncThrottled();
 }
 
 void PlotArea::mousePressEvent(QMouseEvent* event)

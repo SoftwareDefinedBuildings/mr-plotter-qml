@@ -136,7 +136,7 @@ void pullToZero(struct cachedpt* pt, int64_t time, int64_t epoch, float prevcnt,
     uint64_t dT = (uint64_t) (time - prev->time);
     double imin = prev->min + ((next->min - prev->min) / deltaT) * dT;
     double imean = prev->mean + ((next->mean - prev->mean) / deltaT) * dT;
-    double imax = prev->max + ((next->max - prev->mean) / deltaT) * dT;
+    double imax = prev->max + ((next->max - prev->max) / deltaT) * dT;
 
     pt->reltime = reltime;
     pt->min = (float) imin;
@@ -325,7 +325,7 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
      * in the spoints array, plus one before and two after. We can also say that, in the
      * worst case, we will have one point for every possible statistical point,
      * (i.e. ((end - start) >> pwe) + 1), plus one additional point to the left and
-     * two additional point to the right. We take the smaller of the two to use the
+     * two additional points to the right. We take the smaller of the two to use the
      * tighter upper bound. If we make this too high it's OK; we just allocate more
      * memory than we really need. If we make it too low, then we'll write past the end
      * of the buffer, which is bad.

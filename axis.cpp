@@ -282,6 +282,8 @@ void YAxis::autoscale(int64_t start, int64_t end)
     float maximum = -INFINITY;
     float extralen;
 
+    bool alldatadensity = true;
+
     for (auto i = this->streams.begin(); i != this->streams.end(); i++)
     {
         Stream* s = *i;
@@ -290,12 +292,17 @@ void YAxis::autoscale(int64_t start, int64_t end)
         {
             QSharedPointer<CacheEntry> entry = *j;
             entry->getRange(start, end, s->dataDensity, minimum, maximum);
-            if (s->dataDensity && minimum > 0.0f)
+            if (s->dataDensity)
             {
-                /* If we're plotting a data density stream, then we need to
-                 * make sure that the range includes 0.
+                /*
+                 * If we're plotting a data density stream, then we need to
+                 * make sure that the minimum of the range contains zero.
                  */
                 minimum = 0.0f;
+            }
+            else
+            {
+                alldatadensity = false;
             }
         }
     }
@@ -313,6 +320,15 @@ void YAxis::autoscale(int64_t start, int64_t end)
         }
 
         niceScale(&minimum, &maximum, this->minticks);
+        if (alldatadensity)
+        {
+            /*
+             * We set the minimum to a value slightly below zero, so that the
+             * data density line doesn't get partially cut off if it goes to
+             * zero.
+             */
+            minimum = -maximum / 100.0f;
+        }
         this->setDomain(minimum, maximum);
     }
 }

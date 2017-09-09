@@ -20,8 +20,8 @@
 #define PWE_MAX 63
 
 /* The maximum number of bytes that can be cached. */
-/* Currently set to 400 MB. */
-#define CACHE_THRESHOLD 400000
+/* Currently set to 1 GiB. */
+#define CACHE_THRESHOLD 1073741824
 
 /* Time between changed range queries. */
 #define CHANGED_RANGES_REQUEST_INTERVAL 10000
