@@ -17,7 +17,7 @@
 #define PI 3.14159265358979323846
 #define USE_SIMULATOR 0
 
-Requester::Requester()
+Requester::Requester() : data_performance("requests", 1024)
 {
     qsrand((uint) QTime::currentTime().msec());
 }
@@ -96,7 +96,15 @@ void Requester::makeDataRequest(const QUuid &uuid, int64_t start, int64_t end, u
      */
 
     /* Now, we're ready to actually send out the request. */
-    source->alignedWindows(uuid, truestart, trueend, pwe, callback);
+    qint64 request_time = QDateTime::currentMSecsSinceEpoch();
+    quint64 expected_points = (trueend - truestart) >> pwe;
+    source->alignedWindows(uuid, truestart, trueend, pwe, [=](struct statpt* points, int count, uint64_t version)
+    {
+        qint64 response_time = QDateTime::currentMSecsSinceEpoch();
+        this->data_performance.log(request_time, response_time, expected_points);
+
+        callback(points, count, version);
+    });
 }
 
 void Requester::makeBracketRequest(const QList<QUuid> uuids, DataSource* source, BracketCallback callback)

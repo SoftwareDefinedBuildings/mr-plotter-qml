@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <functional>
 
+#include "utils.h"
+
 #include <QUuid>
 #include <QVariantMap>
 
@@ -51,6 +53,9 @@ public:
                          DataSource* source, ReqCallback callback);
     void makeBracketRequest(const QList<QUuid> uuids, DataSource* source, BracketCallback callback);
     void makeChangedRangesQuery(const QUuid& uuid, uint64_t fromGen, uint64_t toGen, DataSource* source, ChangedRangesCallback callback);
+
+private:
+    LatencyBuffer data_performance;
 };
 
 #endif // REQUESTER_H

@@ -18,6 +18,7 @@
 #include <QTouchEvent>
 #include <QWheelEvent>
 
+#define FANCY_PREFETCH 0
 int64_t safeSub(int64_t x, int64_t y)
 {
     if (y > 0)
@@ -55,7 +56,10 @@ inline uint8_t getPWExponent(uint64_t pointwidth)
     return qMin(pwe, (uint8_t) (PWE_MAX - 1));
 }
 
-PlotArea::PlotArea(): yaxisareas()
+PlotArea::PlotArea() : yaxisareas(), plotraw(false), noprefetch(false),
+    previous_timewidth(0), previous_timeaxis_start(INT64_MAX),
+    cache_data("cache", 2048), prefetch_data("prefetch", 4096),
+    cache_misses(0), cache_hits(0)
 {
     /* Initialize static cursors. */
     if (!PlotArea::initializedCursors)
@@ -84,6 +88,8 @@ PlotArea::PlotArea(): yaxisareas()
 PlotArea::~PlotArea()
 {
     this->instances.remove(this->id);
+    qDebug() << "Cache misses" << this->id << this->cache_misses;
+    qDebug() << "Cache hits" << this->id << this->cache_hits;
 }
 
 QQuickFramebufferObject::Renderer* PlotArea::createRenderer() const
@@ -538,7 +544,7 @@ void PlotArea::rescaleAxes(int64_t timeaxis_start, int64_t timeaxis_end)
     }
 }
 
-void PlotArea::updateDataAsync(Cache& cache)
+void PlotArea::updateDataAsync(Cache* cache)
 {
     uint64_t screenwidth = (uint64_t) (0.5 + this->width());
 
@@ -553,10 +559,24 @@ void PlotArea::updateDataAsync(Cache& cache)
     this->rescaleAxes(timeaxis_start, timeaxis_end);
 
     uint64_t id = ++this->fullUpdateID;
-    uint64_t nanosperpixel = ((uint64_t) (timeaxis_end - timeaxis_start)) / screenwidth;
-    uint8_t pwe = getPWExponent(nanosperpixel);
+    uint8_t pwe;
+    if (this->plotraw)
+    {
+        pwe = 0;
+    }
+    else
+    {
+        uint64_t nanosperpixel = ((uint64_t) (timeaxis_end - timeaxis_start)) / screenwidth;
+        pwe = getPWExponent(nanosperpixel);
+    }
 
     uint64_t timewidth = (uint64_t) (timeaxis_end - timeaxis_start);
+
+    /* Read prefetch variables, and update them for next time. */
+    uint64_t previous_timewidth = this->previous_timewidth;
+    this->previous_timewidth = timewidth;
+    int64_t previous_timeaxis_start = this->previous_timeaxis_start;
+    this->previous_timeaxis_start = timeaxis_start;
 
     uint64_t myid = this->id;
 
@@ -569,9 +589,25 @@ void PlotArea::updateDataAsync(Cache& cache)
         int64_t srch_start = safeSub(timeaxis_start, s->timeOffset);
         int64_t srch_end = safeSub(timeaxis_end, s->timeOffset);
 
-        cache.requestData(s->getDataSource(), s->uuid, srch_start, srch_end, pwe,
-                          [myid, this, s, id, timeaxis_start, timeaxis_end](QList<QSharedPointer<CacheEntry>> data)
+        qint64 request_start = QDateTime::currentMSecsSinceEpoch();
+        cache->requestData(s->getDataSource(), s->uuid, srch_start, srch_end, pwe,
+                           [myid, this, s, id, cache, timewidth, previous_timewidth,
+                           timeaxis_start, timeaxis_end, previous_timeaxis_start,
+                           pwe, srch_start, srch_end, request_start]
+                           (QList<QSharedPointer<CacheEntry>> data, bool hit)
         {
+            qint64 request_end = QDateTime::currentMSecsSinceEpoch();
+            if (hit)
+            {
+                this->cache_hits++;
+                this->cache_data.log(request_start, request_end, 1);
+            }
+            else
+            {
+                this->cache_misses++;
+                this->cache_data.log(request_start, request_end, 0);
+            }
+
             if (PlotArea::instances[myid] != this)
             {
                 /* If we reach this part of the code, it means that this
@@ -582,9 +618,161 @@ void PlotArea::updateDataAsync(Cache& cache)
             }
             if (id == this->fullUpdateID)
             {
+                /*
+                 * If another request still hasn't been made,
+                 * start prefetching.
+                 */
+
                 s->data = data;
                 this->rescaleAxes(timeaxis_start, timeaxis_end);
                 this->update();
+
+                /* Prefetch neighboring data. */
+                if (!this->noprefetch)
+                {
+                    uint64_t screen_range = (uint64_t) (srch_end - srch_start);
+                    int64_t prevscreen_start, nextscreen_end;
+                    if (screen_range > (uint64_t) (srch_start - INT64_MIN))
+                    {
+                        prevscreen_start = INT64_MIN;
+                    }
+                    else
+                    {
+                        prevscreen_start = srch_start - (int64_t) screen_range;
+                    }
+                    if (screen_range > (uint64_t) (INT64_MAX - srch_end))
+                    {
+                        nextscreen_end = INT64_MAX;
+                    }
+                    else
+                    {
+                        nextscreen_end = srch_end + (int64_t) screen_range;
+                    }
+
+                    auto prefetch_left = [=](std::function<void()> callback)
+                    {
+                        /* Request one screen to the left, at this pointwidth. */
+                        if (prevscreen_start != srch_start)
+                        {
+                            qint64 prefetch_start = QDateTime::currentMSecsSinceEpoch();
+                            cache->requestData(s->getDataSource(), s->uuid, prevscreen_start, srch_start, pwe,
+                                               [=](QList<QSharedPointer<CacheEntry>>, bool hit)
+                            {
+                                qint64 prefetch_end = QDateTime::currentMSecsSinceEpoch();
+                                this->prefetch_data.log(prefetch_start, prefetch_end, hit ? 101 : 1);
+                                if (callback)
+                                {
+                                    callback();
+                                }
+                            });
+                        }
+                    };
+
+                    auto prefetch_right = [=](std::function<void()> callback)
+                    {
+                        /* Request one screen to the right, at this pointwidth. */
+                        if (nextscreen_end != srch_end)
+                        {
+                            qint64 prefetch_start = QDateTime::currentMSecsSinceEpoch();
+                            cache->requestData(s->getDataSource(), s->uuid, srch_end, nextscreen_end, pwe,
+                                               [=](QList<QSharedPointer<CacheEntry>>, bool)
+                            {
+                                qint64 prefetch_end = QDateTime::currentMSecsSinceEpoch();
+                                this->prefetch_data.log(prefetch_start, prefetch_end, hit ? 102 : 2);
+                                if (callback)
+                                {
+                                    callback();
+                                }
+                            });
+                        }
+                    };
+
+                    auto prefetch_in = [=](std::function<void()> callback)
+                    {
+                        /* Request the same data, zoomed in by one pointwidth */
+                        if (pwe != 0)
+                        {
+                            qint64 prefetch_start = QDateTime::currentMSecsSinceEpoch();
+                            cache->requestData(s->getDataSource(), s->uuid, srch_start, srch_end, pwe - 1,
+                                               [=](QList<QSharedPointer<CacheEntry>>, bool)
+                            {
+                                qint64 prefetch_end = QDateTime::currentMSecsSinceEpoch();
+                                this->prefetch_data.log(prefetch_start, prefetch_end, hit ? 103 : 3);
+                                if (callback)
+                                {
+                                    callback();
+                                }
+                            });
+                        }
+                    };
+
+                    auto prefetch_out = [=](std::function<void()> callback)
+                    {
+                        /* Request the same data, and one screen on either side, zoomed out by one pointwidth. */
+                        if (pwe != PWE_MAX)
+                        {
+                            qint64 prefetch_start = QDateTime::currentMSecsSinceEpoch();
+                            cache->requestData(s->getDataSource(), s->uuid, prevscreen_start, nextscreen_end, pwe + 1,
+                                               [=](QList<QSharedPointer<CacheEntry>>, bool)
+                            {
+                                qint64 prefetch_end = QDateTime::currentMSecsSinceEpoch();
+                                this->prefetch_data.log(prefetch_start, prefetch_end, hit ? 104 : 4);
+                                if (callback)
+                                {
+                                    callback();
+                                }
+                            });
+                        }
+                    };
+
+                    auto prefetch_all = [=]()
+                    {
+                        if (id == this->fullUpdateID)
+                        {
+                            /*
+                             * If another request still hasn't been made,
+                             * continue prefetching.
+                             */
+                            std::function<void()> dummy;
+                            prefetch_left(dummy);
+                            prefetch_right(dummy);
+                            prefetch_in(dummy);
+                            prefetch_out(dummy);
+                        }
+                    };
+#if FANCY_PREFETCH
+                    /*
+                     * OK, so first, we want to make one prefetch request, in the direction
+                     * that the user is currently going.
+                     */
+                    if (timewidth == previous_timewidth)
+                    {
+                        /* User scrolled! */
+                        if (timeaxis_start < previous_timeaxis_start)
+                        {
+                            prefetch_left(prefetch_all);
+                        }
+                        else
+                        {
+                            prefetch_right(prefetch_all);
+                        }
+                    }
+                    else
+                    {
+                        /* User zoomed! */
+                        if (timewidth < previous_timewidth)
+                        {
+                            prefetch_in(prefetch_all);
+                        }
+                        else
+                        {
+                            prefetch_out(prefetch_all);
+                        }
+                    }
+#else
+                    prefetch_all();
+#endif
+                }
             }
         }, timewidth, s->alwaysConnect);
     }

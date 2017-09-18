@@ -21,7 +21,7 @@
 
 /* The maximum number of bytes that can be cached. */
 /* Currently set to 1 GiB. */
-#define CACHE_THRESHOLD 1073741824
+#define CACHE_THRESHOLD Q_INT64_C(1073741824)
 
 /* Time between changed range queries. */
 #define CHANGED_RANGES_REQUEST_INTERVAL 10000
@@ -222,7 +222,7 @@ public:
      * hint of 0 means to never widen the requests.
      */
     void requestData(DataSource* source, const QUuid& uuid, int64_t start, int64_t end,
-                     uint8_t pwe, std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
+                     uint8_t pwe, std::function<void(QList<QSharedPointer<CacheEntry>>, bool)> callback,
                      uint64_t request_hint = 0, bool includemargins = false);
 
     void requestBrackets(DataSource* source, const QList<QUuid> uuids,
@@ -259,7 +259,7 @@ private:
     uint64_t curr_queryid;
     /* The QMap here maps a timestamp to the cache entry that _ends_ at that timestamp. */
     QHash<StreamKey, struct streamcache> cache; /* Maps UUID to the total cost associated with that UUID and the data for that stream. */
-    QHash<uint64_t, QPair<uint64_t, std::function<void()>>> outstanding; /* Maps query id to the number of outstanding requests. */
+    QHash<uint64_t, QPair<uint64_t, std::function<void()>>> outstanding; /* Maps query id to the number of outstanding requests, and the callback to call when all the data is ready. */
     QHash<QSharedPointer<CacheEntry>, uint64_t> loading; /* Maps cache entry to the list of queries waiting for it. */
 
     QSet<StreamKey> outstandingChangedRangeQueries; /* The streams for which we are waiting for a response to a changed ranges query. */

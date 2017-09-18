@@ -38,12 +38,14 @@ class PlotArea : public QQuickFramebufferObject
     Q_PROPERTY(QList<QVariant> yAxisAreaList READ getYAxisAreaList WRITE setYAxisAreaList)
     Q_PROPERTY(QList<QVariant> streamList READ getStreamList WRITE setStreamList)
     Q_PROPERTY(bool scrollZoomable READ getScrollZoomable WRITE setScrollZoomable)
+    Q_PROPERTY(bool donotaggregate MEMBER plotraw)
+    Q_PROPERTY (bool donotprefetch MEMBER noprefetch)
 
     friend class PlotRenderer;
 
 public:
     PlotArea();
-    ~PlotArea();
+    virtual ~PlotArea();
 
     QQuickFramebufferObject::Renderer* createRenderer() const override;
     Q_INVOKABLE void addStream(Stream* s);
@@ -65,7 +67,7 @@ public:
     Q_INVOKABLE QList<QVariant> getStreamList() const;
     Q_INVOKABLE void setStreamList(QList<QVariant> newstreamlist);
 
-    void updateDataAsync(Cache& cache);
+    void updateDataAsync(Cache* cache);
 
     MrPlotter* plot;
 
@@ -97,6 +99,17 @@ private:
     uint64_t id;
 
     bool canscroll;
+    bool plotraw;
+    bool noprefetch;
+
+    /* Some data used by the prefetcher. */
+    uint64_t previous_timewidth;
+    int64_t previous_timeaxis_start;
+
+    LatencyBuffer cache_data;
+    LatencyBuffer prefetch_data;
+    quint64 cache_misses;
+    quint64 cache_hits;
 
     static bool initializedCursors;
     static uint64_t nextID;

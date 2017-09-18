@@ -138,7 +138,7 @@ void MrPlotter::updateDataAsync()
 {
     for (auto i = this->plots.begin(); i != this->plots.end(); i++)
     {
-        (*i)->updateDataAsync(this->cache);
+        (*i)->updateDataAsync(&this->cache);
     }
     if (this->timeaxisarea != nullptr)
     {

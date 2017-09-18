@@ -209,7 +209,8 @@ void CacheEntry::cacheData(struct statpt* spoints, int len,
     /* True iff the last point in spoints belongs to the cache entry after this one. */
     bool nextlast = (len > 0 && spoints[len - 1].time == (((this->end - halfpw + pw) & pwmask)));
 
-    /* These "connect" variables refer to whether this cache entry
+    /*
+     * These "connect" variables refer to whether this cache entry
      * should take responsibility for connecting to the previous
      * cache entry, when drawn with the ALWAYS CONNECT setting.
      */
@@ -704,7 +705,8 @@ Cache::~Cache()
     delete this->requester;
 }
 
-/* There are two ways we could do this.
+/*
+ * There are two ways we could do this.
  * 1) requestData returns a list of entries that were cache hits,
  *    and entries that missed in the cache are returned
  *    asynchronously via a signal.
@@ -721,7 +723,7 @@ Cache::~Cache()
  * for a cleaner API overall.
  */
 void Cache::requestData(DataSource* source, const QUuid& uuid, int64_t start, int64_t end,
-                        uint8_t pwe, std::function<void(QList<QSharedPointer<CacheEntry>>)> callback,
+                        uint8_t pwe, std::function<void(QList<QSharedPointer<CacheEntry>>, bool)> callback,
                         uint64_t request_hint, bool includemargins)
 {
     Q_ASSERT(pwe < PWE_MAX);
@@ -756,7 +758,7 @@ void Cache::requestData(DataSource* source, const QUuid& uuid, int64_t start, in
         QList<QSharedPointer<CacheEntry>> res = *result;
         delete result;
 
-        callback(res);
+        callback(res, false);
     });
 
     unsigned int numnewentries = 0;
@@ -895,7 +897,8 @@ void Cache::requestData(DataSource* source, const QUuid& uuid, int64_t start, in
                     this->use(gapfill, true);
 
                     this->addCost(gapfill->streamKey, ((uint64_t) len) * CACHED_POINT_SIZE);
-                    if (len != 0) {
+                    if (len != 0)
+                    {
                         /* If we got back zero points, BTrDB gave us no frames,
                          * and therefore no version number. Don't trust the
                          * version number in the callback.
@@ -973,7 +976,7 @@ void Cache::requestData(DataSource* source, const QUuid& uuid, int64_t start, in
     if (numqueriesmade == 0)
     {
         /* Cache hit! */
-        callback(*result);
+        callback(*result, true);
         delete result;
 
         this->outstanding.remove(queryid);
